@@ -11,13 +11,13 @@ from qai_hub_models.models.whisper_large_v3_turbo.demo import main as demo_main
 from qai_hub_models.models.whisper_large_v3_turbo.model import WhisperLargeV3Turbo
 
 
-def test_numerics():
+def test_numerics() -> None:
     run_test_wrapper_numerics(WhisperLargeV3Turbo)
 
 
-def test_transcribe():
+def test_transcribe() -> None:
     run_test_transcribe(WhisperLargeV3Turbo)
 
 
-def test_demo():
+def test_demo() -> None:
     demo_main(is_test=True)

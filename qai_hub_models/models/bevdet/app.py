@@ -135,14 +135,12 @@ class BEVDetApp:
 
         Returns
         -------
-        If raw_output is True, returns:
-        corners
-            Corners of 3D bounding boxes with shape (N, 8, 3)
-            where N is number of bounding boxes.
-
-        If raw_output is False, returns:
-        output_images
-            List of PIL images with 3D bounding boxes overlaid.
+        corners_or_output_images : np.ndarray | list[Image.Image]
+            If raw_output is True:
+                Corners of 3D bounding boxes with shape (N, 8, 3)
+                where N is number of bounding boxes.
+            If raw_output is False:
+                List of PIL images with 3D bounding boxes overlaid.
         """
         sensor2egos = torch.tensor(sensor2egos_list)
         ego2globals = torch.tensor(ego2globals_list)
@@ -227,13 +225,13 @@ class BEVDetApp:
 
         Returns
         -------
-        image_tensor
+        image_tensor : torch.Tensor
             Shape [B, N*C, H, W] where B=1, N=6, C=3.
             Pre-processed image with range[0-1].
-        inv_post_rots
+        inv_post_rots : torch.Tensor
             Shape [B, N, 3, 3].
             Inverse post rotation matrix in camera coordinate system.
-        post_trans
+        post_trans : torch.Tensor
             Shape [B, N, 1, 3].
             Post translation tensor in camera coordinate system.
         """
@@ -295,7 +293,7 @@ class BEVDetApp:
 
         Returns
         -------
-        detections_list
+        detections_list : list[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]
             Decoded bbox corners with shape (Num_pred, 8, 3)
             where 8 corners has 3 coordinates (x, y, z)
             scores with shape (Num_pred,) and

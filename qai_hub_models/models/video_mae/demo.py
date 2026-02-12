@@ -9,7 +9,7 @@ from qai_hub_models.models.video_mae.app import VideoMAEApp
 from qai_hub_models.models.video_mae.model import VideoMAE
 
 
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     kinetics_classifier_demo(
         model_type=VideoMAE,
         default_video=INPUT_VIDEO_PATH,

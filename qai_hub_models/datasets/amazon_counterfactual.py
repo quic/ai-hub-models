@@ -43,13 +43,13 @@ class AmazonCounterfactualClassificationDataset(BaseDataset):
 
         Returns
         -------
-        input_data
+        input_data : tuple[torch.Tensor, torch.Tensor]
             input_ids
                 Tokenized inputs of shape (1, sequence_length), dtype of int32
             attention_mask
                 Attention mask of shape (1, sequence_length), dtype of int32
 
-        label
+        label : int
             int [0 or 1]
                 0: not-counterfactual
                 1: counterfactual

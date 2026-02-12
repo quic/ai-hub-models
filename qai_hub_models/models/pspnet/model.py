@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import torch
 from torch import Tensor, nn
+from typing_extensions import Self
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.segmentation_evaluator import SegmentationOutputEvaluator
@@ -44,7 +45,7 @@ class PSPNet(CityscapesSegmentor):
     @classmethod
     def from_pretrained(
         cls, ckpt: str | CachedWebModelAsset = DEFAULT_MODEL_PATH
-    ) -> PSPNet:
+    ) -> Self:
         """
         Load a pretrained PSPNet model from a checkpoint.
 
@@ -55,7 +56,7 @@ class PSPNet(CityscapesSegmentor):
 
         Returns
         -------
-        model
+        model : Self
             An instance of PSPNet initialized with pretrained weights.
         """
         with SourceAsRoot(
@@ -97,7 +98,7 @@ class PSPNet(CityscapesSegmentor):
 
         Returns
         -------
-        segmentation_mask
+        segmentation_mask : Tensor
             Returns segmentation prediction mask of shape (B, C, H, W):(Batch_Size, 150, 473, 473).
             Representing the class scores for each pixel.
         """
@@ -145,8 +146,8 @@ class PSPNet(CityscapesSegmentor):
 
     @staticmethod
     def eval_datasets() -> list[str]:
-        return ["ade20k"]
+        return ["ade20k_10"]
 
     @staticmethod
     def calibration_dataset_name() -> str:
-        return "ade20k"
+        return "ade20k_10"

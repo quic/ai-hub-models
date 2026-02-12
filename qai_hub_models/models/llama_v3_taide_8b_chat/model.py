@@ -7,8 +7,10 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Any
 
 import torch
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.llama3.model import (
     DEFAULT_CONTEXT_LENGTH,
@@ -58,16 +60,16 @@ class Llama3_TAIDE(Llama3Base):
     def __init__(
         self,
         checkpoint: str | os.PathLike | Path = HF_REPO_NAME,
-        *args,
-        **kwargs,
-    ):
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(
             checkpoint=checkpoint,  # type: ignore[misc]
             *args,  # noqa: B026
             **kwargs,
         )
 
-    def _verify_ckpt(self):
+    def _verify_ckpt(self) -> None:
         super()._verify_ckpt()
         if not (
             self.llm_config.num_hidden_layers == NUM_LAYERS
@@ -86,7 +88,7 @@ class Llama3_TAIDE(Llama3Base):
         host_device: torch.device | None = None,
         load_pretrained: bool = True,
         _skip_optimizations: list[str] | None = None,
-    ) -> Llama3_TAIDE:
+    ) -> Self:
         """
         Load a pre-trained Llama-3-TAIDE model via HuggingFace.
 
@@ -116,7 +118,7 @@ class Llama3_TAIDE(Llama3Base):
         )
 
     @staticmethod
-    def get_output_names():
+    def get_output_names() -> list[str]:
         return Llama3Base._get_output_names(NUM_LAYERS)
 
     @staticmethod
@@ -138,7 +140,9 @@ class Llama3_TAIDE(Llama3Base):
 
 
 class Llama3_TAIDE_AIMETOnnx(Llama3Base_AIMETOnnx):
-    def __init__(self, checkpoint: str | os.PathLike | Path | None, *args, **kwargs):
+    def __init__(
+        self, checkpoint: str | os.PathLike | Path | None, *args: Any, **kwargs: Any
+    ) -> None:
         super().__init__(
             checkpoint=checkpoint,  # type: ignore[misc]
             *args,  # noqa: B026
@@ -155,7 +159,7 @@ class Llama3_TAIDE_AIMETOnnx(Llama3Base_AIMETOnnx):
         precision: Precision = DEFAULT_PRECISION,
         fp_model: LLMBase | None = None,
         _skip_quantsim_creation: bool = False,
-    ) -> Llama3_TAIDE_AIMETOnnx:
+    ) -> Self:
         """
         Load weight from Huggingface and create Aimet-ONNX QuantSim.
         Optionally load onnx model and AIMET encodings from a checkpoint.
@@ -181,7 +185,7 @@ class Llama3_TAIDE_AIMETOnnx(Llama3Base_AIMETOnnx):
 
         Returns
         -------
-        model
+        model : Self
             Instance of the quantized model.
         """
         if host_device is None:
@@ -231,7 +235,7 @@ class Llama3_TAIDE_AIMETOnnx(Llama3Base_AIMETOnnx):
         )
 
     @staticmethod
-    def get_output_names():
+    def get_output_names() -> list[str]:
         return Llama3Base._get_output_names(NUM_LAYERS)
 
     @staticmethod
@@ -256,7 +260,7 @@ class Llama3_TAIDE_QNN(Llama3Base_QNN):
     num_layers_per_split: int = NUM_LAYERS_PER_SPLIT
 
     @staticmethod
-    def get_output_names():
+    def get_output_names() -> list[str]:
         return Llama3Base._get_output_names(NUM_LAYERS)
 
     get_input_spec = staticmethod(Llama3_TAIDE.get_input_spec)

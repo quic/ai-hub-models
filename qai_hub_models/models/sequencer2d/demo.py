@@ -7,7 +7,7 @@ from qai_hub_models.models._shared.imagenet_classifier.demo import imagenet_demo
 from qai_hub_models.models.sequencer2d.model import MODEL_ID, Sequencer2D
 
 
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     imagenet_demo(Sequencer2D, MODEL_ID, is_test)
 
 

@@ -63,7 +63,7 @@ class GKTApp(CVT_GKTApp):
 
         Returns
         -------
-        result
+        result : list[Image.Image] | torch.Tensor
             If raw_output is False, list of PIL Images (RGB) with heatmap and ego polygon.
             If raw_output is True, BEV heatmap tensor with shape [1, 1, 200, 200].
         """

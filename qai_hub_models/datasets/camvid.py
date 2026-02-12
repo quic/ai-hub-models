@@ -86,7 +86,7 @@ class CamVidSegmentationDataset(BaseDataset):
 
         Returns
         -------
-        label_info
+        label_info : dict[str, tuple[int, int, int]]
             Mapping of class names to RGB colors and metadata
         """
         ann = pd.read_csv(csv_path)
@@ -110,9 +110,9 @@ class CamVidSegmentationDataset(BaseDataset):
 
         Returns
         -------
-        image_tensor
+        image_tensor : torch.Tensor
             Preprocessed image (C, H, W), float32.
-        label
+        label : torch.Tensor
             Class indices tensor (H, W), uint8, 0 for Void, 1-N for classes.
         """
         orig_image = Image.open(self.images[index]).convert("RGB")
@@ -139,7 +139,7 @@ class CamVidSegmentationDataset(BaseDataset):
 
         Returns
         -------
-        semantic_map
+        semantic_map : np.ndarray
             Class indices array (H,W) where each pixel contains:
             - 0 for Void/unlabeled
             - 1-N for valid classes

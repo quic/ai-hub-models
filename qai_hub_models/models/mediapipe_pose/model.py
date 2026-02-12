@@ -8,8 +8,12 @@ from __future__ import annotations
 from collections.abc import Callable
 
 import torch
+from typing_extensions import Self
 
-from qai_hub_models.models._shared.mediapipe.utils import MediaPipePyTorchAsRoot
+from qai_hub_models.models._shared.mediapipe.utils import (
+    MediaPipePyTorchAsRoot,
+    mediapipe_detector_postprocess,
+)
 from qai_hub_models.models.common import Precision, SampleInputsType
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
@@ -54,6 +58,7 @@ POSE_LANDMARK_CONNECTIONS = [
 # pose detector model parameters.
 BATCH_SIZE = 1
 DETECT_SCORE_SLIPPING_THRESHOLD = 100  # Clip output scores to this maximum value.
+DETECT_DEFAULT_INCLUDE_POSTPROCESSING = False
 FILTER_OOB_BOX = False  # Filter out of bound bbox
 DETECT_DXY, DETECT_DSCALE = (
     0,
@@ -105,52 +110,100 @@ class PoseDetector(BaseModel):
             tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
         ],
         anchors: torch.Tensor,
-    ):
+        score_clipping_threshold: float = DETECT_SCORE_SLIPPING_THRESHOLD,
+        include_postprocessing: bool = DETECT_DEFAULT_INCLUDE_POSTPROCESSING,
+    ) -> None:
         super().__init__()
         self.detector = detector
-        self.anchors = anchors
+        self.anchors = anchors.view([*list(anchors.shape)[:-1], -1, 2])
+        self.include_postprocessing = include_postprocessing
+        self.score_clipping_threshold = score_clipping_threshold
 
     def forward(
         self, image: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> (
+        tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
+        | tuple[torch.Tensor, torch.Tensor]
+    ):
         """
-        Compute bounding boxes that contain 1 person.
+        Pose detector forward pass.
 
         Parameters
         ----------
         image
-            RGB, range [0 - 1] image.
+          RGB input image of shape (B, 3, H, W).  Range is [0-1].
 
         Returns
         -------
-        box_coords_1
-            Shape (batch_size, num_anchors, num_coordinates).
-            Layout: (box_center_x, box_center_y, box_w, box_h, keypoint_0_x, keypoint_0_y, ..., keypoint_maxKey_x, keypoint_maxKey_y).
-            Coordinates are in normalized [0-1] space (fraction of input image height/width).
-        box_coords_2
-            Shape (batch_size, num_anchors, num_coordinates). Same layout as box_coords_1.
-        box_scores_1
-            Shape (batch_size, num_anchors). Scores for box_coords_1 bounding boxes.
-        box_scores_2
-            Shape (batch_size, num_anchors). Scores for box_coords_2 bounding boxes.
+        boxes_and_coordinates_and_scores: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor] | tuple[torch.Tensor, torch.Tensor]
+            If self.include_postprocessing is False:
+                boxes_coords_1: torch.Tensor
+                    Boxes + Coords of shape [1, N1, 12] in pixel space
+                    In the last dimension:
+                    - indices [0-3] are the box coordinates ((x_min, y_min), (width, height))
+                    - indices [4-11] are the 4 keypoint coordinates ((x1,y1), (x2,y2), (x3,y3), (x4,y4)).
+
+                boxes_coords_2: torch.Tensor
+                    Boxes + Coords of shape [1, N2, 12] in pixel space
+                    In the last dimension:
+                    - indices [0-3] are the box coordinates ((x_min, y_min), (width, height))
+                    - indices [4-11] are the 4 keypoint coordinates ((x1,y1), (x2,y2), (x3,y3), (x4,y4)).
+
+                box_scores_1: torch.Tensor
+                    Raw model logits of shape [1, N1, 1] in pixel space
+
+                box_scores_2: torch.Tensor
+                    Raw model logits of shape [1, N2, 1] in pixel space
+
+            If self.include_postprocessing is True:
+                boxes_and_coordinates: torch.Tensor
+                    Detected boxes and coordinates in pixel space
+                    Shape (B, N, 12). Where N is number of detections
+                    In the last dimension:
+                    - indices [0-3] are the box coordinates ((x_min, y_min), (x_max, y_max))
+                    - indices [4-11] are the 4 keypoint coordinates (x1,y1, x2,y2, x3,y3, x4,y4).
+
+                scores: torch.Tensor
+                    Clipped and sigmoid activated scores of shape (B, N).
         """
-        return self.detector(image)
+        box_coords1, box_coords2, box_scores1, box_scores2 = self.detector(image)
+
+        if self.include_postprocessing:
+            coords = torch.cat([box_coords1, box_coords2], dim=1)
+            scores = torch.cat([box_scores1, box_scores2], dim=1)
+            coords, scores = mediapipe_detector_postprocess(
+                coords,
+                scores,
+                self.score_clipping_threshold,
+                (image.shape[2], image.shape[3]),
+                self.anchors,
+            )
+            return coords, scores
+
+        return box_coords1, box_coords2, box_scores1, box_scores2
 
     @classmethod
     def from_pretrained(
         cls,
         detector_weights: str = "blazepose.pth",
         detector_anchors: str = "anchors_pose.npy",
-    ):
+        score_clipping_threshold: float = DETECT_SCORE_SLIPPING_THRESHOLD,
+        include_postprocessing: bool = DETECT_DEFAULT_INCLUDE_POSTPROCESSING,
+    ) -> Self:
         with MediaPipePyTorchAsRoot() as repo_path:
             _apply_blazepose_fixes(repo_path)
 
             from blazepose import BlazePose
 
-            pose_detector = BlazePose(back_model=True)
+            pose_detector = BlazePose()
             pose_detector.load_weights(detector_weights)
             pose_detector.load_anchors(detector_anchors)
-            return cls(pose_detector, pose_detector.anchors)
+            return cls(
+                pose_detector,
+                pose_detector.anchors,
+                score_clipping_threshold,
+                include_postprocessing,
+            )
 
     @staticmethod
     def get_input_spec(batch_size: int = BATCH_SIZE) -> InputSpec:
@@ -203,7 +256,7 @@ class PoseLandmarkDetector(BaseModel):
         self,
         detector: Callable[[torch.Tensor], tuple[torch.Tensor, torch.Tensor]],
         num_valid_landmarks: int | None = 25,
-    ):
+    ) -> None:
         super().__init__()
         self.detector = detector
         self.num_valid_landmarks = num_valid_landmarks
@@ -219,9 +272,9 @@ class PoseLandmarkDetector(BaseModel):
 
         Returns
         -------
-        ld_scores
+        ld_scores : torch.Tensor
             Landmark score. Shape [B]
-        landmarks
+        landmarks : torch.Tensor
             Landmark points. Shape is [b, # of landmark points, 2]
             where 2 == (x, y) and coordinates are normalized [0 - 1] (fraction of the input image height / width)
         """
@@ -234,13 +287,15 @@ class PoseLandmarkDetector(BaseModel):
         return ld_scores, landmarks
 
     @classmethod
-    def from_pretrained(cls, landmark_detector_weights: str = "blazepose_landmark.pth"):
+    def from_pretrained(
+        cls, landmark_detector_weights: str = "blazepose_landmark.pth"
+    ) -> Self:
         with MediaPipePyTorchAsRoot():
             from blazepose_landmark import BlazePoseLandmark
 
             pose_regressor = BlazePoseLandmark()
             pose_regressor.load_weights(landmark_detector_weights)
-            cls(pose_regressor)
+            return cls(pose_regressor)
 
     @staticmethod
     def get_input_spec(batch_size: int = BATCH_SIZE) -> InputSpec:
@@ -297,23 +352,19 @@ class MediaPipePose(CollectionModel):
         detector_weights: str = "blazepose.pth",
         detector_anchors: str = "anchors_pose.npy",
         landmark_detector_weights: str = "blazepose_landmark.pth",
-    ) -> MediaPipePose:
+        detector_score_clipping_threshold: float = DETECT_SCORE_SLIPPING_THRESHOLD,
+        include_detector_postprocessing: bool = DETECT_DEFAULT_INCLUDE_POSTPROCESSING,
+    ) -> Self:
         """
         Load mediapipe models from the source repository.
         Returns tuple[<source repository>.blazepose.BlazePose, BlazePose Anchors, <source repository>.blazepose_landmark.BlazePoseLandmark]
         """
-        with MediaPipePyTorchAsRoot() as repo_path:
-            _apply_blazepose_fixes(repo_path)
-            from blazepose import BlazePose
-            from blazepose_landmark import BlazePoseLandmark
-
-            pose_detector = BlazePose()
-            pose_detector.load_weights(detector_weights)
-            pose_detector.load_anchors(detector_anchors)
-            pose_regressor = BlazePoseLandmark()
-            pose_regressor.load_weights(landmark_detector_weights)
-
-            return cls(
-                PoseDetector(pose_detector, pose_detector.anchors),
-                PoseLandmarkDetector(pose_regressor),
-            )
+        return cls(
+            PoseDetector.from_pretrained(
+                detector_weights,
+                detector_anchors,
+                detector_score_clipping_threshold,
+                include_detector_postprocessing,
+            ),
+            PoseLandmarkDetector.from_pretrained(landmark_detector_weights),
+        )

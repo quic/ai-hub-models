@@ -29,7 +29,7 @@ SUPPORTED_PRECISION_RUNTIMES = {
 }
 
 
-def main():
+def main() -> None:
     export_main(
         MODEL_ID,
         MODEL_ASSET_VERSION,

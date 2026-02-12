@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import torch
 from transformers import ElectraForPreTraining, ElectraTokenizer
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.bert_hf.model import BaseBertModel
 from qai_hub_models.models._shared.bert_hf.model_patches import (
@@ -24,7 +25,7 @@ class ElectraBertBaseDiscrimGoogle(BaseBertModel):
     @classmethod
     def from_pretrained(
         cls, weights: str = "google/electra-base-discriminator"
-    ) -> ElectraBertBaseDiscrimGoogle:
+    ) -> Self:
         """Load HuggingFace Bert Model for Embeddings."""
         model = ElectraForPreTraining.from_pretrained(weights)
         tokenizer = ElectraTokenizer.from_pretrained(weights)
@@ -44,7 +45,7 @@ class ElectraBertBaseDiscrimGoogle(BaseBertModel):
 
         Returns
         -------
-        predictions
+        predictions : torch.Tensor
             Binary output tensor with shape [batch_size, seq_len, vocab_size]
             where values are rounded to 0 or 1
         """

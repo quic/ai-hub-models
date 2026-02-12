@@ -43,7 +43,7 @@ def demo(
     model_id: str = MODEL_ID,
     is_test: bool = False,
     available_target_runtimes: list[TargetRuntime] | None = None,
-):
+) -> None:
     # Demo parameters
     if available_target_runtimes is None:
         available_target_runtimes = list(TargetRuntime.__members__.values())

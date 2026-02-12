@@ -362,9 +362,9 @@ def get_models_to_test() -> tuple[set[str], set[str]]:
 
     Returns
     -------
-    unit_test_models
+    unit_test_models : set[str]
         Models to run unit tests.
-    compile_test_models
+    compile_test_models : set[str]
         Models to run compile tests.
     """
     # model.py changed

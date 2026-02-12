@@ -306,9 +306,9 @@ class FromPretrainedMixin:
 
         Returns
         -------
-        onnx_model
+        onnx_model : onnx.ModelProto
             The loaded ONNX model.
-        aimet_encodings_path
+        aimet_encodings_path : str | None
             Path to AIMET encodings if available, otherwise None.
         """
         subfolder_hf = subfolder or cls.default_subfolder_hf

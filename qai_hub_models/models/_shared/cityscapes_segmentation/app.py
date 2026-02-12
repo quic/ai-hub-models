@@ -107,7 +107,7 @@ class CityscapesSegmentationApp:
 
         Returns
         -------
-        output
+        output : Image | np.ndarray
             If raw_output is False it will return an annotated image of the
             same size as the input image. If True, it will return raw logit
             probabilities as an numpy array of shape [1, CLASSES, HEIGHT,

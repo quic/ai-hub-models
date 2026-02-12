@@ -8,8 +8,10 @@ from __future__ import annotations
 import json
 
 import torch
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.imagenet_classifier.model import ImagenetClassifier
+from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, SourceAsRoot
 
 MODEL_ID = __name__.split(".")[-2]
@@ -24,7 +26,7 @@ MOBILENETV2_SOURCE_REPO_COMMIT = "99f213657e97de463c11c9e0eaca3bda598e8b3f"
 
 class MobileNetV2(ImagenetClassifier):
     @classmethod
-    def from_pretrained(cls, weights: str = MOBILENETV2_WEIGHTS) -> MobileNetV2:
+    def from_pretrained(cls, weights: str = MOBILENETV2_WEIGHTS) -> Self:
         model = _load_mobilenet_v2_source_model()
         checkpoint_path = CachedWebModelAsset.from_asset_store(
             MODEL_ID, MODEL_ASSET_VERSION, weights
@@ -41,7 +43,7 @@ class MobileNetV2(ImagenetClassifier):
         return cls(model)
 
     @staticmethod
-    def get_hub_litemp_percentage(_) -> float:
+    def get_hub_litemp_percentage(precision: Precision) -> float:
         """Returns the Lite-MP percentage value for the specified mixed precision quantization."""
         return 10
 

@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 import inspect
+import os
+import shutil
 from collections.abc import Callable
 from contextlib import nullcontext
 from copy import deepcopy
@@ -38,6 +40,7 @@ from qai_hub_models.utils.input_spec import (
     get_batch_size,
     make_torch_inputs,
 )
+from qai_hub_models.utils.path_helpers import QAIHM_PACKAGE_ROOT
 from qai_hub_models.utils.transpose_channel import transpose_channel_first_to_last
 
 CollectionModelT = TypeVar("CollectionModelT", bound="CollectionModel")
@@ -118,7 +121,7 @@ class CollectionModel:
 
         Returns
         -------
-        callable
+        callable : Callable[[type[CollectionModelT]], type[CollectionModelT]]
             Decorator function that registers the component on the CollectionModel subclass.
         """
 
@@ -194,6 +197,32 @@ class CollectionModel:
             )
             for component_name, component in self.components.items()
         }
+
+    def write_supplementary_files(
+        self,
+        output_dir: str | os.PathLike,
+        runtime: TargetRuntime,
+        precision: Precision,
+    ) -> list[Path]:
+        """
+        Write a list of supplementary files required by the model during inference.
+        These files will be packaged alongside the model when deployed.
+
+        Parameters
+        ----------
+        output_dir
+            Directory where the supplementary files should be written.
+        runtime
+            Target runtime for which the model is being prepared.
+        precision
+            Precision configuration for which the model is being prepared.
+
+        Returns
+        -------
+        list[Path]
+            List of file paths to the supplementary files written.
+        """
+        return []
 
 
 class PretrainedCollectionModel(CollectionModel, FromPretrainedProtocol):
@@ -428,6 +457,20 @@ class HubModel(HubModelProtocol):
         """
         return []
 
+    @staticmethod
+    def component_precision() -> Precision:
+        """
+        If this is a component in a component model, the parent model may declare
+        a "variable" precision, where different components use different precisions.
+
+        Returns
+        -------
+        Precision
+            The precision to which this model should be quantized when the parent component
+            model uses "variable" precision.
+        """
+        raise NotImplementedError()
+
 
 class BaseModel(
     torch.nn.Module,
@@ -552,14 +595,11 @@ class BaseModel(
                 # so it is enabled only for TF Lite today.
                 compile_options += " --quantize_io_type uint8"
 
-        if context_graph_name is not None:
-            if not target_runtime.is_aot_compiled:
-                raise ValueError(
-                    "Cannot specify a context binary graph name if the target is not a compiled QAIRT graph."
-                )
-            compile_options += (
-                f" --qnn_options context_enable_graphs={context_graph_name}"
-            )
+        if target_runtime.is_aot_compiled:
+            # Without this flag, graph names are random.
+            # Scorecard job caching relies on models keeping the same md5 hash if they haven't changed.
+            # By always setting this flag, we remove a source of randomness in compiled QNN assets.
+            compile_options += f" --qnn_options context_enable_graphs={context_graph_name or 'default_graph'}"
 
         if other_compile_options != "":
             return compile_options + " " + other_compile_options
@@ -604,6 +644,20 @@ class BaseModel(
         """
         return None
 
+    @classmethod
+    def get_labels_file_name(cls) -> str | None:
+        """
+        Returns the name of the labels file for this model.
+
+        The labels file should exist in qai_hub_models/labels/ directory.
+
+        Returns
+        -------
+        str | None
+            Name of the labels file (e.g., "coco_labels.txt"), or None if no labels file.
+        """
+        return None
+
     def get_hub_quantize_options(
         self, precision: Precision, other_options: str | None = None
     ) -> str:
@@ -617,13 +671,16 @@ class BaseModel(
         - For mixed-precision profiles, additional flags are included to specify the percentage and override quantization type (`int16` or `fp16`).
         """
         all_options = other_options or ""
-        if precision == Precision.w8a16:
-            all_options += "--range_scheme min_max"
-        if precision in {Precision.w8a8_mixed_int16, Precision.w8a16_mixed_int16}:
-            all_options += f"--range_scheme min_max --lite_mp percentage={self.get_hub_litemp_percentage(precision)};override_qtype=int16"
-        if precision in {Precision.w8a8_mixed_fp16, Precision.w8a16_mixed_fp16}:
-            all_options += f"--range_scheme min_max --lite_mp percentage={self.get_hub_litemp_percentage(precision)};override_qtype=fp16"
-        return all_options  # default to range_scheme mse_minimizer
+        litemp_percentage = (
+            self.get_hub_litemp_percentage(precision)
+            if precision.override_type is not None
+            else None
+        )
+        precision_options = precision.get_hub_quantize_options(litemp_percentage)
+        if all_options and precision_options:
+            all_options += " "
+        all_options += precision_options
+        return all_options
 
     @staticmethod
     def get_hub_litemp_percentage(precision: Precision) -> float:
@@ -637,6 +694,38 @@ class BaseModel(
         raise NotImplementedError(
             f"Mixed precision {precision} is not supported for this model."
         )
+
+    def write_supplementary_files(
+        self,
+        output_dir: str | os.PathLike,
+        runtime: TargetRuntime,
+        precision: Precision,
+    ) -> list[Path]:
+        """
+        Write a list of supplementary files required by the model during inference.
+        These files will be packaged alongside the model when deployed.
+
+        Parameters
+        ----------
+        output_dir
+            Directory where the supplementary files should be written.
+        runtime
+            Target runtime for which the model is being prepared.
+        precision
+            Precision configuration for which the model is being prepared.
+
+        Returns
+        -------
+        list[Path]
+            List of file paths to the supplementary files written.
+        """
+        files: list[Path] = []
+        if labels_file_name := self.get_labels_file_name():
+            out_path = Path(output_dir) / "labels.txt"
+            labels_path = QAIHM_PACKAGE_ROOT / "labels" / labels_file_name
+            shutil.copyfile(labels_path, out_path)
+            files.append(out_path)
+        return files
 
 
 class BasePrecompiledModel(HubModel, FromPrecompiledProtocol):
@@ -660,3 +749,29 @@ class BasePrecompiledModel(HubModel, FromPrecompiledProtocol):
         supported.
         """
         return None
+
+    def write_supplementary_files(
+        self,
+        output_dir: str | os.PathLike,
+        runtime: TargetRuntime,
+        precision: Precision,
+    ) -> list[Path]:
+        """
+        Write a list of supplementary files required by the model during inference.
+        These files will be packaged alongside the model when deployed.
+
+        Parameters
+        ----------
+        output_dir
+            Directory where the supplementary files should be written.
+        runtime
+            Target runtime for which the model is being prepared.
+        precision
+            Precision configuration for which the model is being prepared.
+
+        Returns
+        -------
+        list[Path]
+            List of file paths to the supplementary files written.
+        """
+        return []

@@ -27,7 +27,7 @@ SUPPORTED_PRECISION_RUNTIMES = {
 DEFAULT_EXPORT_DEVICE = "Snapdragon 8 Elite QRD"
 
 
-def main():
+def main() -> None:
     export_main(
         MODEL_ID,
         MODEL_ASSET_VERSION,

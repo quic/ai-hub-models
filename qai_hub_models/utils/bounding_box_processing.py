@@ -25,45 +25,43 @@ def batched_nms(
     """
     Non maximum suppression over several batches.
 
-    Inputs:
-        iou_threshold
-            Intersection over union (IoU) threshold
+    Parameters
+    ----------
+    iou_threshold
+        Intersection over union (IoU) threshold.
+    score_threshold
+        Score threshold (throw away any boxes with scores under this threshold).
+    boxes
+        Boxes to run NMS on. Shape is [B, N, 4], B == batch, N == num boxes,
+        and 4 == (x1, x2, y1, y2).
+    scores
+        Scores for each box. Shape is [B, N], range is [0:1].
+    class_indices
+        Class for each box. Shape is [B, N].
+        If set, NMS is applied per-class rather than globally.
+    *gather_additional_args
+        Additional tensor(s) to be gathered in the same way as boxes and scores.
+        In other words, each arg is returned with only the elements for the boxes
+        selected by NMS. Should be shape [B, N, ...].
 
-        score_threshold
-            Score threshold (throw away any boxes with scores under this threshold)
-
-        boxes
-            Boxes to run NMS on. Shape is [B, N, 4], B == batch, N == num boxes, and 4 == (x1, x2, y1, y2)
-
-        scores
-            Scores for each box. Shape is [B, N], range is [0:1]
-
-        class_indices
-            Class for each box. Shape is [B, N].
-            If set, NMS is applied per-class rather than globally.
-
-        *gather_additional_args
-            Additional tensor(s) to be gathered in the same way as boxes and scores.
-            In other words, each arg is returned with only the elements for the boxes selected by NMS.
-            Should be shape [B, N, ...]
-
-    Outputs:
+    Returns
+    -------
+    tuple[list[torch.Tensor], ...]
         boxes_out
             Output boxes. This is list of tensors--one tensor per batch.
-            Each tensor is shape [S, 4], where S == number of selected boxes, and 4 == (x1, x2, y1, y2)
-
+            Each tensor is shape [S, 4], where S == number of selected boxes,
+            and 4 == (x1, x2, y1, y2).
         scores_out
             Output scores. This is list of tensors--one tensor per batch.
             Each tensor is shape [S], where S == number of selected boxes.
-
-        if class_indices is not None:
-            class_indices_out
-                Output classes. This is list of tensors--one tensor per batch.
-                Each tensor is shape [S], where S == number of selected boxes.
-                The list will be empty if class_indices was not set.
-
+        class_indices_out
+            Output classes. This is list of tensors--one tensor per batch.
+            Each tensor is shape [S], where S == number of selected boxes.
+            Only returned when class_indices is provided; omitted from return tuple otherwise.
         *args_out
-            "Gathered" additional arguments, if provided.
+            Filtered versions of gather_additional_args, containing only elements
+            corresponding to boxes selected by NMS. Each is a list of tensors
+            (one per batch). Only returned when gather_additional_args is provided.
     """
     scores_out: list[torch.Tensor] = []
     boxes_out: list[torch.Tensor] = []
@@ -140,22 +138,23 @@ def compute_box_corners_with_rotation(
     """
     From the provided information, compute the (x, y) coordinates of the box's corners.
 
-    Inputs:
-        xc: torch.Tensor
-            Center of box (x). Shape is [ Batch ]
-        yc: torch.Tensor
-            Center of box (y). Shape is [ Batch ]
-        w: torch.Tensor
-            Width of box. Shape is [ Batch ]
-        h: torch.Tensor
-            Height of box. Shape is [ Batch ]
-        theta: torch.Tensor
-            Rotation of box (in radians). Shape is [ Batch ]
+    Parameters
+    ----------
+    xc
+        Center of box (x). Shape is [Batch].
+    yc
+        Center of box (y). Shape is [Batch].
+    w
+        Width of box. Shape is [Batch].
+    h
+        Height of box. Shape is [Batch].
+    theta
+        Rotation of box (in radians). Shape is [Batch].
 
-    Outputs:
-        corners
-            Computed corners. Shape is (B x 4 x 2),
-            where 2 == (x, y)
+    Returns
+    -------
+    corners : torch.Tensor
+        Computed corners. Shape is (B x 4 x 2), where 2 == (x, y).
     """
     batch_size = xc.shape[0]
 
@@ -190,19 +189,19 @@ def compute_box_affine_crop_resize_matrix(
     Computes the affine transform matrices required to crop, rescale,
     and pad the box described by box_corners to fit into an image of the given size without warping.
 
-    Inputs:
-        box_corners: torch.Tensor
-            Bounding box corners. These coordinates will be mapped to the output image. Shape is [B, 3, 2],
-            where B = batch,
-                  3 = (top left point, bottom left point, top right point)
-              and 2 = (x, y)
+    Parameters
+    ----------
+    box_corners
+        Bounding box corners. These coordinates will be mapped to the output image.
+        Shape is [B, 3, 2], where B = batch, 3 = (top left point, bottom left point,
+        top right point), and 2 = (x, y).
+    output_image_size
+        Size of image to which the box should be resized and cropped. Layout is (W, H).
 
-        output_image_size: float
-            Size of image to which the box should be resized and cropped.
-
-    Outputs:
-        affines
-            Computed affine transform matrices. Shape is (2 x 3)
+    Returns
+    -------
+    affines : list[np.ndarray]
+        Computed affine transform matrices. Shape is (2 x 3).
     """
     # Define coordinates for translated image
     network_input_points = np.array(
@@ -218,87 +217,86 @@ def compute_box_affine_crop_resize_matrix(
     return affines
 
 
-def box_xywh_to_xyxy(box_cwh: torch.Tensor, flat_boxes: bool = False) -> torch.Tensor:
+def box_xywh_to_xyxy(box_cwh: torch.Tensor) -> torch.Tensor:
     """
     Convert center, W, H to top left / bottom right bounding box values.
 
-    Inputs:
-        box_xy: torch.Tensor
-            Bounding box.
+    Parameters
+    ----------
+    box_cwh
+        Bounding box.
 
-            If flat_boxes:
-                Shape is [..., 4]
-                Box layout is [xc, yc, w, h]
+        Shape is either...
+        [..., 4]
+        Box layout is [xc, yc, w, h]
 
-            else:
-                Shape is [..., 2, 2]
-                [[xc, yc], [w, h]] * Batch
+        [..., 2, 2]
+        Box layout is [[xc, yc], [w, h]]
 
-    Outputs:
-        box_xyxy
-            If flat_boxes:
-                Output shape is [..., 4]
-                Output box layout is [x0, y0, x1, y1]
-            else:
-                Output shape is [..., 2, 2]
-                Output box layout is [[x0, y0], [x1, y1]]
+    Returns
+    -------
+    box_xyxy: torch.Tensor
+        if input shape is [..., 4]:
+            Output shape is [..., 4]
+            Output box layout is [x0, y0, x1, y1]
+        if input shape is [..., 2, 2]:
+            Output shape is [..., 2, 2]
+            Output box layout is [[x0, y0], [x1, y1]]
     """
-    if flat_boxes:
-        cx = box_cwh[..., 0]
-        cy = box_cwh[..., 1]
-        w_2 = box_cwh[..., 2] * 0.5
-        h_2 = box_cwh[..., 3] * 0.5
+    if box_cwh.shape[-1] == 4:
+        # box_cwh is [..., 4] with [cx, cy, w, h]
+        # Output is [..., 4] with [x0, y0, x1, y1]
+        center = box_cwh[..., :2]  # [cx, cy]
+        wh_half = box_cwh[..., 2:] * 0.5  # [w/2, h/2]
+        return torch.cat((center - wh_half, center + wh_half), dim=-1)
 
-        top_left_x = cx - w_2
-        top_left_y = cy - h_2
-        bot_right_x = cx + w_2
-        bot_right_y = cy + h_2
-        return torch.stack((top_left_x, top_left_y, bot_right_x, bot_right_y), -1)
-    # Convert Xc, Yc, W, H to min and max bounding box values.
-    x_center = box_cwh[..., 0, 0]
-    y_center = box_cwh[..., 0, 1]
-    w = box_cwh[..., 1, 0]
-    h = box_cwh[..., 1, 1]
-
-    out = torch.clone(box_cwh)
-    out[..., 0, 0] = x_center - w / 2.0  # x0
-    out[..., 0, 1] = y_center - h / 2.0  # y0
-    out[..., 1, 0] = x_center + w / 2.0  # x1
-    out[..., 1, 1] = y_center + h / 2.0  # y1
-
-    return out
+    center = box_cwh[..., 0, :]  # [cx, cy]
+    wh_half = box_cwh[..., 1, :] * 0.5  # [w/2, h/2]
+    return torch.stack((center - wh_half, center + wh_half), dim=-2)
 
 
-def box_xyxy_to_xywh(
-    box_xy: torch.Tensor,
-) -> torch.Tensor:
+def box_xyxy_to_xywh(box_xy: torch.Tensor) -> torch.Tensor:
     """
     Converts box coordinates to center / width / height notation.
 
-    Inputs:
-        box_xy: torch.Tensor
-            Bounding box. Shape is [B, 2, 2],
-            where B = batch,
-                  2 = (point 1, point 2),
-              and 2 = (x, y)
+    Parameters
+    ----------
+    box_xy
+        Bounding box.
 
-    Outputs:
-        box_cwh
-            Bounding box. Shape is [B, 2, 2],
-            [[xc, yc], [w, h]] * Batch
+        Shape is either...
+        [..., 4]
+        Box layout is [x0, y0, x1, y1]
+
+        [..., 2, 2]
+        Box layout is [[x0, y0], [x1, y1]]
+
+    Returns
+    -------
+    box_cwh: torch.Tensor
+        if input shape is [..., 4]:
+            Output shape is [..., 4]
+            Output box layout is [xc, yc, w, h]
+        if input shape is [..., 2, 2]:
+            Output shape is [..., 2, 2]
+            Output box layout is [[xc, yc], [w, h]]
     """
-    x0 = box_xy[..., 0, 0]
-    y0 = box_xy[..., 0, 1]
-    x1 = box_xy[..., 1, 0]
-    y1 = box_xy[..., 1, 1]
+    if box_xy.shape[-1] == 4:
+        # Input is [..., 4] with [x0, y0, x1, y1]
+        # Output is [..., 4] with [xc, yc, w, h]
+        xy1 = box_xy[..., :2]
+        xy2 = box_xy[..., 2:]
+        center = (xy1 + xy2) * 0.5
+        wh = xy2 - xy1
+        return torch.cat((center, wh), dim=-1)
 
-    out = torch.clone(box_xy)
-    out[..., 1, 0] = x1 - x0  # w
-    out[..., 1, 1] = y1 - y0  # h
-    out[..., 0, 0] = x0 + out[..., 1, 0] / 2  # xc
-    out[..., 0, 1] = y0 + out[..., 1, 1] / 2  # yc
-
-    return out
+    # Input is [..., 2, 2] with [[x0, y0], [x1, y1]]
+    # Output is [..., 2, 2] with [[xc, yc], [w, h]]
+    xy1 = box_xy[..., 0, :]
+    xy2 = box_xy[..., 1, :]
+    center = (xy1 + xy2) * 0.5
+    wh = xy2 - xy1
+    return torch.stack((center, wh), dim=-2)
 
 
 def box_xywh_to_cs(
@@ -306,20 +304,22 @@ def box_xywh_to_cs(
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Convert bbox to center-scale format while maintaining aspect ratio.
-    Inputs:
-        box_cwh: List
-            Bounding box. Shape is [4,]
-            [xc, yc, w, h]
-        aspect_ratio: float
-            ratio between width and height
-        padding_factor: float
-            factor to apply additional padding to the scale. Defaults to 1.0
 
-    Outputs:
-        center
-            center for bbox. Shape is [2,]
-        scale
-            scale for bbox. Shape is [2,]
+    Parameters
+    ----------
+    box_cwh
+        Bounding box. Shape is [4,] with layout [xc, yc, w, h].
+    aspect_ratio
+        Ratio between width and height.
+    padding_factor
+        Factor to apply additional padding to the scale. Defaults to 1.0.
+
+    Returns
+    -------
+    center : np.ndarray
+        Center for bbox. Shape is [2,].
+    scale : np.ndarray
+        Scale for bbox. Shape is [2,].
     """
     x, y, w, h = box_cwh
     center = np.array([x + w * 0.5, y + h * 0.5], dtype=np.float32)
@@ -343,20 +343,23 @@ def apply_directional_box_offset(
     Offset the bounding box defined by [xc, yc] by a pre-determined length.
     The offset will be applied in the direction of the supplied vector.
 
-    Inputs:
-        offset: torch.Tensor
-            Floating point offset to apply to the bounding box, in absolute values.
-        vec_start: torch.Tensor
-            Starting point of the vector. Shape is [B, 2], where 2 == (x, y)
-        vec_end: torch.Tensor
-            Ending point of the vector. Shape is [B, 2], where 2 == (x, y)
-        xc: torch.Tensor
-            x center of box.
-        yc: torch.Tensor
-            y center of box
+    Parameters
+    ----------
+    offset
+        Floating point offset to apply to the bounding box, in absolute values.
+    vec_start
+        Starting point of the vector. Shape is [B, 2], where 2 == (x, y).
+    vec_end
+        Ending point of the vector. Shape is [B, 2], where 2 == (x, y).
+    xc
+        X center of box. Modified in place.
+    yc
+        Y center of box. Modified in place.
 
-    Outputs:
-        No return value; xy and yc are modified in place.
+    Returns
+    -------
+    None
+        No return value; xc and yc are modified in place.
     """
     xlen = vec_end[..., 0] - vec_start[..., 0]
     ylen = vec_end[..., 1] - vec_start[..., 1]
@@ -368,8 +371,19 @@ def apply_directional_box_offset(
 
 def get_iou(boxA: np.ndarray, boxB: np.ndarray) -> float:
     """
-    Given two tensors of shape (4,) in xyxy format,
-    compute the iou between the two boxes.
+    Compute the IoU between two boxes.
+
+    Parameters
+    ----------
+    boxA
+        First bounding box in xyxy format. Shape is (4,).
+    boxB
+        Second bounding box in xyxy format. Shape is (4,).
+
+    Returns
+    -------
+    iou : float
+        Intersection over union value between the two boxes.
     """
     xA = max(boxA[0], boxB[0])
     yA = max(boxA[1], boxB[1])
@@ -401,7 +415,7 @@ def get_bbox_iou_matrix(
 
     Returns
     -------
-    iou_matrix
+    iou_matrix : np.ndarray
         IoU matrix of shape (N, K).
     """
     N, K = boxes.shape[0], query_boxes.shape[0]

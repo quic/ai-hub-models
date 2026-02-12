@@ -26,7 +26,7 @@ from qai_hub_models.utils.evaluate import EvalMode
 
 
 # Run Detectron2 app end-to-end on a sample image.
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     # Demo parameters
     parser = get_model_cli_parser(Detectron2Detection)
     parser.add_argument(

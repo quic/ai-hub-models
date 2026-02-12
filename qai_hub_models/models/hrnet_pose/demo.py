@@ -24,7 +24,7 @@ IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 
 
 # The demo will display a image with the predicted keypoints.
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     # Demo parameters
     parser = get_model_cli_parser(HRNetPose)
     parser = get_on_device_demo_parser(parser, add_output_dir=True)

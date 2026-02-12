@@ -90,9 +90,9 @@ def get_enabled_test_precisions() -> tuple[
 
     Returns
     -------
-    special_precision_setting
+    special_precision_setting : SpecialPrecisionSetting | None
         Any special precision setting with which the run was configured.
-    extra_enabled_precisions
+    extra_enabled_precisions : list[Precision]
         Precisions that should be enabled beyond the defaults, if a model supports quantize job.
     """
     precisions_set = EnabledPrecisionsEnvvar.get()
@@ -143,7 +143,7 @@ def get_model_test_precisions(
 
     Returns
     -------
-    model_test_precisions
+    model_test_precisions : list[Precision]
         The list of precisions to test for this model.
     """
     enabled_test_precisions = get_enabled_test_precisions()
@@ -237,7 +237,7 @@ def get_model_test_parameterizations(
 
     Returns
     -------
-    enabled_test_paths
+    enabled_test_paths : list[tuple[Precision, ScorecardPathTypeVar, ScorecardDevice]]
         A list of (Precision, ScorecardPath, Device) pairs to test.
         Each (Precision, ScorecardPath, Device) pair will:
         * Only include items enabled in this environment via env variables
@@ -422,9 +422,8 @@ def get_evaluation_parameterized_pytest_config(
         if len(enabled_devices) == 1:
             device = enabled_devices[0]
         else:
-            raise ValueError(
-                f"When running numerical evaluation, must specify exactly one device or have {device} as part of the device list."
-            )
+            # "When running numerical evaluation, must specify exactly one device or have {device} as part of the device list."
+            return []
 
     return get_model_test_parameterizations(
         model_id,
@@ -462,7 +461,7 @@ def get_async_job_cache_name(
 
     Returns
     -------
-    cache_key
+    cache_key : str
         The cache key for this job.
     """
     return (

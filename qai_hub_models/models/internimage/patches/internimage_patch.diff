@@ -1,17 +1,18 @@
 diff --git a/classification/ops_dcnv3/functions/dcnv3_func.py b/classification/ops_dcnv3/functions/dcnv3_func.py
-index 619418c..d659cac 100644
+index 619418c..a1965bb 100644
 --- a/classification/ops_dcnv3/functions/dcnv3_func.py
 +++ b/classification/ops_dcnv3/functions/dcnv3_func.py
-@@ -6,7 +6,7 @@
+@@ -6,15 +6,15 @@
  
  from __future__ import absolute_import, division, print_function
  
 -import DCNv3
+-import pkg_resources
 +#import DCNv3
- import pkg_resources
++#import pkg_resources
  import torch
  import torch.nn.functional as F
-@@ -14,7 +14,7 @@ from torch.autograd import Function
+ from torch.autograd import Function
  from torch.autograd.function import once_differentiable
  from torch.cuda.amp import custom_bwd, custom_fwd
  

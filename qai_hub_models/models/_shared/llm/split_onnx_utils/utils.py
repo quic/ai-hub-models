@@ -306,6 +306,15 @@ def split_onnx_by_names(
                 if k not in param_names:
                     del new_encodings["param_encodings"][k]
 
+            # Due to AISW-152612 we cannot have activations encodings for
+            # Gather ops, so we clean them up.
+            for node in submodel.graph.node:
+                if (
+                    node.op_type == "Gather"
+                    and node.output[0] in new_encodings["activation_encodings"]
+                ):
+                    del new_encodings["activation_encodings"][node.output[0]]
+
             if uses_lists:
                 # convert back
                 new_encodings["activation_encodings"] = list(

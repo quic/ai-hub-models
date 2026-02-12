@@ -56,7 +56,7 @@ def cvt_demo(
     cameras: dict[str, CachedWebModelAsset],
     cam_metadata: CachedWebModelAsset,
     is_test: bool = False,
-):
+) -> list[Image.Image] | torch.Tensor:
     parser = get_model_cli_parser(model_type)
     parser = get_on_device_demo_parser(parser)
     add_output_dir_arg(parser)
@@ -71,7 +71,7 @@ def cvt_demo(
     camera_metadata = load_json(cam_metadata.fetch())
 
     # Process model inference
-    def process_model(ckpt_name: str):
+    def process_model(ckpt_name: str) -> list[Image.Image] | torch.Tensor:
         args.ckpt_name = ckpt_name
         model = demo_model_from_cli_args(model_type, model_id, args)
         validate_on_device_demo_args(args, model_id)
@@ -97,13 +97,13 @@ def cvt_demo(
     ckpt_name = "vehicles_50k" if args.ckpt == "vehicles" else "road_75k"
     maps = process_model(ckpt_name)
     if not is_test:
-        for i, img in enumerate(maps):
+        for i, img in enumerate(iterable=maps):
             display_or_save_image(img, args.output_dir, f"cvt_bev_{args.ckpt}_{i}.png")
     return maps
 
 
-def main(is_test: bool = False) -> torch.Tensor | None:
-    return cvt_demo(CVT, MODEL_ID, CAMERAS, CAM_METADATA, is_test)
+def main(is_test: bool = False) -> None:
+    cvt_demo(CVT, MODEL_ID, CAMERAS, CAM_METADATA, is_test)
 
 
 if __name__ == "__main__":

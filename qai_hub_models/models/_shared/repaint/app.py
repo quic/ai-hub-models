@@ -72,7 +72,7 @@ class RepaintMaskApp:
 
         Returns
         -------
-        repainted_images
+        repainted_images : list[Image]
             A list of predicted images (one list element per batch).
         """
         inputs = self.preprocess_inputs(

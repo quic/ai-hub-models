@@ -33,6 +33,7 @@ from qai_hub_models.models.common import (
     TargetRuntime,
 )
 from qai_hub_models.utils.args import get_input_spec_kwargs, get_model_kwargs
+from qai_hub_models.utils.asset_loaders import ASSET_CONFIG
 from qai_hub_models.utils.compare import torch_inference
 from qai_hub_models.utils.export_result import (
     CollectionExportResult,
@@ -40,7 +41,6 @@ from qai_hub_models.utils.export_result import (
 )
 from qai_hub_models.utils.model_cache import CacheMode, get_or_create_cached_model
 from qai_hub_models.utils.onnx.helpers import ONNXBundle
-from qai_hub_models.utils.path_helpers import get_model_directory_for_download
 from qai_hub_models.utils.printing import (
     print_inference_metrics,
     print_profile_metrics_from_job,
@@ -427,7 +427,9 @@ def export_model(
 
     # 2. Link jobs
     for component_name, cjobs in compile_jobs_to_link.items():
-        models = [cast(hub.Model, cjob.get_target_model()) for cjob in cjobs]
+        models: list[hub.Model | str | Path | None] = [
+            cast(hub.Model, cjob.get_target_model()) for cjob in cjobs
+        ]
         full_name = f"{model_name}_{component_name}"
         model_link_options = model.get_hub_link_options(target_runtime, link_options)
 
@@ -435,6 +437,7 @@ def export_model(
             models,
             name=full_name,
             options=model_link_options,
+            device=device,
         )
         if synchronous:
             link_job.wait()
@@ -522,8 +525,8 @@ def export_model(
 
     # 5. Download the model assets to a local file
     target_model_list = []
-    output_path = get_model_directory_for_download(
-        target_runtime, precision, chipset, output_path, model_name
+    output_path = output_path / ASSET_CONFIG.get_release_asset_name(
+        model_name, target_runtime, precision, chipset
     )
     if not skip_downloading:
         output_path.mkdir(parents=True, exist_ok=True)

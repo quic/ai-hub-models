@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
+from __future__ import annotations
+
 from qai_hub_models.models.bgnet.app import BGNetApp
 from qai_hub_models.models.bgnet.model import INPUT_IMAGE_ADDRESS, MODEL_ID, BGNet
 from qai_hub_models.utils.args import (
@@ -19,10 +21,10 @@ from qai_hub_models.utils.image_processing import pil_resize_pad, pil_undo_resiz
 
 def segmentation_demo(
     model_type: type[BaseModel],
-    model_id,
+    model_id: str,
     default_image: CachedWebModelAsset,
     is_test: bool = False,
-):
+) -> None:
     # Demo parameters
     parser = get_model_cli_parser(model_type)
     parser = get_on_device_demo_parser(parser, add_output_dir=True)
@@ -51,7 +53,7 @@ def segmentation_demo(
         display_or_save_image(image_annotated, args.output_dir)
 
 
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     segmentation_demo(BGNet, MODEL_ID, INPUT_IMAGE_ADDRESS, is_test)
 
 

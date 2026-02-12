@@ -112,9 +112,9 @@ class SemanticKittiDataset(BaseDataset):
 
         Returns
         -------
-        proj
+        proj : torch.Tensor
             Input lidar projection tensor.
-        label_data
+        label_data : tuple[torch.Tensor, torch.Tensor, torch.Tensor]
             proj_x
                 x coordinates of lidar points with shape [max_points,].
             proj_y
@@ -233,17 +233,17 @@ class SemanticKittiDataset(BaseDataset):
 
         Returns
         -------
-        img_proj_x
+        img_proj_x : np.ndarray
             projections in image coords in x axis in range[0,W-1]
-        img_proj_y
+        img_proj_y : np.ndarray
             projections in image coords in y axis in range[0,H-1]
-        proj_range
+        proj_range : np.ndarray
             projected range image - [H,W] range (-1 is no data)
-        proj_xyz
+        proj_xyz : np.ndarray
             projected point cloud xyz - [H,W,3] xyz coord (-1 is no data)
-        proj_remission
+        proj_remission : np.ndarray
             projected remission - [H,W] intensity (-1 is no data)
-        proj_mask
+        proj_mask : np.ndarray
             projected index (for each pixel, what I am in the pointcloud)
             [H,W] index (-1 is no data)
         """

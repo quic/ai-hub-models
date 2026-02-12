@@ -52,7 +52,7 @@ class Detectron2App:
 
         Returns
         -------
-        filtered_proposals
+        filtered_proposals : list[torch.Tensor]
             List of padded tensors containing filtered proposals
             with shape [batch_size, max_det_post_nms, 4]
         """

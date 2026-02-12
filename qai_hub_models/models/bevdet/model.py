@@ -8,7 +8,6 @@ from __future__ import annotations
 import os
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
-from typing import Any
 
 import torch
 from mmengine.config import Config
@@ -25,13 +24,13 @@ from qai_hub_models.models.bevdet.model_patches import (
     CenterHead,
     LSSViewTransformerOptimized,
 )
-from qai_hub_models.models.common import SampleInputsType
+from qai_hub_models.models.common import Precision, SampleInputsType, TargetRuntime
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
     SourceAsRoot,
     load_torch,
 )
-from qai_hub_models.utils.base_model import BaseModel, Precision, TargetRuntime
+from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec
 
 with patch_mmdet_no_build_deps():
@@ -228,17 +227,17 @@ class BEVDet(BaseModel):
 
         Returns
         -------
-        reg
+        reg : torch.Tensor
             2D regression value with the shape of [B, 2, H, W].
-        height
+        height : torch.Tensor
             Height value with the shape of [B, 1, H, W].
-        dim
+        dim : torch.Tensor
             Size value with the shape of [B, 3, H, W].
-        rot
+        rot : torch.Tensor
             Rotation value with the shape of [B, 2, H, W].
-        vel
+        vel : torch.Tensor
             Velocity value with the shape of [B, 2, H, W].
-        heatmap
+        heatmap : torch.Tensor
             Heatmap with the shape of [B, N, H, W].
 
         """
@@ -353,6 +352,6 @@ class BEVDet(BaseModel):
         return "nuscenes"
 
     @staticmethod
-    def get_hub_litemp_percentage(_: Any) -> float:
+    def get_hub_litemp_percentage(_: Precision) -> float:
         """Returns the Lite-MP percentage value for the specified mixed precision quantization."""
         return 30

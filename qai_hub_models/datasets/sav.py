@@ -72,7 +72,7 @@ class SaVDataset(BaseDataset):
 
         Returns
         -------
-        image_input
+        image_input : tuple[torch.Tensor, torch.Tensor, torch.Tensor]
             input_image:
                 Raw floating point pixel values for encoder consumption.
                 3-channel Color Space: RGB, range [0, 1]
@@ -82,7 +82,7 @@ class SaVDataset(BaseDataset):
             point_labels:
                 Point Labels to select/de-select given point for segmentation
 
-        ground_truth:
+        ground_truth : list[None]
             Empty list; no ground truth data.
         """
         image_path = self.sample[index]["img_path"]

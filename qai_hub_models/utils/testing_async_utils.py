@@ -247,6 +247,13 @@ def assert_success_or_cache_job(
     device: ScorecardDevice = cs_universal,
     component: str | None = None,
 ) -> None:
+    if (
+        job is None
+        and path is None
+        and precision in [Precision.mixed, Precision.mixed_with_float]
+    ):
+        return  # For models where precision varies per-component, some components may not have jobs (e.g., float components in quantization)
+
     assert job is not None
     if is_hub_testing_async():
         cache_path = get_async_test_job_cache_path(job._job_type)
@@ -364,7 +371,7 @@ def fetch_async_test_job(
 
     Returns
     -------
-    cached_job
+    cached_job : hub.Job | None
         A successful Hub job, or None if this job type was not found in the cache.
 
     Raises
@@ -505,10 +512,14 @@ def fetch_async_test_jobs(
 
     Returns
     -------
-    component_jobs
+    component_jobs : Mapping[str | None, hub.Job] | None
         For models WITHOUT components, returns a dict: { None: Job }.
         For models WITH components, returns a dict: { 'component_1_name': Job, ... }.
         Returns None if one or more components do not have a cached job of the given type.
+
+        If the precision type is "variable", and the job type is QUANTIZE, some components may not have a cached job.
+        In this case, only components with cached jobs will be returned. Components without cached jobs are assumed
+        to be floating point components that do not require quantization, and will be excluded from the returned dict.
 
     Raises
     ------
@@ -527,6 +538,18 @@ def fetch_async_test_jobs(
             cache_path,
             raise_if_not_successful,
         )
+
+    if (
+        precision in [Precision.mixed, Precision.mixed_with_float]
+        and hub.JobType.QUANTIZE
+    ):
+        # Variable precision quantize jobs may be missing for some components
+        # (if a component is floating point).
+        component_jobs = {
+            component: job
+            for component, job in component_jobs.items()
+            if job is not None
+        }
 
     has_jobs = all(component_jobs.values())
     return component_jobs if has_jobs else None  # type: ignore[return-value]
@@ -741,7 +764,7 @@ class CompileJobsAreIdenticalCache(BaseQAIHMConfig):
 
         Returns
         -------
-        jobs_are_same
+        jobs_are_same : bool
             True if the MD5 hashes of the compiled models for the two jobs are the same, False otherwise.
         """
         if previous_compile_job.get_status().failure:

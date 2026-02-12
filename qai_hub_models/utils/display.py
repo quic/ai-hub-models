@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+import cv2
 import numpy as np
 from PIL.Image import Image
 from PIL.ImageShow import IPythonViewer, _viewers  # type: ignore[attr-defined]
@@ -43,6 +44,43 @@ def is_headless() -> bool:
         os.environ.get("SSH_TTY") is not None
         or os.environ.get("SSH_CLIENT") is not None
     )
+
+
+def generate_video_from_frames(
+    frames: list[np.ndarray],
+    output_dir: str | None,
+    output_filename: str,
+    fps: int = 30,
+) -> None:
+    """
+    Generates a video from a list of frames.
+
+    Parameters
+    ----------
+    frames
+        The frames to include in the video.
+    output_dir
+        The folder path to save the generated video.
+    output_filename
+        The name to save the file.
+    fps
+        The frame rate of the output video. Defaults to 30.
+    """
+    height, width, _layers = frames[0].shape
+    fourcc = 0x39307076  # hex code for "vp09" format
+
+    if output_dir is None:
+        output_dir = os.path.join(Path.cwd(), "build")
+
+    output_path = os.path.join(output_dir, output_filename)
+    print("Saving video to ", output_path)
+    video = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+
+    for frame in frames:
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        video.write(frame)
+
+    video.release()
 
 
 def display_image(image: Image, desc: str = "image") -> bool:
@@ -99,7 +137,7 @@ def display_or_save_image(
 
     Returns
     -------
-    was_displayed
+    was_displayed : bool
         True if displaying was attempted.
     """
     if output_dir is not None:
@@ -125,7 +163,7 @@ def to_uint8(image: np.ndarray) -> np.ndarray:
 
     Returns
     -------
-    processed_image
+    processed_image : np.ndarray
         The processed image in uint8 format.
     """
     clipped_image = np.clip(image, 0, 1)

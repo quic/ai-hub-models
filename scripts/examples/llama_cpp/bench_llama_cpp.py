@@ -194,7 +194,8 @@ def run_llama_and_measure(
         stderr=subprocess.PIPE,
         bufsize=1,
         text=True,
-        universal_newlines=True,
+        encoding="utf-8",
+        errors="replace",
     )
 
     # Read stdout and stderr

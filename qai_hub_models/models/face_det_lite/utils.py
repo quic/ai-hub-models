@@ -21,7 +21,7 @@ class BBox:
         score: float = 0,
         landmark: list | None = None,
         rotate: bool = False,
-    ):
+    ) -> None:
         """
         A bounding box plus landmarks structure to hold the hierarchical result.
 
@@ -50,7 +50,7 @@ class BBox:
         maxy = max(self.y, self.b)
         self.x, self.y, self.r, self.b = minx, miny, maxx, maxy
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         landmark_formated = (
             ",".join([str(item[:2]) for item in self.landmark])
             if self.landmark is not None
@@ -99,7 +99,7 @@ def nms(objs: list[BBox], iou: float = 0.5) -> list[BBox]:
 
     Returns
     -------
-    filtered_boxes
+    filtered_boxes : list[BBox]
         The BBox objects remaining after NMS filtering.
     """
     if objs is None or len(objs) <= 1:

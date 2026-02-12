@@ -11,11 +11,11 @@ import torch.nn.functional as F
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.models._shared.yolo.utils import (
     get_most_likely_score,
-    transform_box_layout_xywh2xyxy,
 )
 from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 from qai_hub_models.utils.base_model import BaseModel
+from qai_hub_models.utils.bounding_box_processing import box_xywh_to_xyxy
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs
 from qai_hub_models.utils.input_spec import InputSpec
 
@@ -41,11 +41,11 @@ def yolo_detect_postprocess(
 
     Returns
     -------
-    boxes
+    boxes : torch.Tensor
         Bounding box locations. Shape is [batch, num preds, 4] where 4 == (x1, y1, x2, y2).
-    scores
+    scores : torch.Tensor
         Class scores multiplied by confidence. Shape is [batch, num_preds].
-    class_idx
+    class_idx : torch.Tensor
         Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
     """
     # Break output into parts
@@ -53,7 +53,7 @@ def yolo_detect_postprocess(
     scores = torch.permute(scores, [0, 2, 1])
 
     # Convert boxes to (x1, y1, x2, y2)
-    boxes = transform_box_layout_xywh2xyxy(boxes)
+    boxes = box_xywh_to_xyxy(boxes)
 
     # TODO(13933) Revert once QNN issues with ReduceMax are fixed
     if scores.shape[-1] == 1:
@@ -86,13 +86,13 @@ def yolo_segment_postprocess(
 
     Returns
     -------
-    boxes
+    boxes : torch.Tensor
         Bounding box locations. Shape is [batch, num preds, 4] where 4 == (x1, y1, x2, y2).
-    scores
+    scores : torch.Tensor
         Class scores multiplied by confidence. Shape is [batch, num_preds].
-    masks
+    masks : torch.Tensor
         Predicted masks. Shape is [batch, num_preds, 32].
-    class_idx
+    class_idx : torch.Tensor
         Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
     """
     # Break output into parts
@@ -103,7 +103,7 @@ def yolo_segment_postprocess(
     masks = detector_output[:, :, masks_dim:]
 
     # Convert boxes to (x1, y1, x2, y2)
-    boxes = transform_box_layout_xywh2xyxy(boxes)
+    boxes = box_xywh_to_xyxy(boxes)
 
     # Get class ID of most likely score.
     scores, class_idx = get_most_likely_score(scores)
@@ -156,6 +156,10 @@ class Yolo(BaseModel):
     @staticmethod
     def calibration_dataset_name() -> str:
         return "coco"
+
+    @classmethod
+    def get_labels_file_name(cls) -> str | None:
+        return "coco_labels.txt"
 
 
 class YoloSegEvalMixin(BaseModel):

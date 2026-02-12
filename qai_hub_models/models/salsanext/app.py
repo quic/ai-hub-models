@@ -34,7 +34,7 @@ with SourceAsRoot(
 
 
 class SalsaNextApp:
-    def __init__(self, model: Callable[[torch.Tensor], torch.Tensor]):
+    def __init__(self, model: Callable[[torch.Tensor], torch.Tensor]) -> None:
         self._model = model
         with open(ARCH_ADDRESS) as f:
             self.arch = YAML(typ="safe", pure=True).load(f)

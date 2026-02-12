@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from pathlib import Path
+from typing import Any
 
 import torch
 from PIL.Image import Image
@@ -36,12 +37,12 @@ class ClipApp:
         model: ExecutableModelProtocol[torch.Tensor],
         text_tokenizer: Callable[[str], torch.Tensor],
         image_preprocessor: Callable[[Image], torch.Tensor],
-    ):
+    ) -> None:
         self.model = model
         self.text_tokenizer = text_tokenizer
         self.image_preprocessor = image_preprocessor
 
-    def predict(self, *args, **kwargs):
+    def predict(self, *args: Any, **kwargs: Any) -> torch.Tensor:
         # See predict_similarity.
         return self.predict_similarity(*args, **kwargs)
 
@@ -49,17 +50,24 @@ class ClipApp:
         self, images_or_image_paths: Sequence[Image | str | Path], texts: Sequence[str]
     ) -> torch.Tensor:
         """
-        Inputs:
-            images_or_image_paths: PIL Image or path to an image file / URL.
-            texts: String texts to search for similarity.
+        Compute cosine similarity between images and text prompts.
 
-        Outputs:
-            cosine_similarities_per_image: torch.Tensor (Shape: [num_images, num_text_prompts])
-                Given a batch of images and a batch of text tokens, returns a tensor,
-                containing the cosine similarity scores corresponding to each image per text input.
-                The values are cosine similarities between the corresponding image and
-                text features, times 100. The cosine similarities of text per image can be computed
-                by doing a transpose.
+        Parameters
+        ----------
+        images_or_image_paths
+            PIL Image or path to an image file / URL.
+        texts
+            String texts to search for similarity.
+
+        Returns
+        -------
+        cosine_similarities_per_image : torch.Tensor
+            Tensor of shape [num_images, num_text_prompts]. Given a batch of images
+            and a batch of text tokens, returns a tensor containing the cosine
+            similarity scores corresponding to each image per text input. The values
+            are cosine similarities between the corresponding image and text features,
+            times 100. The cosine similarities of text per image can be computed by
+            doing a transpose.
         """
         preprocessed_images: list[torch.Tensor] = []
 

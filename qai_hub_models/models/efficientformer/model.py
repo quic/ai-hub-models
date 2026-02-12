@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from typing_extensions import Self
+
 from qai_hub_models.models._shared.imagenet_classifier.model import ImagenetClassifier
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
@@ -29,7 +31,7 @@ DEFAULT_WEIGHTS_FILE = CachedWebModelAsset.from_asset_store(
 
 class EfficientFormer(ImagenetClassifier):
     @classmethod
-    def from_pretrained(cls, weights_name: str = DEFAULT_WEIGHTS):
+    def from_pretrained(cls, weights_name: str = DEFAULT_WEIGHTS) -> Self:
         weights_file = weights_name
         if weights_name == DEFAULT_WEIGHTS:
             weights_file = DEFAULT_WEIGHTS_FILE

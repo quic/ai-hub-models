@@ -176,6 +176,7 @@ def _get_model_cache_key(
         "pytorch": str(torch_version),
         "onnx": str(onnx_version),
         "hub_endpoint": get_hub_endpoint(),
+        "version": "v2",  # bump to globally invalidate cache
     }
     cache_keys.update(additional_keys)
     return cache_keys

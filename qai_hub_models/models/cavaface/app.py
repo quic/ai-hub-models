@@ -30,7 +30,7 @@ class CavaFaceApp:
         model: Callable[[torch.Tensor], torch.Tensor],
         input_height: int,
         input_width: int,
-    ):
+    ) -> None:
         self.model = model
         self.input_height = input_height
         self.input_width = input_width
@@ -50,7 +50,7 @@ class CavaFaceApp:
 
         Returns
         -------
-        embedding
+        embedding : np.ndarray
             Normalized 512-dimensional face embedding.
         """
         # Preprocess

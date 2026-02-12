@@ -43,10 +43,8 @@ def _get_global_client() -> tuple[str, HubClient] | None:
 
     Returns
     -------
-    deployment_name
-        Global client Hub deployment name.
-    client
-        Global client.
+    result : tuple[str, HubClient] | None
+        Tuple of (deployment_name, client) or None if not available.
     """
     try:
         global_client = hub.hub._global_client

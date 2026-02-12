@@ -10,6 +10,7 @@ import torch
 
 from qai_hub_models.datasets.cocobody import CocoBodyDataset
 from qai_hub_models.datasets.common import DatasetSplit
+from qai_hub_models.extern.mmengine import patch_mmengine_pkgresources
 from qai_hub_models.extern.mmpose import patch_mmpose_no_build_deps
 from qai_hub_models.models._shared.mmpose.silence import (
     set_mmpose_inferencer_show_progress,
@@ -17,7 +18,7 @@ from qai_hub_models.models._shared.mmpose.silence import (
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs
 from qai_hub_models.utils.input_spec import InputSpec
 
-with patch_mmpose_no_build_deps():
+with patch_mmpose_no_build_deps(), patch_mmengine_pkgresources():
     from mmpose.apis import MMPoseInferencer
 
 DEFAULT_INFERENCER_ARCH = "rtmpose-m_8xb64-270e_coco-wholebody-256x192"
@@ -57,10 +58,10 @@ class CocoWholeBodyDataset(CocoBodyDataset):
 
         Returns
         -------
-        image
+        image : torch.Tensor
             Input image resized for the network. RGB, floating point range [0-1].
 
-        ground_truth
+        ground_truth : tuple[int, int, torch.Tensor, torch.Tensor]
             image_id
                 Image ID within the original dataset
             category_id

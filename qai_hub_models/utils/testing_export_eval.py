@@ -187,17 +187,17 @@ def patch_hub_with_cached_jobs(
 
     Returns
     -------
-    device_patch
+    device_patch : mock._patch
         Patch for device selection.
-    calibration_data_patch
+    calibration_data_patch : mock._patch | nullcontext
         Patch for calibration data retrieval.
-    quantize_job_patch
+    quantize_job_patch : mock._patch | nullcontext
         Patch for quantization jobs.
-    compile_job_patch
+    compile_job_patch : mock._patch | nullcontext
         Patch for compilation jobs.
-    profile_job_patch
+    profile_job_patch : mock._patch | nullcontext
         Patch for profiling jobs.
-    inference_job_patch
+    inference_job_patch : mock._patch | nullcontext
         Patch for inference jobs.
 
     Notes
@@ -322,7 +322,7 @@ def patch_hub_with_cached_jobs(
     if not patch_compile and compile_jobs_to_patch:
         compile_side_effect = itertools.chain(
             compile_jobs_to_patch,
-            itertools.repeat(hub.submit_compile_job, len(compile_jobs_to_patch)),
+            itertools.repeat(hub.submit_compile_job, len(component_names or [None])),
             itertools.repeat(_invalid_job_submission),
         )
     else:
@@ -559,7 +559,7 @@ def fetch_cached_jobs_if_compile_jobs_are_identical(
 
     Returns
     -------
-    cached_result
+    cached_result : Mapping[str | None, ExportResult] | None
         The cached ExportResult, or None if no cached job is found.
     """
     # Check if the QAIRT version matches the API version and if the override flag is set.
@@ -1100,7 +1100,7 @@ def torch_inference_for_accuracy_validation_outputs(model_id: str) -> list[np.nd
 
     Returns
     -------
-    inference_outputs
+    inference_outputs : list[np.ndarray]
         List of results, in order of output from the torch model.
         [ output_0_array, output_1_array, ... ]
     """
@@ -1132,7 +1132,7 @@ def split_and_group_accuracy_validation_output_batches(
 
     Returns
     -------
-    batched_outputs
+    batched_outputs : list[torch.Tensor | tuple[torch.Tensor, ...]]
         If torch_inference_outputs is length 1:
             [output_0::batch_0, output_0::batch_1, ...]
 
@@ -1270,7 +1270,7 @@ def get_num_eval_samples(dataset_name: str) -> int:
 
     Returns
     -------
-    num_samples
+    num_samples : int
         Number of samples to evaluate.
     """
     return min(

@@ -151,7 +151,7 @@ class GPUPyTestModelsTask(CompositeTask):
                         group_name=f"Run {test_suite} Tests For Model {model_name}",
                         venv=venv,
                         commands=[
-                            f"{common_command} && pytest -v qai_hub_models/models/{model_name}/test.py {options}",
+                            f"{common_command} && pytest -v -s --capture=no qai_hub_models/models/{model_name}/test.py {options}",
                         ],
                         raise_on_failure=False,
                         # Ignore "no tests collected" return code
@@ -581,4 +581,46 @@ class GenerateTestSummaryTask(RunCommandsTask):
         super().__init__(
             group_name="Generate Test Failure Summary",
             commands=[command],
+        )
+
+
+class LlamaCppBenchmarkTask(RunCommandsWithVenvTask):
+    """Task to run Llama.CPP benchmarks on QDC devices.
+
+    This task runs the benchmark script in a venv with QAIHM installed.
+    Configuration is passed via environment variables:
+    - QAIHM_MODELS: Comma-separated list of models or 'all'
+    - QAIHM_DEVICES: Comma-separated list of devices
+    - QDC_API_KEY: API token for QDC authentication
+    - LLAMA_CPP_PATH: Path to Llama.CPP build directory
+    - LLAMA_CPP_RESULTS_DIR: Directory to save perf.yaml files
+    """
+
+    def __init__(
+        self,
+        venv: str | None,
+        env: dict[str, str] | None = None,
+        raise_on_failure: bool = True,
+        ignore_return_codes: list[int] | None = None,
+    ) -> None:
+        models = os.environ.get("QAIHM_MODELS", "all")
+        devices = os.environ.get("QAIHM_DEVICES", "Snapdragon 8 Elite Gen 5 QRD")
+        llama_cpp_path = os.environ.get("LLAMA_CPP_PATH", "llama.cpp")
+        results_dir = os.environ.get("LLAMA_CPP_RESULTS_DIR", "llama_cpp_results")
+
+        command = (
+            f"python -m qai_hub_models.scripts.run_llama_cpp_benchmarks"
+            f' --models "{models}"'
+            f' --devices "{devices}"'
+            f' --llama-cpp-path "{llama_cpp_path}"'
+            f' --results-dir "{results_dir}"'
+        )
+
+        super().__init__(
+            "Llama.CPP Benchmarks",
+            venv,
+            [command],
+            env,
+            raise_on_failure,
+            ignore_return_codes or [],
         )

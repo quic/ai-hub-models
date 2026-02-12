@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import torchvision.models as tv_models
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.imagenet_classifier.model import ImagenetClassifier
 
@@ -15,6 +16,6 @@ DEFAULT_WEIGHTS = "IMAGENET1K_V2"
 
 class ResNeXt50(ImagenetClassifier):
     @classmethod
-    def from_pretrained(cls, weights: str = DEFAULT_WEIGHTS) -> ResNeXt50:
+    def from_pretrained(cls, weights: str = DEFAULT_WEIGHTS) -> Self:
         net = tv_models.resnext50_32x4d(weights=weights)
         return cls(net)

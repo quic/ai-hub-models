@@ -33,7 +33,7 @@ def llama_3_1_chat_demo(
     default_prompt: str | None = None,
     raw: bool = False,
     test_checkpoint: CheckpointSpec | None = None,
-):
+) -> None:
     llm_chat_demo(
         model_cls=model_cls,
         fp_model_cls=fp_model_cls,

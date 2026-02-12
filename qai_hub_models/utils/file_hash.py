@@ -33,7 +33,7 @@ def hash_file(
 
     Returns
     -------
-    updated_hasher
+    updated_hasher : hashlib._Hash
         Updated hasher object.
     """
     hasher = hasher or hashlib.md5()
@@ -68,7 +68,7 @@ def file_hashes_are_identical(
 
     Returns
     -------
-    are_identical
+    are_identical : bool
         True if the MD5 hashes of the two model files are the same, False otherwise.
     """
     return (

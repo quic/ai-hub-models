@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import contextlib
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 
 import clip
 import torch
@@ -14,6 +14,8 @@ import torch.nn.functional as F
 from clip.model import CLIP
 from PIL.Image import Image
 from torch import Tensor
+from torchvision.transforms import Compose
+from typing_extensions import Self
 
 from qai_hub_models.utils.asset_loaders import callback_with_retry
 from qai_hub_models.utils.base_model import BaseModel
@@ -30,7 +32,7 @@ class OpenAIClip(BaseModel):
         clip: CLIP,
         text_tokenizer: Callable[[str], torch.Tensor],
         image_preprocessor: Callable[[Image], torch.Tensor],
-    ):
+    ) -> None:
         super().__init__()
         """ Wrapper for OpenAI CLIP."""
         self.clip = clip
@@ -38,7 +40,7 @@ class OpenAIClip(BaseModel):
         self.text_tokenizer = text_tokenizer
         self.image_preprocessor = image_preprocessor
 
-    def forward(self, image: torch.Tensor, text: torch.Tensor):
+    def forward(self, image: torch.Tensor, text: torch.Tensor) -> torch.Tensor:
         """
         Forward call on Open AI CLIP model.
 
@@ -54,7 +56,7 @@ class OpenAIClip(BaseModel):
 
         Returns
         -------
-        cosine_similarities_per_image
+        cosine_similarities_per_image : torch.Tensor
             Given a batch of images and a batch of text tokens, returns a tensor,
             containing the cosine similarity scores corresponding to each image per text input.
             The values are cosine similarities between the corresponding image and
@@ -103,8 +105,8 @@ class OpenAIClip(BaseModel):
         return ["image"]
 
     @classmethod
-    def from_pretrained(cls) -> OpenAIClip:
-        def load_clip():
+    def from_pretrained(cls) -> Self:
+        def load_clip() -> tuple[CLIP, Callable, Compose]:
             device = "cuda" if torch.cuda.is_available() else "cpu"
             tokenizer = clip.tokenize
             net, preprocess = clip.load(PRETRAINED_WEIGHTS, device=device)
@@ -114,11 +116,11 @@ class OpenAIClip(BaseModel):
             num_retries=5, callback=load_clip
         )
         assert isinstance(net, CLIP)
-        return OpenAIClip(net, tokenizer, preprocess)
+        return cls(net, tokenizer, preprocess)
 
 
 @contextlib.contextmanager
-def patched_in_projection_packed():
+def patched_in_projection_packed() -> Generator[None]:
     """
     Avoid unflatten that causes ONNX export failure.
     https://github.com/pytorch/pytorch/issues/135764

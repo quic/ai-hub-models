@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import torch
 from torch import nn
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.deeplab.model import DeepLabV3Model
 from qai_hub_models.utils.asset_loaders import (
@@ -30,11 +31,15 @@ DEFAULT_WEIGHTS = CachedWebModelAsset(
 
 
 class DeeplabXception(DeepLabV3Model):
-    def __init__(self, deeplabv3_model: torch.nn.Module, normalize_input: bool = False):
+    def __init__(
+        self, deeplabv3_model: torch.nn.Module, normalize_input: bool = False
+    ) -> None:
         super().__init__(deeplabv3_model, normalize_input=normalize_input)
 
     @classmethod
-    def from_pretrained(cls, weights_url: str | CachedWebModelAsset = DEFAULT_WEIGHTS):
+    def from_pretrained(
+        cls, weights_url: str | CachedWebModelAsset = DEFAULT_WEIGHTS
+    ) -> Self:
         weights = load_torch(weights_url)
         with SourceAsRoot(
             SOURCE_REPO, COMMIT_HASH, MODEL_ID, MODEL_ASSET_VERSION
@@ -82,7 +87,7 @@ class DeeplabXception(DeepLabV3Model):
 
         Returns
         -------
-        segmentation_mask
+        segmentation_mask : torch.Tensor
             Bx21xHxW tensor of class logits per pixel.
         """
         mean = torch.tensor([0.5, 0.5, 0.5])

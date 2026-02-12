@@ -82,7 +82,7 @@ def export_model(
     link_options: str = "",
     profile_options: str = "",
     model_cache_mode: CacheMode = CacheMode.ENABLE,
-    **additional_model_kwargs,
+    **additional_model_kwargs: Any,
 ) -> CollectionExportResult:
     """
     This function accomplishes 6 main tasks:
@@ -140,7 +140,7 @@ def export_model(
 
     Returns
     -------
-    result
+    result : CollectionExportResult
         A Mapping from component_name to a 3-tuple of:
         * A LinkJob object containing metadata about the link job submitted to hub.
         * A ProfileJob containing metadata about the profile job (None if profiling skipped).
@@ -165,9 +165,8 @@ def export_model(
         if component_name not in ALL_COMPONENTS:
             raise ValueError(f"Invalid component {component_name}.")
     if not can_access_qualcomm_ai_hub():
-        export_without_hub_access(
+        static_model_path = export_without_hub_access(
             "llama_v2_7b_chat",
-            "Llama-v2-7B-Chat",
             device,
             skip_profiling,
             skip_inferencing,
@@ -180,7 +179,10 @@ def export_model(
             component_arg,
         )
         return CollectionExportResult(
-            components={component_name: ExportResult() for component_name in components}
+            components={
+                component_name: ExportResult() for component_name in components
+            },
+            download_path=static_model_path,
         )
 
     # 1. Initialize PyTorch model
@@ -374,7 +376,7 @@ def export_model(
     )
 
 
-def main(argv: list[str] | None = None):
+def main(argv: list[str] | None = None) -> None:
     warnings.filterwarnings("ignore")
     parser = export_parser(
         model_cls=Model,

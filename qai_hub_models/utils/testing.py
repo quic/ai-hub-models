@@ -239,7 +239,8 @@ def get_and_sync_datasets_cache_dir(
 
     Returns
     -------
-    Path to dataset cache
+    dataset_cache_path : Path
+        Path to dataset cache.
     """
     folder_name = "hub_datasets"
     if not has_channel_transpose:
@@ -355,9 +356,9 @@ def get_val_dataset_id_keys(
 
     Returns
     -------
-    input_key
+    input_key : str
         Dataset id key for input.
-    gt_key
+    gt_key : str
         Dataset id key for ground truth.
     """
     base_name = f"{dataset_name}_val_"
@@ -553,7 +554,7 @@ def has_get_unsupported_reason(cls: type, stop_at_classes: list[type]) -> bool:
 
     Returns
     -------
-    has_method
+    has_method : bool
         True if 'get_unsupported_reason' is found in cls or one of its parent classes
         before reaching any of the stop_at_classes; False otherwise.
     """

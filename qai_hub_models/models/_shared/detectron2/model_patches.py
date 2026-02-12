@@ -28,7 +28,7 @@ def ROIAlign_forward(
 
     Returns
     -------
-    aligned_features
+    aligned_features : torch.Tensor
         ROI-aligned features with shape (num_rois, C, output_H, output_W).
     """
     assert rois.dim() == 2 and rois.size(1) == 5
@@ -84,7 +84,7 @@ def manual_roi_align(
 
     Returns
     -------
-    aligned_features
+    aligned_features : torch.Tensor
         ROI Aligned features with shape (num_rois, C, output_size[0], output_size[1])
     """
     device = inputs.device

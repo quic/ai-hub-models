@@ -25,7 +25,7 @@ IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 )
 
 
-def hrnet_face_demo(model_cls: type[HRNetFace], is_test: bool = False):
+def hrnet_face_demo(model_cls: type[HRNetFace], is_test: bool = False) -> None:
     # Demo parameters
     parser = get_model_cli_parser(model_cls)
     parser = get_on_device_demo_parser(parser, add_output_dir=True)
@@ -45,7 +45,7 @@ def hrnet_face_demo(model_cls: type[HRNetFace], is_test: bool = False):
     orig_image = load_image(args.image)
     image = orig_image.resize((width, height))
 
-    app = HRNetFaceApp(model)
+    app = HRNetFaceApp(model)  # type: ignore[arg-type]
     output = app.predict_face_keypoints(image)[0]
     assert isinstance(output, Image)
 
@@ -57,8 +57,8 @@ def hrnet_face_demo(model_cls: type[HRNetFace], is_test: bool = False):
         )
 
 
-def main(is_test: bool = False):
-    return hrnet_face_demo(HRNetFace, is_test=is_test)
+def main(is_test: bool = False) -> None:
+    hrnet_face_demo(HRNetFace, is_test=is_test)
 
 
 if __name__ == "__main__":

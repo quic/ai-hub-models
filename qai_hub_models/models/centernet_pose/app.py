@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 import torch
@@ -104,7 +105,7 @@ class CenterNetPoseApp:
             (14, 16),
         ]
 
-    def predict(self, *args, **kwargs):
+    def predict(self, *args: Any, **kwargs: Any) -> np.ndarray | Image.Image:
         # See predict_pose_from_image.
         return self.predict_pose_from_image(*args, **kwargs)
 
@@ -125,9 +126,11 @@ class CenterNetPoseApp:
 
         Returns
         -------
-        result
-            If raw_output is True, returns dets array with shape (max_det, 40).
-            Otherwise, returns PIL image with 2D bounding boxes and keypoints drawn.
+        result : np.ndarray | Image.Image
+            If raw_output is True:
+                dets array with shape (max_det, 40).
+            Otherwise:
+                PIL image with 2D bounding boxes and keypoints drawn.
         """
         image_array = np.array(image)
         height, width = image_array.shape[0:2]

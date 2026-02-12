@@ -10,6 +10,7 @@ from importlib import reload
 
 import torch
 from torch import nn
+from typing_extensions import Self
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.hrnet_evaluator import HRNetPoseEvaluator
@@ -56,7 +57,7 @@ class HRNetPose(BaseModel):
         self.variant = variant
 
     @classmethod
-    def from_pretrained(cls, variant: str = DEFAULT_VARIANT) -> HRNetPose:
+    def from_pretrained(cls, variant: str = DEFAULT_VARIANT) -> Self:
         weights_file = CachedWebModelAsset.from_asset_store(
             MODEL_ID, MODEL_ASSET_VERSION, WEIGHTS[variant]
         ).fetch()
@@ -85,7 +86,7 @@ class HRNetPose(BaseModel):
             net.load_state_dict(weights)
             return cls(net, variant)
 
-    def forward(self, image):
+    def forward(self, image: torch.Tensor) -> torch.Tensor:
         """Image inputs are expected to be in RGB format in the range [0, 1]."""
         image = normalize_image_torchvision(image)
         return self.model(image)

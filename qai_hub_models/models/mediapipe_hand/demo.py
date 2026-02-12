@@ -27,7 +27,7 @@ INPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 
 # Run Mediapipe Hand landmark detection end-to-end on a sample image or camera stream.
 # The demo will display output with the predicted landmarks & bounding boxes drawn.
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     # Demo parameters
     parser = argparse.ArgumentParser()
     parser.add_argument(

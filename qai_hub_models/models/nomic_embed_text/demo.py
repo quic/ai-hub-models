@@ -20,7 +20,7 @@ def nomic_embed_text_demo(
     model_cls: type[NomicEmbedText],
     is_test: bool = False,
     default_text: str | None = None,
-):
+) -> None:
     # Demo parameters
     parser = get_model_cli_parser(model_cls)
     parser = get_on_device_demo_parser(parser, add_output_dir=True)
@@ -40,7 +40,7 @@ def nomic_embed_text_demo(
     print(f"Embeddings: \n{app.predict(args.text)}")
 
 
-def main(is_test: bool = False, default_text=None):
+def main(is_test: bool = False, default_text: str | None = None) -> None:
     return nomic_embed_text_demo(NomicEmbedText, is_test, default_text)
 
 

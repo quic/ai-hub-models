@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import torchvision.models as tv_models
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.deeplab.model import DeepLabV3Model
 
@@ -19,7 +20,7 @@ class FCN_ResNet50(DeepLabV3Model):
     """Exportable FCNresNet50 image segmentation applications, end-to-end."""
 
     @classmethod
-    def from_pretrained(cls, weights: str = DEFAULT_WEIGHTS) -> FCN_ResNet50:
+    def from_pretrained(cls, weights: str = DEFAULT_WEIGHTS) -> Self:
         model = tv_models.segmentation.fcn_resnet50(weights=weights)
         model.aux_classifier = None
         return cls(model)

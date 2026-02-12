@@ -14,6 +14,7 @@ from mobile_sam.modeling.mask_decoder import MLP as SAMMaskDecoderMLP
 from mobile_sam.modeling.sam import Sam
 from mobile_sam.modeling.transformer import TwoWayAttentionBlock, TwoWayTransformer
 from mobile_sam.utils.onnx import SamOnnxModel
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.sam.model_patches import (
     Conv2DInplaceLinearSAMMaskDecoderMLP,
@@ -38,11 +39,11 @@ MODEL_ADDRESS = CachedWebModelAsset.from_asset_store(
 
 
 class MobileSAMEncoder(BaseModel):
-    def __init__(self, sam: Sam):
+    def __init__(self, sam: Sam) -> None:
         super().__init__()
         self.sam = sam
 
-    def forward(self, image: torch.Tensor):
+    def forward(self, image: torch.Tensor) -> torch.Tensor:
         x = self.sam.preprocess(image)
         return self.sam.image_encoder(x)
 
@@ -79,8 +80,8 @@ class MobileSAMEncoder(BaseModel):
         return ["image_embeddings"]
 
     @classmethod
-    def from_pretrained(cls, model_type: str = DEFAULT_MODEL_TYPE) -> MobileSAMEncoder:
-        return MobileSAMEncoder(MobileSAMLoader._load_sam_from_repo(model_type))
+    def from_pretrained(cls, model_type: str = DEFAULT_MODEL_TYPE) -> Self:
+        return cls(MobileSAMLoader._load_sam_from_repo(model_type))
 
 
 class MobileSAMDecoder(BaseModel):
@@ -92,7 +93,7 @@ class MobileSAMDecoder(BaseModel):
     framework itself.
     """
 
-    def __init__(self, sam: Sam, return_single_mask: bool):
+    def __init__(self, sam: Sam, return_single_mask: bool) -> None:
         super().__init__(sam)
         self.model: Sam
         self.embed_size = self.model.prompt_encoder.image_embedding_size
@@ -136,12 +137,11 @@ class MobileSAMDecoder(BaseModel):
 
         Returns
         -------
-        masks
+        masks : torch.Tensor
             Generated masks. Shape [1, k, 256, 256]
-        scores
+        scores : torch.Tensor
             Mask scores. Shape [1, k]
-
-        Where k = number of points
+            Note: k = number of points
         """
         sparse_embedding = SamOnnxModel._embed_points(self, point_coords, point_labels)
         dense_embedding = self._embed_masks(mask_input)
@@ -221,8 +221,13 @@ class MobileSAMDecoder(BaseModel):
         return ["masks", "scores"]
 
     @classmethod
-    def from_pretrained(cls, model_type: str = DEFAULT_MODEL_TYPE) -> MobileSAMDecoder:
-        return MobileSAMLoader.load(model_type, True)[2]
+    def from_pretrained(
+        cls, model_type: str = DEFAULT_MODEL_TYPE, single_mask_mode: bool = True
+    ) -> Self:
+        return cls(
+            MobileSAMLoader._load_sam_from_repo(model_type),
+            return_single_mask=single_mask_mode,
+        )
 
 
 class MobileSAMLoader:
@@ -289,7 +294,9 @@ class MobileSAMLoader:
 @CollectionModel.add_component(MobileSAMEncoder)
 @CollectionModel.add_component(MobileSAMDecoder)
 class MobileSAM(CollectionModel):
-    def __init__(self, sam: Sam, encoder: MobileSAMEncoder, decoder: MobileSAMDecoder):
+    def __init__(
+        self, sam: Sam, encoder: MobileSAMEncoder, decoder: MobileSAMDecoder
+    ) -> None:
         super().__init__(encoder, decoder)
         self.sam = sam
         self.encoder = encoder
@@ -298,5 +305,5 @@ class MobileSAM(CollectionModel):
     @classmethod
     def from_pretrained(
         cls, model_type: str = DEFAULT_MODEL_TYPE, single_mask_mode: bool = True
-    ) -> MobileSAM:
+    ) -> Self:
         return cls(*MobileSAMLoader.load(model_type, single_mask_mode))

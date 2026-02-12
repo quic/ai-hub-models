@@ -73,18 +73,18 @@ class CVT_GKTApp:
 
         Returns
         -------
-        images_tensor
+        images_tensor : torch.Tensor
             Pre-processed image tensor, shape [1, 6, 3, H, W].
-        intrinsics_tensor
+        intrinsics_tensor : torch.Tensor
             Intrinsics tensor mapping 2D pixel coordinates to 3D camera-space rays,
             shape [1, 6, 3, 3].
-        extrinsics_tensor
+        extrinsics_tensor : torch.Tensor
             Extrinsics tensor mapping world coordinates to camera coordinates,
             shape [1, 6, 4, 4].
-        inv_intrinsics_tensor
+        inv_intrinsics_tensor : torch.Tensor
             Inverse intrinsics tensor mapping 2D pixel coordinates to 3D camera-space
             rays, shape [1, 6, 3, 3].
-        inv_extrinsics_tensor
+        inv_extrinsics_tensor : torch.Tensor
             Inverse extrinsics tensor mapping world coordinates to camera coordinates,
             shape [1, 6, 4, 4].
         """
@@ -187,9 +187,9 @@ class CVT_GKTApp:
 
         Returns
         -------
-        x_viz
+        x_viz : np.ndarray
             Visualized heatmap with applied color.
-        opacity
+        opacity : np.ndarray
             Opacity mask for the heatmap.
         """
         c = self.color if c is None else c
@@ -226,7 +226,7 @@ class CVT_GKTApp:
 
         Returns
         -------
-        view_matrix
+        view_matrix : list[list[float]]
             3x3 view matrix for transforming coordinates.
         """
         sh = h / h_meters
@@ -245,7 +245,7 @@ class CVT_GKTApp:
 
         Returns
         -------
-        images
+        images : list[Image.Image]
             List of PIL Images (RGB) with heatmap and ego polygon.
         """
         bev = bev.detach().cpu()

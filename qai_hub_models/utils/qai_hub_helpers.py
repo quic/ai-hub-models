@@ -104,7 +104,7 @@ def export_torch_to_onnx_zip(
 
     Returns
     -------
-    exported_file_path
+    exported_file_path : str
         The path to the exported file (either a .onnx file, a .onnx.zip file,
         or a directory if skip_zip is True and model size is >2GB).
     """
@@ -277,7 +277,7 @@ def make_hub_dataset_entries(
 
     Returns
     -------
-    dataset_entries
+    dataset_entries : DatasetEntries
         Dataset entries in hub DatasetEntries format.
     """
     dataset = {}
@@ -342,7 +342,7 @@ def extract_job_options(job: hub.Job) -> dict[str, str | bool]:
 
     Returns
     -------
-    options
+    options : dict[str, str | bool]
         Dictionary of all options passed for this job.
 
     Examples
@@ -426,9 +426,9 @@ def get_device_and_chipset_name(device: hub.Device) -> tuple[str | None, str | N
 
     Returns
     -------
-    device_name
+    device_name : str | None
         Device name.
-    chipset_name
+    chipset_name : str | None
         Chipset name.
     """
     chipset = None

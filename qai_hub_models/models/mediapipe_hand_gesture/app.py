@@ -58,25 +58,44 @@ class MediaPipeHandGestureApp(MediaPipeApp):
             tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
         ],
         anchors: torch.Tensor,
+        hand_landmark_detector_includes_postprocessing: bool,
         palm_detector_input_spec: InputSpec,
         landmark_detector_input_spec: InputSpec,
         gesture_classifier: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
         min_detector_hand_box_score: float = 0.75,
         nms_iou_threshold: float = 0.3,
         min_landmark_score: float = 0.2,
-    ):
+    ) -> None:
         """
         Construct a mediapipe hand gesture application.
 
-        Inputs:
-            model: MediaPipeHandGesture model
-                palm detection,landmark  and gesture classifier model.
-
-        See parent initializer for further parameter documentation.
+        Parameters
+        ----------
+        palm_detector
+            Palm detection model callable.
+        hand_landmark_detector
+            Hand landmark detection model callable.
+        anchors
+            Detector anchors.
+        hand_landmark_detector_includes_postprocessing
+            Whether the hand landmark detector includes postprocessing.
+        palm_detector_input_spec
+            Input spec for palm detector.
+        landmark_detector_input_spec
+            Input spec for landmark detector.
+        gesture_classifier
+            Gesture classification model callable.
+        min_detector_hand_box_score
+            Minimum score threshold for hand box detection.
+        nms_iou_threshold
+            IoU threshold for non-maximum suppression.
+        min_landmark_score
+            Minimum score threshold for landmark detection.
         """
         super().__init__(
             palm_detector,
             anchors,
+            hand_landmark_detector_includes_postprocessing,
             hand_landmark_detector,
             cast(
                 tuple[int, int],
@@ -128,22 +147,23 @@ class MediaPipeHandGestureApp(MediaPipeApp):
 
         Returns
         -------
-        If raw_output is False, returns:
-        images
-            A list of predicted images (one for each batch),
-            with NHWC shape and RGB channel layout.
+        result : tuple[list[torch.Tensor], list[torch.Tensor], list[torch.Tensor], list[list[bool]]] | list[np.ndarray]
+            If raw_output is False, returns:
+            images
+                A list of predicted images (one for each batch),
+                with NHWC shape and RGB channel layout.
 
-        If raw_output is True, returns:
-        batched_selected_boxes
-            Selected object bounding box coordinates.
-        batched_selected_keypoints
-            Selected object bounding box keypoints.
-        batched_roi_4corners
-            Selected object region of interest corner coordinates.
-        batched_selected_landmarks
-            Selected landmarks.
-        batched_is_right_hand
-            Whether each landmark represents a right (True) or left (False) hand.
+            If raw_output is True, returns:
+            batched_selected_boxes
+                Selected object bounding box coordinates.
+            batched_selected_keypoints
+                Selected object bounding box keypoints.
+            batched_roi_4corners
+                Selected object region of interest corner coordinates.
+            batched_selected_landmarks
+                Selected landmarks.
+            batched_is_right_hand
+                Whether each landmark represents a right (True) or left (False) hand.
         """
         return super().predict_landmarks_from_image(pixel_values_or_image, raw_output)  # type: ignore[return-value]
 
@@ -156,14 +176,67 @@ class MediaPipeHandGestureApp(MediaPipeApp):
         batched_selected_landmarks: list[torch.Tensor],
         batched_is_right_hand: list[list[bool]],
         batched_gesture_labels: list[list[str]],
-    ):
+    ) -> None:
         """
-        Override of mediapipe::app.py::MediaPipeApp::draw_outputs
-        Also draws whether the detection is a right or left hand.
+        Override of mediapipe::app.py::MediaPipeApp::_draw_predictions.
+        Also draws whether the detection is a right or left hand and gesture label.
 
-        Additional inputs:
-            batched_is_right_hand:
-                True if the detection is a right hand, false if it's a left hand. None if no hand detected.
+        Parameters
+        ----------
+        NHWC_int_numpy_frames
+            List of numpy arrays of shape (H W C x uint8) -- RGB channel layout
+            Length of list is # of batches (the number of input images)
+
+        batched_selected_boxes
+            Selected object bounding box coordinates.
+            Empty tensor if batch had no bounding boxes with a score above the threshold.
+            Shape of each list element is [num_selected_boxes, 2, 2].
+                Layout is
+                    [[box_x1, box_y1],
+                        [box_x2, box_y2]]
+
+        batched_selected_keypoints
+            Selected object bounding box keypoints.
+            Empty tensor if batch had no bounding boxes with a score above the threshold.
+            Shape of each list element is [num_selected_boxes, # of keypoints, 2].
+                Layout is
+                    [[keypoint_0_x, keypoint_0_y],
+                        ...,
+                        [keypoint_max_x, keypoint_max_y]]
+
+        batched_roi_4corners
+            Selected object "region of interest" (region used as input to the landmark detector) corner coordinates.
+            Empty tensor if batch had no bounding boxes with a score above the threshold.
+            Shape of each list element is [num_selected_boxes, 4, 2], where 2 == (x, y)
+            The order of points is (top left point, bottom left point, top right point, bottom right point)
+
+        batched_selected_landmarks
+            Selected landmarks. Organized like the following:
+            [
+                # Batch 0 (for Input Image 0)
+                torch.Tensor([
+                    Selected Landmark 1 w/ shape (# of landmark points, 3)
+                    Selected Landmark 2 w/ shape (# of landmark points, 3)
+                    ...
+                ]),
+                # Batch 1 (for Input Image 1)
+                torch.Tensor([]) # (this image has no detected object)
+                ...
+            ]
+            The shape of each inner list element is [# of landmark points, 3],
+            where 3 == (X, Y, Conf)
+
+        batched_is_right_hand
+            True if the detection is a right hand, False if it's a left hand.
+            None if no hand detected.
+
+        batched_gesture_labels
+            Gesture classification labels for each detection.
+            Empty list if no hand detected.
+
+        Notes
+        -----
+        Drawing is done on input frame.
         """
         for batch_idx in range(len(NHWC_int_numpy_frames)):
             image = NHWC_int_numpy_frames[batch_idx]
@@ -180,7 +253,7 @@ class MediaPipeHandGestureApp(MediaPipeApp):
         is_right_hand: list[bool],
         gesture_labels: list[str],
         coords_normalized: bool = False,
-    ):
+    ) -> None:
         """
         Draw landmarks, overlay 'Left/Right: <gesture>' and gesture label near each hand on the image.
 
@@ -353,6 +426,7 @@ class MediaPipeHandGestureApp(MediaPipeApp):
             model.palm_detector,
             model.hand_landmark_detector,
             model.palm_detector.anchors,
+            model.palm_detector.include_postprocessing,
             model.palm_detector.get_input_spec(),
             model.hand_landmark_detector.get_input_spec(),
             model.gesture_classifier,

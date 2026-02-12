@@ -59,9 +59,9 @@ class CarvanaDataset(BaseDataset):
 
         Returns
         -------
-        image_tensor
+        image_tensor : torch.Tensor
             Normalized image tensor [C, H, W]
-        mask_tensor
+        mask_tensor : torch.Tensor
             Binary mask tensor [H, W] (0=background, 1=car)
         """
         orig_image = Image.open(self.images[index]).convert("RGB")

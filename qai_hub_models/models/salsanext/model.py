@@ -10,6 +10,7 @@ from typing import Any
 
 import torch
 from ruamel.yaml import YAML
+from typing_extensions import Self
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.semantic_kitti_evaluator import SemanticKittiEvaluator
@@ -55,7 +56,7 @@ class SalsaNext(BaseModel):
     """Exportable Salsanext segmentation end-to-end."""
 
     @classmethod
-    def from_pretrained(cls, weights_path: str | None = None) -> SalsaNext:
+    def from_pretrained(cls, weights_path: str | None = None) -> Self:
         """Load salsanext from a weightfile created by the source salsanext repository."""
         # Load PyTorch model from disk
         salsanext_model = _load_salsanext_source_model_from_weights(weights_path)

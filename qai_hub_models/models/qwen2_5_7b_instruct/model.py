@@ -9,11 +9,13 @@ import json
 import os
 import shutil
 from pathlib import Path
+from typing import Any, NoReturn
 
 from packaging.version import Version
 from qai_hub.client import Device
 from qai_hub.public_rest_api import DatasetEntries
 from transformers import AutoConfig, PretrainedConfig
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.llama.model import LlamaMixin
 from qai_hub_models.models._shared.llama3.model import Llama3Base
@@ -49,7 +51,7 @@ class Qwen2_5_7B_Instruct(LlamaMixin):
         huggingface_model_name: str,
         sequence_length: int,
         context_length: int,
-    ):
+    ) -> None:
         super().__init__(None, None)  # type: ignore[arg-type]
         self.huggingface_model_name = huggingface_model_name
         self.llm_config = self._llm_config()
@@ -69,7 +71,7 @@ class Qwen2_5_7B_Instruct(LlamaMixin):
         context_length: int = DEFAULT_CONTEXT_LENGTH,
         huggingface_model_name: str = HF_REPO_NAME,
         precision: Precision = Precision.w8a16,
-    ) -> Qwen2_5_7B_Instruct:
+    ) -> Self:
         return cls(
             sequence_length=sequence_length,
             context_length=context_length,
@@ -122,7 +124,7 @@ class Qwen2_5_7B_Instruct(LlamaMixin):
         )
         return str(output_dir)
 
-    def forward(self, *args, **kwargs):
+    def forward(self, *args: Any, **kwargs: Any) -> NoReturn:
         raise NotImplementedError(
             "This class does not instantiate a PyTorch model and cannot run forward."
         )
@@ -135,7 +137,7 @@ class Qwen2_5_7B_Instruct(LlamaMixin):
         return None
 
     @staticmethod
-    def get_output_names():
+    def get_output_names() -> list[str]:
         return Qwen2Base._get_output_names(NUM_LAYERS)
 
     @staticmethod
@@ -173,7 +175,7 @@ class Qwen2_5_7B_Instruct(LlamaMixin):
         options = super().get_hub_compile_options(
             target_runtime, precision, other_compile_options, device, context_graph_name
         )
-        return options + " --truncate_64bit_io --qnn_bin_conversion_via_model_library"
+        return options + " --truncate_64bit_io"
 
     def _adapt_aimet_encodings(
         self, src_encodings_path: str, dst_encodings_path: str, onnx_model_path: str

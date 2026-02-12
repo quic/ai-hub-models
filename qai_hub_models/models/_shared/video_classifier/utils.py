@@ -22,7 +22,7 @@ def normalize(video: torch.Tensor) -> torch.Tensor:
 
     Returns
     -------
-    normalized_video
+    normalized_video : torch.Tensor
         Video is normalized to have values between 0-1
         and transposed so the shape is Channel x Number of frames x HW.
     """
@@ -42,7 +42,7 @@ def sample_video(video: torch.Tensor, num_frames: int) -> torch.Tensor:
 
     Returns
     -------
-    sampled_video
+    sampled_video : torch.Tensor
         Video tensor sampled to the appropriate number of frames.
     """
     frame_rate = video.shape[0] // num_frames
@@ -62,7 +62,7 @@ def resize(video: torch.Tensor, size: tuple[int, int]) -> torch.Tensor:
 
     Returns
     -------
-    resized_video
+    resized_video : torch.Tensor
         Resized video is returned.
         Selected settings for resize were recommended.
     """
@@ -84,7 +84,7 @@ def crop(video: torch.Tensor, output_size: tuple[int, int]) -> torch.Tensor:
 
     Returns
     -------
-    cropped_video
+    cropped_video : torch.Tensor
         Center cropped based on the output size.
     """
     h, w = video.shape[-2:]
@@ -111,7 +111,7 @@ def normalize_base(
 
     Returns
     -------
-    normalized_video
+    normalized_video : torch.Tensor
         Normalized based on provided mean and scale.
         The operation is done per channel.
     """
@@ -132,7 +132,7 @@ def read_video_per_second(path: str) -> torch.Tensor:
 
     Returns
     -------
-    video_tensor
+    video_tensor : torch.Tensor
         Reads video from path and converts to torch tensor.
     """
     input_video, _, _ = torchvision.io.read_video(path, pts_unit="sec")
@@ -154,7 +154,7 @@ def preprocess_video_kinetics_400(input_video: torch.Tensor) -> torch.Tensor:
 
     Returns
     -------
-    preprocessed_video
+    preprocessed_video : torch.Tensor
         Normalized, resized, cropped and normalized by channel for input model.
     """
     input_video = normalize(input_video)
@@ -177,7 +177,7 @@ def preprocess_video_224(input_video: torch.Tensor) -> torch.Tensor:
 
     Returns
     -------
-    preprocessed_video
+    preprocessed_video : torch.Tensor
         Normalized, resized, cropped and normalized by channel for input model.
     """
     input_video = normalize(input_video)
@@ -197,7 +197,7 @@ def get_class_name_kinetics_400() -> list[str]:
 
     Returns
     -------
-    class_names
+    class_names : list[str]
         List of class names for Kinetics-400 dataset.
     """
     labels_path = QAIHM_PACKAGE_ROOT / "labels" / "kinetics400_labels.txt"

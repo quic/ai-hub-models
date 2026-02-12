@@ -20,7 +20,7 @@ from qai_hub_models.utils.asset_loaders import load_path, qaihm_temp_dir
 # Run YamNetApp end-to-end on a sample audio.
 # The demo will display top 5 classification predictions for the audio.
 #
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     # Demo parameters
     parser = get_model_cli_parser(YamNet)
     parser = get_on_device_demo_parser(parser, add_output_dir=False)

@@ -165,10 +165,10 @@ def get_final_preds(
 
     Returns
     -------
-    preds
+    preds : np.ndarray
         Final prediction based on keypoints after post process and transform,
         the shape is [batch_size, num_keypoints, 2].
-    maxval
+    maxval : np.ndarray
         Score for each prediction, the shape is [batch_size, num_keypoints, 1].
     """
     coords, maxvals = get_max_preds(batch_heatmaps)
@@ -216,10 +216,10 @@ def get_max_preds(batch_heatmaps: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
     Returns
     -------
-    preds
+    preds : np.ndarray
         Final prediction based on keypoints,
         the shape is [batch_size, num_keypoints, 2].
-    maxval
+    maxval : np.ndarray
         Score for each prediction,
         the shape is [batch_size, num_keypoints, 1].
     """

@@ -5,7 +5,9 @@
 
 from __future__ import annotations
 
-import torch
+from typing import cast
+
+from PIL.Image import Image
 
 from qai_hub_models.models.gkt.app import GKTApp
 from qai_hub_models.models.gkt.model import GKT, MODEL_ASSET_VERSION, MODEL_ID
@@ -55,7 +57,7 @@ def gkt_demo(
     cameras: dict[str, CachedWebModelAsset],
     cam_metadata: CachedWebModelAsset,
     is_test: bool = False,
-):
+) -> list[Image]:
     parser = get_model_cli_parser(model_type)
     parser = get_on_device_demo_parser(parser)
     add_output_dir_arg(parser)
@@ -75,7 +77,10 @@ def gkt_demo(
         target_height=h,
         target_width=w,
     )
-    maps = app.predict_from_images(images, camera_metadata, raw_output=is_test)
+    maps = cast(
+        list[Image],
+        app.predict_from_images(images, camera_metadata, raw_output=is_test),
+    )
 
     if not is_test:
         for i, img in enumerate(maps):
@@ -83,8 +88,8 @@ def gkt_demo(
     return maps
 
 
-def main(is_test: bool = False) -> torch.Tensor | None:
-    return gkt_demo(GKT, MODEL_ID, CAMERAS, CAM_METADATA, is_test)
+def main(is_test: bool = False) -> None:
+    gkt_demo(GKT, MODEL_ID, CAMERAS, CAM_METADATA, is_test)
 
 
 if __name__ == "__main__":

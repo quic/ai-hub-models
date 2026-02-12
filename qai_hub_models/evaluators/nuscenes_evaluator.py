@@ -97,7 +97,9 @@ class NuscenesObjectDetectionEvaluator(BaseEvaluator):
     ) -> None:
         self.reset()
         self.bbox_coder = bbox_coder
-        self.nusc = NuscenesDataset().nusc
+        nuscenes_dataset = NuscenesDataset()
+        self.nusc = nuscenes_dataset.nusc
+        self.id_to_token = nuscenes_dataset.id_to_token
         self.nms_threshold = nms_threshold
         self.nms_post_max_size = nms_post_max_size
         self.movement_threshold = movement_threshold
@@ -170,7 +172,7 @@ class NuscenesObjectDetectionEvaluator(BaseEvaluator):
 
         result_list = self.get_bboxes(reg, height, dim, rot, vel, heatmap)
         for i in range(len(ids)):
-            sample_id = ids[i]
+            sample_token = self.id_to_token[int(ids[i].item())]
             boxes_pt, scores_pt, labels_pt = result_list[i]
             boxes = boxes_pt.numpy()
             scores = scores_pt.numpy()
@@ -199,7 +201,7 @@ class NuscenesObjectDetectionEvaluator(BaseEvaluator):
                 else:
                     attr = self.NotMovingAttribute[name]
                 nusc_anno = NuscenesAnnotation(
-                    sample_token=str(sample_id),
+                    sample_token=str(sample_token),
                     translation=nusc_box.center.tolist(),
                     size=nusc_box.wlh.tolist(),
                     rotation=nusc_box.orientation.elements.tolist(),
@@ -210,10 +212,10 @@ class NuscenesObjectDetectionEvaluator(BaseEvaluator):
                 )
                 annos.append(nusc_anno.__dict__)
             # other cams results of the same frame should be concatenated
-            if sample_id[i] in self.nusc_annos:
-                self.nusc_annos[sample_id[i]].extend(annos)
+            if sample_token in self.nusc_annos:
+                self.nusc_annos[sample_token].extend(annos)
             else:
-                self.nusc_annos[sample_id[i]] = annos
+                self.nusc_annos[sample_token] = annos
 
     def get_bboxes(
         self,
@@ -296,9 +298,9 @@ class NuscenesObjectDetectionEvaluator(BaseEvaluator):
 
         Returns
         -------
-        mAP
+        mAP : float
             Mean Average Precision value.
-        NDS
+        NDS : float
             NuScenes Detection Score.
         """
         cfg = config_factory("detection_cvpr_2019")

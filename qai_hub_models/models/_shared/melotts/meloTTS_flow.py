@@ -124,7 +124,7 @@ class OptimizedFlow:
 
         Returns
         -------
-        x
+        x : Tensor
             shape of (1, ENCODER_HIDDEN_DIM, DECODER_Z_TIME_DIM)
         """
         if not reverse:

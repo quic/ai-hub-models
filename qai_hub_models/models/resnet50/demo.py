@@ -7,7 +7,7 @@ from qai_hub_models.models._shared.imagenet_classifier.demo import imagenet_demo
 from qai_hub_models.models.resnet50.model import MODEL_ID, ResNet50
 
 
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     imagenet_demo(ResNet50, MODEL_ID, is_test)
 
 

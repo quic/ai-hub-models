@@ -18,6 +18,7 @@ from qai_hub_models.models.common import (
     Precision,
     QAIRTVersion,
     TargetRuntime,
+    _FloatDtype,
 )
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
 
@@ -72,27 +73,27 @@ def reset_hub_frameworks_patches(
 
 
 def test_precision_has_float() -> None:
+    # Standard precisions
     assert not Precision.float.has_quantized_activations
     assert Precision.float.has_float_activations
-    assert Precision.float.has_float_weights
     assert Precision.w8a8.has_quantized_activations
     assert not Precision.w8a8.has_float_activations
-    assert not Precision.w8a8.has_float_weights
     assert Precision.w8a8_mixed_int16.has_quantized_activations
     assert not Precision.w8a8_mixed_int16.has_float_activations
-    assert not Precision.w8a8_mixed_int16.has_float_weights
     assert Precision.w8a16_mixed_int16.has_quantized_activations
     assert not Precision.w8a16_mixed_int16.has_float_activations
-    assert not Precision.w8a16_mixed_int16.has_float_weights
-    assert Precision.w8a8_mixed_fp16.has_float_weights
     assert Precision.w8a8_mixed_fp16.has_float_activations
     assert Precision.w8a8_mixed_fp16.has_quantized_activations
-    assert Precision.w8a16_mixed_fp16.has_float_weights
     assert Precision.w8a16_mixed_fp16.has_float_activations
     assert Precision.w8a16_mixed_fp16.has_quantized_activations
+    assert not Precision.mixed.has_float_activations
+    assert Precision.mixed.has_quantized_activations
+    assert Precision.mixed_with_float.has_float_activations
+    assert Precision.mixed.has_quantized_activations
 
 
 def test_precision_eq() -> None:
+    # Standard precisions
     assert Precision.float == Precision.float
     assert Precision.float == Precision(None, None)
     assert Precision.float != Precision.w8a8
@@ -109,8 +110,19 @@ def test_precision_eq() -> None:
     assert Precision.w8a8_mixed_int16 != Precision.w8a8
     assert Precision.w8a16_mixed_int16 != Precision.w8a16
 
+    # Mixed precisions
+    assert Precision.mixed == Precision(None, None, _custom_name="mixed")
+    assert Precision.mixed == Precision.mixed
+    assert Precision.mixed != Precision.mixed_with_float
+    assert Precision.mixed_with_float == Precision(
+        None, None, _custom_name="mixed_with_float"
+    )
+    assert Precision.mixed_with_float == Precision.mixed_with_float
+    assert Precision.mixed_with_float != Precision.w8a8
+
 
 def test_precision_parse_serialize() -> None:
+    # Standard precisions serialization
     assert str(Precision.float) == "float"
     assert str(Precision.w8a8) == "w8a8"
     assert str(Precision.w8a16) == "w8a16"
@@ -118,7 +130,9 @@ def test_precision_parse_serialize() -> None:
     assert str(Precision.w8a16_mixed_int16) == "w8a16_mixed_int16"
     assert str(Precision.w8a8_mixed_fp16) == "w8a8_mixed_fp16"
     assert str(Precision.w8a16_mixed_fp16) == "w8a16_mixed_fp16"
+    assert str(Precision.mxfp4) == "mxfp4"
 
+    # Standard precisions parsing
     assert Precision.parse("float") == Precision.float
     assert Precision.parse("w8a8") == Precision.w8a8
     assert Precision.parse("a8w8") == Precision.w8a8
@@ -133,12 +147,17 @@ def test_precision_parse_serialize() -> None:
     assert Precision.parse("a8w8_mixed_fp16") == Precision.w8a8_mixed_fp16
     assert Precision.parse("w8a16_mixed_fp16") == Precision.w8a16_mixed_fp16
     assert Precision.parse("a16w8_mixed_fp16") == Precision.w8a16_mixed_fp16
+    assert Precision.parse("mxfp4") == Precision.mxfp4
 
     assert Precision.parse("w4") == Precision(QuantizeDtype.INT4, None)
     assert str(Precision.parse("w4")) == "w4"
 
     assert Precision.parse("a16") == Precision(None, QuantizeDtype.INT16)
     assert str(Precision.parse("a16")) == "a16"
+
+    # Variable precision parsing
+    assert Precision.parse("mixed") == Precision.mixed
+    assert Precision.parse("mixed_with_float") == Precision.mixed_with_float
 
     # Invalid bit width
     with pytest.raises(
@@ -150,11 +169,31 @@ def test_precision_parse_serialize() -> None:
     ):
         Precision.parse("w8a24_mixed_int16")
     # Invalid override precision dtype
-    with pytest.raises(ValueError, match=r"Invalid override type INT8"):
+    with pytest.raises(ValueError, match=r"Invalid override type 'int8'"):
         Precision.parse("w8a8_mixed_int8")
     # Invalid override type
     with pytest.raises(ValueError, match=r"Invalid override_type: QuantizeDtype.INT8"):
         Precision(QuantizeDtype.INT8, QuantizeDtype.INT8, QuantizeDtype.INT8)
+
+
+def test_precision_pydantic_roundtrip() -> None:
+    # Verifies that precision values are roundtripped to and from config files correctly.
+
+    class PrecisionConfig(BaseQAIHMConfig):
+        precision: Precision
+
+    # Test standard precisions
+    for prec in [Precision.float, Precision.w8a8, Precision.w8a16, Precision.mxfp4]:
+        config = PrecisionConfig(precision=prec)
+        roundtripped = PrecisionConfig.model_validate_json(config.model_dump_json())
+        assert roundtripped.precision == prec, f"Roundtrip failed for {prec}"
+
+    # Test mxfp4 specifically (custom name precision)
+    mxfp4_config = PrecisionConfig(precision=Precision.mxfp4)
+    json_str = mxfp4_config.model_dump_json()
+    assert "mxfp4" in json_str
+    roundtripped_mxfp4 = PrecisionConfig.model_validate_json(json_str)
+    assert roundtripped_mxfp4.precision == Precision.mxfp4
 
 
 def test_qairt_version() -> None:
@@ -358,3 +397,114 @@ def test_qairt_version_pydantic_roundtrip() -> None:
         ).version
         == partial_version
     )
+
+
+def test_precision_parse_override_type() -> None:
+    # Valid override types
+    assert Precision._parse_override_type("int16") == QuantizeDtype.INT16
+    assert Precision._parse_override_type("INT16") == QuantizeDtype.INT16
+    assert Precision._parse_override_type("fp16") == _FloatDtype.FP16
+    assert Precision._parse_override_type("FP16") == _FloatDtype.FP16
+
+    # None input returns None
+    assert Precision._parse_override_type(None) is None
+
+    # Invalid override types
+    with pytest.raises(ValueError, match=r"Invalid override type 'int8'"):
+        Precision._parse_override_type("int8")
+    with pytest.raises(ValueError, match=r"Invalid override type 'int32'"):
+        Precision._parse_override_type("int32")
+    with pytest.raises(ValueError, match=r"Invalid override type 'invalid'"):
+        Precision._parse_override_type("invalid")
+
+
+def test_precision_get_hub_quantize_options() -> None:
+    # w8a8 returns empty string (uses default mse_minimizer)
+    assert Precision.w8a8.get_hub_quantize_options() == ""
+
+    # w8a16 returns range_scheme min_max
+    assert Precision.w8a16.get_hub_quantize_options() == "--range_scheme min_max"
+
+    # w4a16 returns empty string (no special options)
+    assert Precision.w4a16.get_hub_quantize_options() == ""
+
+    # Mixed precision with int16 override
+    assert Precision.w8a8_mixed_int16.get_hub_quantize_options(10.0) == (
+        "--range_scheme min_max --lite_mp percentage=10.0;override_qtype=int16"
+    )
+    assert Precision.w8a16_mixed_int16.get_hub_quantize_options(15.5) == (
+        "--range_scheme min_max --lite_mp percentage=15.5;override_qtype=int16"
+    )
+
+    # Mixed precision with fp16 override
+    assert Precision.w8a8_mixed_fp16.get_hub_quantize_options(20.0) == (
+        "--range_scheme min_max --lite_mp percentage=20.0;override_qtype=fp16"
+    )
+    assert Precision.w8a16_mixed_fp16.get_hub_quantize_options(25.0) == (
+        "--range_scheme min_max --lite_mp percentage=25.0;override_qtype=fp16"
+    )
+
+    # Mixed precision without litemp_percentage raises error
+    with pytest.raises(
+        ValueError, match=r"litemp_percentage is required for mixed precision"
+    ):
+        Precision.w8a8_mixed_int16.get_hub_quantize_options()
+    with pytest.raises(
+        ValueError, match=r"litemp_percentage is required for mixed precision"
+    ):
+        Precision.w8a8_mixed_fp16.get_hub_quantize_options()
+
+
+def test_precision_from_quantize_job() -> None:
+    # Create a mock QuantizeJob
+    mock_job = mock.MagicMock()
+
+    # Test w8a8 precision (no override)
+    mock_job.weights_dtype = QuantizeDtype.INT8
+    mock_job.activations_dtype = QuantizeDtype.INT8
+    mock_job.options = ""
+    assert Precision.from_quantize_job(mock_job) == Precision.w8a8
+
+    # Test w8a16 precision (no override)
+    mock_job.weights_dtype = QuantizeDtype.INT8
+    mock_job.activations_dtype = QuantizeDtype.INT16
+    mock_job.options = ""
+    assert Precision.from_quantize_job(mock_job) == Precision.w8a16
+
+    # Test w8a8 with int16 override
+    mock_job.weights_dtype = QuantizeDtype.INT8
+    mock_job.activations_dtype = QuantizeDtype.INT8
+    mock_job.options = "--lite_mp percentage=10;override_qtype=int16"
+    assert Precision.from_quantize_job(mock_job) == Precision.w8a8_mixed_int16
+
+    # Test w8a16 with int16 override
+    mock_job.weights_dtype = QuantizeDtype.INT8
+    mock_job.activations_dtype = QuantizeDtype.INT16
+    mock_job.options = (
+        "--range_scheme min_max --lite_mp percentage=15;override_qtype=int16"
+    )
+    assert Precision.from_quantize_job(mock_job) == Precision.w8a16_mixed_int16
+
+    # Test w8a8 with fp16 override
+    mock_job.weights_dtype = QuantizeDtype.INT8
+    mock_job.activations_dtype = QuantizeDtype.INT8
+    mock_job.options = "--lite_mp percentage=20;override_qtype=fp16"
+    assert Precision.from_quantize_job(mock_job) == Precision.w8a8_mixed_fp16
+
+    # Test w8a16 with fp16 override
+    mock_job.weights_dtype = QuantizeDtype.INT8
+    mock_job.activations_dtype = QuantizeDtype.INT16
+    mock_job.options = "--lite_mp percentage=25;override_qtype=fp16"
+    assert Precision.from_quantize_job(mock_job) == Precision.w8a16_mixed_fp16
+
+    # Test w4a16 precision
+    mock_job.weights_dtype = QuantizeDtype.INT4
+    mock_job.activations_dtype = QuantizeDtype.INT16
+    mock_job.options = ""
+    assert Precision.from_quantize_job(mock_job) == Precision.w4a16
+
+    # Test override_qtype with uppercase (regex should still match)
+    mock_job.weights_dtype = QuantizeDtype.INT8
+    mock_job.activations_dtype = QuantizeDtype.INT8
+    mock_job.options = "--lite_mp override_qtype=INT16"
+    assert Precision.from_quantize_job(mock_job) == Precision.w8a8_mixed_int16

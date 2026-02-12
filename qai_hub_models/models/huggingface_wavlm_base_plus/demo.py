@@ -23,7 +23,7 @@ from qai_hub_models.utils.asset_loaders import load_numpy
 
 # Run HuggingFace WavLM on a sample audio input, and produce
 # a feature vector from the audio. The feature vector will be printed to terminal
-def demo_main(is_test: bool = False):
+def demo_main(is_test: bool = False) -> None:
     parser = get_model_cli_parser(HuggingFaceWavLMBasePlus)
     parser = get_on_device_demo_parser(parser, add_output_dir=True)
     parser.add_argument(

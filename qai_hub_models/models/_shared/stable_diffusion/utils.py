@@ -48,7 +48,7 @@ def clip_extreme_values(
 
     Returns
     -------
-    modified_model
+    modified_model : onnx.ModelProto
         The modified ONNX model with extreme values clipped.
     """
     extreme_value_threshold_np = np.float32(extreme_value_threshold)
@@ -210,10 +210,10 @@ def load_calib_tokens(
 
     Returns
     -------
-    tokens
+    tokens : list[torch.Tensor]
         List of length `num_samples` (500 if None) of torch.Tensor(int32)
         representing conditional tokens.
-    uncond_tokens
+    uncond_tokens : torch.Tensor
         torch.Tensor(int32) of shape (1, 77) representing unconditional
         tokens (padding).
     """
@@ -295,10 +295,10 @@ def run_tokenizer(
 
     Returns
     -------
-    cond_tokens
+    cond_tokens : torch.Tensor
         Conditional token ids as int32 torch.Tensor of shape
         [1, tokenizer.model_max_length].
-    uncond_tokens
+    uncond_tokens : torch.Tensor
         Unconditional token ids as int32 torch.Tensor of shape
         [1, tokenizer.model_max_length].
     """
@@ -337,7 +337,7 @@ def count_op_type(model: onnx.ModelProto, op_type: str) -> int:
 
     Returns
     -------
-    count
+    count : int
         The number of nodes in the model whose op_type matches the given string.
     """
     return sum(1 for node in model.graph.node if node.op_type == op_type)

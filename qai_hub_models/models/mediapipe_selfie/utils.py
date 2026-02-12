@@ -4,51 +4,64 @@
 # ---------------------------------------------------------------------
 
 # Source: https://github.com/hollance/BlazeFace-PyTorch/blob/master/Convert.ipynb
-from collections import OrderedDict
 
 import numpy as np
 import torch
+from tflite import Model, SubGraph, Tensor
 
 
-def get_shape(tensor):
+def get_shape(tensor: Tensor) -> list[int]:
     """Get shape for a TFLIte tensor."""
     return [tensor.Shape(i) for i in range(tensor.ShapeLength())]
 
 
-def get_parameters(graph):
+def get_parameters(graph: SubGraph) -> dict[str, int]:
     """Get parameters for a TFLite graph."""
-    parameters = {}
+    parameters: dict[str, int] = {}
     for i in range(graph.TensorsLength()):
         tensor = graph.Tensors(i)
-        if tensor.Buffer() > 0:
-            name = tensor.Name().decode("utf8")
-            parameters[name] = tensor.Buffer()
+        if tensor is not None and tensor.Buffer() > 0:
+            name_bytes = tensor.Name()
+            if name_bytes is not None:
+                name = name_bytes.decode("utf8")
+                parameters[name] = tensor.Buffer()
     return parameters
 
 
-def get_weights(model, graph, tensor_dict, tensor_name):
+def get_weights(
+    model: Model, graph: SubGraph, tensor_dict: dict[str, int], tensor_name: str
+) -> np.ndarray:
     """Get weights using tensor name."""
     i = tensor_dict[tensor_name]
     tensor = graph.Tensors(i)
+    assert tensor is not None
     buffer = tensor.Buffer()
     shape = get_shape(tensor)
     assert tensor.Type() == 1
-    W = model.Buffers(buffer).DataAsNumpy()
+    buffer_data = model.Buffers(buffer)
+    assert buffer_data is not None
+    W = buffer_data.DataAsNumpy()
     W = W.view(dtype=np.float16)
     return W.reshape(shape)
 
 
-def get_probable_names(graph):
+def get_probable_names(graph: SubGraph) -> list[str]:
     """Get the probable names for nodes in a graph."""
     probable_names = []
     for i in range(graph.TensorsLength()):
         tensor = graph.Tensors(i)
-        if tensor.Buffer() > 0 and (tensor.Type() == 0 or tensor.Type() == 1):
-            probable_names.append(tensor.Name().decode("utf-8"))
+        if (
+            tensor is not None
+            and tensor.Buffer() > 0
+            and (tensor.Type() == 0 or tensor.Type() == 1)
+        ):
+            name_bytes = tensor.Name()
+            if name_bytes is not None:
+                probable_names.append(name_bytes.decode("utf-8"))
     return probable_names
 
 
-def get_convert(net, probable_names):
+def get_convert(net: torch.nn.Module, probable_names: list[str]) -> dict[str, str]:
     """Convert state dict using probable node names."""
     convert = {}
     for i, name in enumerate(net.state_dict()):
@@ -56,13 +69,19 @@ def get_convert(net, probable_names):
     return convert
 
 
-def build_state_dict(model, graph, tensor_dict, net, convert):
+def build_state_dict(
+    model: Model,
+    graph: SubGraph,
+    tensor_dict: dict[str, int],
+    net: torch.nn.Module,
+    convert: dict[str, str],
+) -> dict[str, torch.Tensor]:
     """
     Building the state dict for PyTorch graph. A few layers
     will need their weights to be transformed like Convolutions
     and Depthwise Convolutions.
     """
-    new_state_dict = OrderedDict()
+    new_state_dict: dict[str, torch.Tensor] = {}
     for dst, src in convert.items():
         W = get_weights(model, graph, tensor_dict, src)
         if W.ndim == 4:

@@ -9,6 +9,7 @@ from importlib import reload
 from pathlib import Path
 
 import torch
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.cityscapes_segmentation.model import (
     CityscapesSegmentor,
@@ -30,7 +31,7 @@ class PidNet(CityscapesSegmentor):
     """Exportable PidNet segmentation end-to-end."""
 
     @classmethod
-    def from_pretrained(cls, weights_path: str | None = None) -> PidNet:
+    def from_pretrained(cls, weights_path: str | None = None) -> Self:
         """Load pidnet from a weightfile created by the source pidnet repository."""
         # Load PyTorch model from disk
         pidnet_model = _load_pidnet_source_model_from_weights(weights_path)

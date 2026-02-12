@@ -15,6 +15,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from qai_hub_models.configs.tool_versions import ToolVersions
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
 
 if TYPE_CHECKING:
@@ -65,7 +66,8 @@ class ModelFileMetadata(BaseQAIHMConfig):
 
         Returns
         -------
-        Created model file metadata
+        metadata: ModelFileMetadata
+            Created model file metadata
         """
         inputs = {}
         outputs = {}
@@ -139,9 +141,19 @@ class ModelMetadata(BaseQAIHMConfig):
     making it clear what each metadata entry corresponds to in the exported files.
 
     This is the class that gets saved to disk as metadata.yaml.
+
+    Attributes
+    ----------
+    model_files
+        Dictionary mapping model file names to their metadata (I/O specs, quantization params).
+    tool_versions
+        ToolVersions object containing version information for tools used to compile/export the model.
+        Includes fields like tflite, onnx, onnx_runtime, qairt, and ai_hub_models versions.
+        None if tool version information is not available.
     """
 
     model_files: dict[str, ModelFileMetadata]
+    tool_versions: ToolVersions | None = None
 
     def to_yaml(
         self,

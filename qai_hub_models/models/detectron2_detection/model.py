@@ -5,9 +5,12 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import torch
 from detectron2.modeling import GeneralizedRCNN
 from torch.nn import functional as F
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.detectron2.model import Detectron2
 from qai_hub_models.models.common import Precision
@@ -41,11 +44,11 @@ class Detectron2ProposalGenerator(Detectron2):
 
         Returns
         -------
-        feature
+        feature : torch.Tensor
             The "res4" feature map from backbone with shape (B, 1024, H//16, W//16)
-        proposal
+        proposal : torch.Tensor
             The proposals for image, with shape (B, num_proposals, 4) in xyxy format.
-        objectness_logits
+        objectness_logits : torch.Tensor
             The objectness logits for image, with shape (B, num_proposals,)
         """
         # Detectron2 RCNN:
@@ -116,11 +119,11 @@ class Detectron2ROIHead(Detectron2):
 
         Returns
         -------
-        boxes
+        boxes : torch.Tensor
             A tensor of shape (1, num_proposals, 4)  in xyxy format containing the predicted boxes.
-        scores
+        scores : torch.Tensor
             A tensor of shape (1, num_proposals) containing the scores for each box.
-        classes
+        classes : torch.Tensor
             A tensor of shape (1, num_proposals) containing the labels for each box.
         """
         # Detectron2 ROI heads:
@@ -186,7 +189,7 @@ class Detectron2ROIHead(Detectron2):
         target_runtime: TargetRuntime,
         precision: Precision,
         other_compile_options: str = "",
-        device=None,
+        device: Any = None,
     ) -> str:
         compile_options = super().get_hub_compile_options(
             target_runtime, precision, other_compile_options, device
@@ -210,7 +213,7 @@ class Detectron2Detection(CollectionModel):
         self.roi_head = roi_head
 
     @classmethod
-    def from_pretrained(cls, config: str = DEFAULT_CONFIG) -> Detectron2Detection:
+    def from_pretrained(cls, config: str = DEFAULT_CONFIG) -> Self:
         return cls(
             Detectron2ProposalGenerator.from_pretrained(config),
             Detectron2ROIHead.from_pretrained(config),

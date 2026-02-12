@@ -61,7 +61,7 @@ class AudioSetOutputEvaluator(BaseEvaluator):
 
         Returns
         -------
-        mAP_score
+        mAP_score : float
             mAP score.
         """
         aggregated_preds = []

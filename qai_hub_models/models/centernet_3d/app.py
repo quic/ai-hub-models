@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 import torch
@@ -93,7 +94,9 @@ class CenterNet3DApp:
             dtype=np.float32,
         )
 
-    def predict(self, *args, **kwargs):
+    def predict(
+        self, *args: Any, **kwargs: Any
+    ) -> np.ndarray | tuple[Image.Image, Image.Image]:
         # See predict_3d_boxes_from_image.
         return self.predict_3d_boxes_from_image(*args, **kwargs)
 
@@ -114,7 +117,7 @@ class CenterNet3DApp:
 
         Returns
         -------
-        detections_or_images
+        detections_or_images : np.ndarray | tuple[Image.Image, Image.Image]
             If raw_output is True:
                 dets with shape (1, max_dets, 3)
             Otherwise:

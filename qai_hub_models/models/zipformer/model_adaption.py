@@ -4,6 +4,7 @@
 # ---------------------------------------------------------------------
 import os
 import sys
+from typing import Any
 
 import numpy as np
 import torch
@@ -48,7 +49,7 @@ class QcRelPositionMultiheadAttention(nn.Module):
     Main changes: replace nn.functional.linear with nn.Linear and torch.cat optimization.
     """
 
-    def __init__(self, orig_module: RelPositionMultiheadAttention):
+    def __init__(self, orig_module: RelPositionMultiheadAttention) -> None:
         super().__init__()
         self.embed_dim = orig_module.embed_dim
         self.attention_dim = orig_module.attention_dim
@@ -236,7 +237,7 @@ class QcConvolutionModule(nn.Module):
     Main changes: 1D conv -> 2D conv and torch.cat optimization.
     """
 
-    def __init__(self, orig_module: ConvolutionModule):
+    def __init__(self, orig_module: ConvolutionModule) -> None:
         super().__init__()
         self.deriv_balancer1 = orig_module.deriv_balancer1
         self.lorder = orig_module.lorder
@@ -340,7 +341,7 @@ class QcAttentionDownsample(nn.Module):
     Main changes: replace sum operations with manual loops.
     """
 
-    def __init__(self, orig_module: AttentionDownsample):
+    def __init__(self, orig_module: AttentionDownsample) -> None:
         super().__init__()
         self.query = orig_module.query
         self.downsample = orig_module.downsample
@@ -409,7 +410,7 @@ class DualInt8LinearConv(nn.Module):
     - Expects 4D input tensors (N, C, 1, 1) for compatibility with Conv2DWrapper
     """
 
-    def __init__(self, in_features: int, out_features: int, bias: bool = True):
+    def __init__(self, in_features: int, out_features: int, bias: bool = True) -> None:
         super().__init__()
         self.in_features = in_features
         self.out_features = out_features
@@ -445,7 +446,9 @@ class DualInt8LinearConv(nn.Module):
         self.qmin_x = -(2 ** (16 - 1))  # -32768
         self.qmax_x = (2 ** (16 - 1)) - 1  # 32767
 
-    def _quantize_act_int16(self, x2d: torch.Tensor):
+    def _quantize_act_int16(
+        self, x2d: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # Use softplus instead of clamp to avoid hard threshold errors
         amax = torch.amax(torch.abs(x2d), dim=1, keepdim=True)
         safe_amax = torch.nn.functional.softplus(amax)  # Smooth to avoid zero
@@ -474,7 +477,9 @@ class DualInt8LinearConv(nn.Module):
         return y  # Return 4D output
 
     @torch.no_grad()
-    def prepare_from_weight(self, weight_4d: torch.Tensor, bias_1d=None):
+    def prepare_from_weight(
+        self, weight_4d: torch.Tensor, bias_1d: torch.Tensor | None = None
+    ) -> None:
         Cout, Cin, kh, kw = weight_4d.shape
         assert kh == 1 and kw == 1
         assert Cin == self.in_features and Cout == self.out_features
@@ -512,8 +517,12 @@ class Conv2DWrapper(nn.Module):
     """Unified wrapper to replace nn.Linear with either nn.Conv2d or DualInt8LinearConv."""
 
     def __init__(
-        self, in_features, out_features, bias=True, quantization_friendly=False
-    ):
+        self,
+        in_features: int,
+        out_features: int,
+        bias: bool = True,
+        quantization_friendly: bool = False,
+    ) -> None:
         super().__init__()
         self.in_features = in_features
         self.out_features = out_features
@@ -532,7 +541,7 @@ class Conv2DWrapper(nn.Module):
         )
 
     @torch.no_grad()
-    def prepare_from_linear(self, linear: nn.Linear):
+    def prepare_from_linear(self, linear: nn.Linear) -> None:
         """Sync weights from nn.Linear to conv layer."""
         assert (
             linear.in_features == self.in_features
@@ -552,7 +561,7 @@ class Conv2DWrapper(nn.Module):
         if linear.bias is not None:
             self.linear_conv.bias = linear.bias
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
         if x.dim() == 2:
             x = x.reshape(x.size(0), x.size(1), 1, 1)
             x = self.linear_conv(x)
@@ -567,7 +576,7 @@ class Conv2DWrapper(nn.Module):
 
 
 class DummyPositionalEncoding(nn.Module):
-    def forward(self, src: Tensor, left_context_len: int):
+    def forward(self, src: Tensor, left_context_len: int) -> Tensor:
         return torch.zeros_like(src)
 
 
@@ -618,7 +627,7 @@ def replace_linear_with_conv2d(
 
     Returns
     -------
-    model
+    model : nn.Module
         The modified model with Linear layers replaced by Conv2DWrapper.
     """
     if exclude is None:
@@ -626,14 +635,14 @@ def replace_linear_with_conv2d(
     if quantization_friendly_modules is None:
         quantization_friendly_modules = []
 
-    def replace_fn(module, name):
+    def replace_fn(module: nn.Module, name: str) -> nn.Module:
         if isinstance(module, nn.Linear) and name not in exclude:
             in_features = module.in_features
             out_features = module.out_features
             bias = module.bias is not None
 
             # Determine whether to use quantization-friendly approach
-            quantization_friendly = (
+            quantization_friendly = bool(
                 quantization_friendly_modules and name in quantization_friendly_modules
             )
 
@@ -711,7 +720,7 @@ def _replace_encoder_modules(model: nn.Module, module_list: list | None = None) 
             _replace_encoder_modules(module, module_list)
 
 
-def _dummy_encoder_pos(model):
+def _dummy_encoder_pos(model: nn.Module) -> None:
     """Replace encoder positional encoding with dummy version."""
     for _name, module in model.named_children():
         if hasattr(module, "encoder_pos"):
@@ -721,7 +730,7 @@ def _dummy_encoder_pos(model):
         model.encoder_pos = DummyPositionalEncoding()
 
 
-def _prepare_RelPositionMultiheadAttention(model, model_config) -> None:
+def _prepare_RelPositionMultiheadAttention(model: Any, model_config: dict) -> None:
     """Prepare positional embeddings for RelPositionMultiheadAttention."""
     num_encoder_layers = model_config["num_encoder_layers"]
     downsampling_factor = model_config["downsampling_factor"]
@@ -747,7 +756,9 @@ def _prepare_RelPositionMultiheadAttention(model, model_config) -> None:
             module.prepare_pos_emb(seq_len, dim)
 
 
-def _generate_positional_embedding(encoder_dims, chunk_size, downsampling_factors):
+def _generate_positional_embedding(
+    encoder_dims: list, chunk_size: int, downsampling_factors: list
+) -> None:
     """Generate positional embeddings and save to files."""
     if not os.path.isdir("pos_emb"):
         os.makedirs("pos_emb")

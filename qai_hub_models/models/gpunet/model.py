@@ -8,6 +8,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+from typing_extensions import Self
+
 from qai_hub_models.models._shared.imagenet_classifier.model import ImagenetClassifier
 from qai_hub_models.utils.asset_loaders import SourceAsRoot, find_replace_in_repo
 
@@ -19,7 +21,7 @@ MODEL_ASSET_VERSION = 1
 
 class GPUNet(ImagenetClassifier):
     @classmethod
-    def from_pretrained(cls):
+    def from_pretrained(cls) -> Self:
         with SourceAsRoot(
             SOURCE_REPO, COMMIT_HASH, MODEL_ID, MODEL_ASSET_VERSION
         ) as repo_path:

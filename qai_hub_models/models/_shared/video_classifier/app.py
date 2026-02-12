@@ -29,7 +29,7 @@ def recognize_action_kinetics_400(prediction: torch.Tensor) -> list[str]:
 
     Returns
     -------
-    class_names
+    class_names : list[str]
         List of class ids from Kinetics-400 dataset is returned.
     """
     # Get top 5 class probabilities
@@ -69,7 +69,7 @@ class KineticsClassifierApp:
 
         Returns
         -------
-        predicted_classes
+        predicted_classes : list[str]
             Top 5 most probable classes for a given video.
         """
         # Reads the video via provided path

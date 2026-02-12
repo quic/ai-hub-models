@@ -9,7 +9,7 @@ from qai_hub_models.models._shared.cityscapes_segmentation.demo import (
 from qai_hub_models.models.ffnet_78s_lowres.model import MODEL_ID, FFNet78SLowRes
 
 
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     cityscapes_segmentation_demo(FFNet78SLowRes, MODEL_ID, is_test=is_test)
 
 

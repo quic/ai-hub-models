@@ -139,7 +139,7 @@ class Midas(DepthEstimationModel):
 
         Returns
         -------
-        depth_estimates
+        depth_estimates : torch.Tensor
             Tensor of depth estimates of size [1, H, W].
         """
         if self.normalize_input:

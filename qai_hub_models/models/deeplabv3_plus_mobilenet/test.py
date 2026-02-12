@@ -27,7 +27,7 @@ OUTPUT_IMAGE_MASK = CachedWebModelAsset.from_asset_store(
 
 
 @skip_clone_repo_check
-def test_task():
+def test_task() -> None:
     image = load_image(INPUT_IMAGE_ADDRESS)
     app = DeepLabV3App(
         DeepLabV3PlusMobilenet.from_pretrained(), num_classes=NUM_CLASSES
@@ -39,7 +39,7 @@ def test_task():
 
 @pytest.mark.trace
 @skip_clone_repo_check
-def test_trace():
+def test_trace() -> None:
     image = load_image(INPUT_IMAGE_ADDRESS)
     output_mask_gt = load_numpy(OUTPUT_IMAGE_MASK)
     app = DeepLabV3App(
@@ -53,5 +53,5 @@ def test_trace():
 
 
 @skip_clone_repo_check
-def test_demo():
+def test_demo() -> None:
     demo_main(is_test=True)

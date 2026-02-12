@@ -22,16 +22,14 @@ from qai_hub_models.models.qwen2_7b_instruct import MODEL_ID, Model
 from qai_hub_models.utils.args import (
     export_parser,
 )
+from qai_hub_models.utils.asset_loaders import ASSET_CONFIG
 from qai_hub_models.utils.base_model import (
     BasePrecompiledModel,
     PrecompiledCollectionModel,
 )
 from qai_hub_models.utils.export_result import CollectionExportResult, ExportResult
 from qai_hub_models.utils.export_without_hub_access import export_without_hub_access
-from qai_hub_models.utils.path_helpers import (
-    get_model_directory_for_download,
-    get_next_free_path,
-)
+from qai_hub_models.utils.path_helpers import get_next_free_path
 from qai_hub_models.utils.printing import (
     print_profile_metrics_from_job,
     print_tool_versions,
@@ -79,9 +77,6 @@ def save_model(
                 BasePrecompiledModel, model.components[component_name]
             ).get_target_model_path()
             shutil.copyfile(src=path, dst=dst_path / os.path.basename(path))
-
-        if tool_versions:
-            tool_versions.to_yaml(os.path.join(dst_path, "tool-versions.yaml"))
 
         if zip_assets:
             output_path = Path(
@@ -170,9 +165,8 @@ def export_model(
         if component_name not in Model.component_class_names:
             raise ValueError(f"Invalid component {component_name}.")
     if fetch_static_assets or not can_access_qualcomm_ai_hub():
-        export_without_hub_access(
+        static_model_path = export_without_hub_access(
             MODEL_ID,
-            "Qwen2-7B-Instruct",
             device,
             skip_profiling,
             True,
@@ -186,7 +180,10 @@ def export_model(
             qaihm_version_tag=fetch_static_assets,
         )
         return CollectionExportResult(
-            components={component_name: ExportResult() for component_name in components}
+            components={
+                component_name: ExportResult() for component_name in components
+            },
+            download_path=static_model_path,
         )
 
     hub_device = hub.get_devices(
@@ -234,8 +231,8 @@ def export_model(
     # 5. Saves the model asset to the local directory
     downloaded_model_path: Path | None = None
     if not skip_downloading:
-        model_directory = get_model_directory_for_download(
-            target_runtime, precision, chipset, output_path, MODEL_ID
+        model_directory = output_path / ASSET_CONFIG.get_release_asset_name(
+            MODEL_ID, target_runtime, precision, chipset
         )
         downloaded_model_path = save_model(
             model_directory, tool_versions, model, components, zip_assets

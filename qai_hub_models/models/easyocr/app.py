@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import cast
+from typing import Any, cast
 
 import cv2
 import numpy as np
@@ -91,7 +91,7 @@ class EasyOCRApp:
         recognizer_img_shape: tuple[int, int],
         lang_list: list[str],
         decoder_mode: str = "greedy",
-    ):
+    ) -> None:
         self.detector = detector
         self.recognizer = recognizer
         self.decoder = decoder_mode
@@ -132,12 +132,12 @@ class EasyOCRApp:
 
         Returns
         -------
-        detector_input_frames
+        detector_input_frames : torch.Tensor
             [B, 3, H', W'], fp32, range 0-1, RGB.
             Input tensor for the detector network.
-        scales
+        scales : list[float]
             List of scaling factors used to resize each input image for network inference.
-        paddings
+        paddings : list[tuple[int, int]]
             List of padding (width, height) used to resize each input image for network inference.
         """
         detector_input_frames_list, scales, paddings = [], [], []
@@ -173,11 +173,11 @@ class EasyOCRApp:
 
         Returns
         -------
-        horizontal_boxes_per_img
+        horizontal_boxes_per_img : list[list[box_xx_yy]]
             List of bounding boxes (absolute pixel values) in each image.
             These boxes are always a rectangle that is parallel to the image's coordinate space.
             Order: (xmin, xmax, ymin, ymax)
-        free_boxes_per_img
+        free_boxes_per_img : list[list[box_4corners]]
             List of bounding boxes (absolute pixel values) in each image.
             These boxes may be any parallelogram.
             Order: ((x1,y1), (x2,y2), (x3,y3), (x4,y4))
@@ -296,9 +296,9 @@ class EasyOCRApp:
 
         Returns
         -------
-        img_cutouts
+        img_cutouts : list[tuple[np.ndarray, box_xx_yy | box_4corners, int]]
             List of (cutout_image, box_coords, y_min).
-        cutout_frames_list
+        cutout_frames_list : list[torch.Tensor]
             List of preprocessed cutout tensors for recognition.
         """
         # If horizontal boxes and free boxes are not set, use the entire image instead
@@ -354,7 +354,7 @@ class EasyOCRApp:
 
         Returns
         -------
-        preprocessed_cutouts
+        preprocessed_cutouts : list[torch.Tensor]
             List of preprocessed image tensors ready for recognition.
         """
         cutout_frames_list = []
@@ -398,28 +398,22 @@ class EasyOCRApp:
 
         Returns
         -------
-        result_box_xxyy
+        result_box_xxyy : list[tuple[box_xx_yy, str, np.float64]]
             This is a list of outputs, one for each detection related to a horizontal box.
             In this tuple:
                 box: box_xx_yy
                     The bounding box coordinates corresponding to this prediction.
-
                 text: str
                     The predicted text.
-
                 confidence: np.float64
                     Prediction confidence.
-
-
-        result_box_4corners
+        result_box_4corners : list[tuple[box_4corners, str, np.float64]]
             This is a list of outputs, one for each detection related to a free box.
             In this tuple:
                 box: box_4corners
                     The bounding box coordinates corresponding to this prediction.
-
                 text: str
                     The predicted text.
-
                 confidence: np.float64
                     Prediction confidence.
         """
@@ -520,7 +514,7 @@ class EasyOCRApp:
 
         Returns
         -------
-        predictions
+        predictions : list[tuple[str, np.float64]]
             Predictions, one per input frame. Each item is a tuple containing:
             text
                 The predicted text.
@@ -582,7 +576,9 @@ class EasyOCRApp:
 
         return result
 
-    def predict(self, *args, **kwargs):
+    def predict(
+        self, *args: Any, **kwargs: Any
+    ) -> list[tuple[Image.Image, list[str], list[np.float64]]]:
         return self.predict_text_from_image(*args, **kwargs)
 
     def predict_text_from_image(
@@ -600,7 +596,7 @@ class EasyOCRApp:
 
         Returns
         -------
-        predictions
+        predictions : list[tuple[Image.Image, list[str], list[np.float64]]]
             Predictions for each image:
             image
                 Predicted image with bounding boxes drawn.

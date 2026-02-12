@@ -22,7 +22,7 @@ EXCEPTED_OUTPUT = CachedWebModelAsset.from_asset_store(
 
 
 @skip_clone_repo_check
-def test_task():
+def test_task() -> None:
     image = load_image(INPUT_IMAGE_ADDRESS)
     model = EyeGaze.from_pretrained()
     _, h, w = EyeGaze.get_input_spec()["image"][0]
@@ -30,9 +30,11 @@ def test_task():
     image_np = np.array(image.convert("L"))
     app = EyeGazeApp(model)
     output = app.predict(image_np, "left", raw_output=True)
-    np.testing.assert_allclose(output, load_numpy(EXCEPTED_OUTPUT), rtol=0.3, atol=0.3)
+    np.testing.assert_allclose(
+        np.asarray(output), load_numpy(EXCEPTED_OUTPUT), rtol=0.3, atol=0.3
+    )
 
 
 @skip_clone_repo_check
-def test_demo():
+def test_demo() -> None:
     demo_main(is_test=True)

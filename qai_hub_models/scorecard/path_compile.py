@@ -31,6 +31,9 @@ class ScorecardCompilePath(Enum):
     GENIE = "genie"
     ONNXRUNTIME_GENAI = "onnxruntime_genai"
     ONNX_FP16 = "onnx_fp16"
+    LLAMA_CPP_CPU = "llama_cpp_cpu"
+    LLAMA_CPP_GPU = "llama_cpp_gpu"
+    LLAMA_CPP_NPU = "llama_cpp_npu"
 
     def __str__(self) -> str:
         return self.name.lower()
@@ -89,6 +92,12 @@ class ScorecardCompilePath(Enum):
             return TargetRuntime.GENIE
         if self == ScorecardCompilePath.ONNXRUNTIME_GENAI:
             return TargetRuntime.ONNXRUNTIME_GENAI
+        if self == ScorecardCompilePath.LLAMA_CPP_CPU:
+            return TargetRuntime.LLAMA_CPP_CPU
+        if self == ScorecardCompilePath.LLAMA_CPP_GPU:
+            return TargetRuntime.LLAMA_CPP_GPU
+        if self == ScorecardCompilePath.LLAMA_CPP_NPU:
+            return TargetRuntime.LLAMA_CPP_NPU
         assert_never(self)
 
     @property
@@ -116,16 +125,11 @@ class ScorecardCompilePath(Enum):
         include_default_qaihm_qnn_version: bool = False,
     ) -> str:
         out = ""
-        if include_target_runtime:
+        if (
+            include_target_runtime
+            and self.runtime.aihub_target_runtime_flag is not None
+        ):
             out += self.runtime.aihub_target_runtime_flag
-
-        if self.runtime == TargetRuntime.QNN_CONTEXT_BINARY:
-            # Without this flag, graph names are random.
-            # Scorecard job caching relies on models keeping the same md5 hash if they haven't changed.
-            #
-            # By setting this flag, we remove a source of randomness in compiled QNN assets.
-            # THIS ONLY APPLIES TO SCORECARD, NOT USERS DIRECTLY CALLING EXPORT.PY
-            out += " --qnn_options context_enable_graphs=default_graph"
 
         if self.runtime.qairt_version_changes_compilation:
             qairt_version_str = QAIRTVersionEnvvar.get()
@@ -133,6 +137,7 @@ class ScorecardCompilePath(Enum):
                 qairt_version = QAIRTVersionEnvvar.get_qairt_version(
                     self.runtime, qairt_version_str
                 )
+
             if QAIRTVersionEnvvar.is_default(qairt_version_str):
                 # We typically don't want the default QAIRT version added here if it matches with the AI Hub Models default.
                 # This allows the export script (which scorecard relies on) to pass in the default version that users will see when they use the CLI.

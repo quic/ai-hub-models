@@ -20,7 +20,7 @@ INPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 )
 
 
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     deeplabv3_demo(DeeplabXception, MODEL_ID, INPUT_IMAGE_ADDRESS, NUM_CLASSES, is_test)
 
 

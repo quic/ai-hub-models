@@ -41,7 +41,6 @@ from tasks.task import (
     CompositeTask,
     ConditionalTask,
     ListTasksTask,
-    LlamaCppBenchmarkTask,
     NoOpTask,
     RunCommandsWithVenvTask,
     Task,
@@ -50,6 +49,7 @@ from tasks.test import (
     GenerateTestSummaryTask,
     GPUPyTestModelsTask,
     InstallGlobalRequirementsTask,
+    LlamaCppBenchmarkTask,
     PyTestModelsTask,
     PyTestQAIHMTask,
 )
@@ -347,7 +347,7 @@ class TaskLibrary:
         - QAIHM_DEVICES: Comma-separated list of QDC device names
         - QDC_API_KEY: QDC API token
 
-        Model URLs are looked up from LLAMA_CPP_MODEL_URLS in tasks/constants.py
+        Model configs are defined in qai_hub_models/scripts/run_llama_cpp_benchmarks.py
         """
         return plan.add_step(
             step_id,
@@ -807,8 +807,38 @@ class TaskLibrary:
             PushRepositoryTask(RELEASE_REPO_DIR),
         )
 
-    @public_task("Push QAIHM Code and Wheel (build repo & wheel, push repo)")
-    @depends(["release_code", "release_wheel"])
+    @public_task("Push QAIHM Assets to AWS S3")
+    @depends(["install_deps"])
+    def release_assets(self, plan: Plan, step_id: str = "release_assets") -> str:
+        return plan.add_step(
+            step_id,
+            RunCommandsWithVenvTask(
+                group_name=None,
+                venv=self.venv_path,
+                commands=["python qai_hub_models/scripts/publish_release_assets.py"],
+            ),
+        )
+
+    @public_task("Push QAIHM model Cards to Hugging Face")
+    @depends(["install_deps"])
+    def release_huggingface(
+        self, plan: Plan, step_id: str = "release_huggingface"
+    ) -> str:
+        return plan.add_step(
+            step_id,
+            RunCommandsWithVenvTask(
+                group_name=None,
+                venv=self.venv_path,
+                commands=[
+                    "python qai_hub_models/scripts/generate_hf_model_readme.py --public"
+                ],
+            ),
+        )
+
+    @public_task(
+        "Push QAIHM Code, Wheel, and Assets (build repo & wheel, push repo, push assets, push HF model cards)"
+    )
+    @depends(["release_assets", "release_code", "release_wheel", "release_huggingface"])
     def release(self, plan: Plan, step_id: str = "release") -> str:
         return plan.add_step(
             step_id,

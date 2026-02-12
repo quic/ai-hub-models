@@ -6,8 +6,10 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Any
 
 import torch
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.llm.common import LLMIOType
 from qai_hub_models.models._shared.llm.model import (
@@ -51,15 +53,18 @@ class Qwen2_5_1_5B(Qwen2Base):
     min_memory_recommended = MIN_MEMORY_RECOMMENDED
 
     def __init__(
-        self, checkpoint: str | os.PathLike | Path = HF_REPO_NAME, *args, **kwargs
-    ):
+        self,
+        checkpoint: str | os.PathLike | Path = HF_REPO_NAME,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(
             checkpoint=checkpoint,  # type: ignore[misc]
             *args,  # noqa: B026
             **kwargs,
         )
 
-    def _verify_ckpt(self):
+    def _verify_ckpt(self) -> None:
         super()._verify_ckpt()
         if not (
             self.llm_config.num_hidden_layers == NUM_LAYERS
@@ -78,7 +83,7 @@ class Qwen2_5_1_5B(Qwen2Base):
         host_device: torch.device | None = None,
         load_pretrained: bool = True,
         _skip_optimizations: list[str] | None = None,
-    ) -> Qwen2_5_1_5B:
+    ) -> Self:
         """
         Load a pre-trained Qwen 2.5 (1.5B) model via HuggingFace.
 
@@ -107,7 +112,7 @@ class Qwen2_5_1_5B(Qwen2Base):
 
         Returns
         -------
-        model
+        model : Self
             Instantiated model.
         """
         # Since we multiply the attention mask for Qwen, the default value has
@@ -125,7 +130,7 @@ class Qwen2_5_1_5B(Qwen2Base):
         )
 
     @staticmethod
-    def get_output_names():
+    def get_output_names() -> list[str]:
         return Qwen2Base._get_output_names(NUM_LAYERS)
 
     @staticmethod
@@ -164,7 +169,7 @@ class Qwen2_5_1_5B_AIMETOnnx(Qwen2Base_AIMETOnnx):
         precision: Precision = DEFAULT_PRECISION,
         fp_model: LLMBase | None = None,
         _skip_quantsim_creation: bool = False,
-    ) -> Qwen2_5_1_5B_AIMETOnnx:
+    ) -> Self:
         """
         Load weight from Huggingface and create Aimet-ONNX QuantSim.
         Optionally load onnx model and AIMET encodings from a checkpoint.
@@ -190,7 +195,7 @@ class Qwen2_5_1_5B_AIMETOnnx(Qwen2Base_AIMETOnnx):
 
         Returns
         -------
-        model
+        model : Self
             Instantiated quantized model.
         """
         if host_device is None:
@@ -240,7 +245,7 @@ class Qwen2_5_1_5B_AIMETOnnx(Qwen2Base_AIMETOnnx):
         )
 
     @staticmethod
-    def get_output_names():
+    def get_output_names() -> list[str]:
         return Qwen2Base._get_output_names(NUM_LAYERS)
 
     @staticmethod
@@ -265,7 +270,7 @@ class Qwen2_5_1_5B_QNN(Qwen2Base_QNN):
     num_layers_per_split: int = NUM_LAYERS_PER_SPLIT
 
     @staticmethod
-    def get_output_names():
+    def get_output_names() -> list[str]:
         return Qwen2Base._get_output_names(NUM_LAYERS)
 
     get_input_spec = staticmethod(Qwen2_5_1_5B.get_input_spec)

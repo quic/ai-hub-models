@@ -107,11 +107,11 @@ class GearGuardDataset(BaseDataset):
 
         Returns
         -------
-        image
+        image : torch.Tensor
             Input image resized and padded for the network.
             RGB format with floating point values in range [0-1].
             Shape [C, H, W] where C=3, H=input_height, W=input_width.
-        ground_truth
+        ground_truth : tuple[int, int, int, torch.Tensor, torch.Tensor, torch.Tensor]
             image_id
                 Unique identifier for the image within the dataset.
             target_height
@@ -283,7 +283,7 @@ class GearGuardDataset(BaseDataset):
 
         Returns
         -------
-        normalized_boxes
+        normalized_boxes : torch.Tensor
             Transformed and normalized box coordinates with shape (N, 4)
         """
         # Reshape to (N*2, 2) for coordinate transformation

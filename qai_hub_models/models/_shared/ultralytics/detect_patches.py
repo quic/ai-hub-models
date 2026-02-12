@@ -63,7 +63,7 @@ def patched_ultryaltics_det_head_forward(
 
     Returns
     -------
-    tuple[torch.Tensor, torch.Tensor] or tuple[list[torch.Tensor], list[torch.Tensor]] or tuple[torch.Tensor, torch.Tensor, list[torch.Tensor], list[torch.Tensor]]
+    output : tuple[torch.Tensor, torch.Tensor] | tuple[list[torch.Tensor], list[torch.Tensor]] | tuple[torch.Tensor, torch.Tensor, list[torch.Tensor], list[torch.Tensor]]
         If training: (boxes, scores) where each is a list
         If export: (yboxes, yscores) as tensors
         Otherwise: (yboxes, yscores, boxes, scores) with yboxes/yscores as tensors and boxes/scores as lists
@@ -101,9 +101,9 @@ def patched_ultryaltics_det_head_inference(
 
     Returns
     -------
-    dbox
+    dbox : torch.Tensor
         Decoded bounding boxes.
-    cls
+    cls : torch.Tensor
         Class probabilities after sigmoid.
     """
     shape = boxes[0].shape  # BCHW

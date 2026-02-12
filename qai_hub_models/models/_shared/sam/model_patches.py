@@ -27,6 +27,26 @@ def sam_decoder_predict_masks(
     If no expansion is required, a noop is left in the graph, which causes compilation to QNN to fail.
 
     Repeat-interleave also generates a 5D tensor, which causes compilation to fail, so it is replaced with Tile.
+
+    Parameters
+    ----------
+    self
+        The SamMaskDecoder instance.
+    image_embeddings
+        The image embeddings from the encoder.
+    image_pe
+        The positional encoding for the image.
+    sparse_prompt_embeddings
+        The sparse prompt embeddings (e.g., from points or boxes).
+    dense_prompt_embeddings
+        The dense prompt embeddings (e.g., from masks).
+
+    Returns
+    -------
+    masks : torch.Tensor
+        The predicted segmentation masks.
+    iou_pred : torch.Tensor
+        The IoU predictions for each mask.
     """
     output_tokens = torch.cat([self.iou_token.weight, self.mask_tokens.weight], dim=0)
     output_tokens = output_tokens.unsqueeze(0).expand(
@@ -274,6 +294,20 @@ def mask_postprocessing(
     Lifted from segment_anything.utils.onnx.SamOnnxModel.mask_postprocessing
 
     Modified to break this apart from the decoder class instance.
+
+    Parameters
+    ----------
+    masks
+        The input masks to postprocess.
+    encoder_img_size
+        The size of the encoder output image.
+    orig_im_size
+        The original image size (height, width).
+
+    Returns
+    -------
+    masks : torch.Tensor
+        The postprocessed masks, resized to the original image size.
     """
     masks = F.interpolate(
         masks,

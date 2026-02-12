@@ -54,24 +54,41 @@ class MediaPipeHandApp(MediaPipeApp):
             [torch.Tensor], tuple[torch.Tensor, torch.Tensor]
         ],
         anchors: torch.Tensor,
+        detector_includes_postprocessing: bool,
         hand_detector_input_spec: InputSpec,
         landmark_detector_input_spec: InputSpec,
         min_detector_hand_box_score: float = 0.95,
         nms_iou_threshold: float = 0.3,
         min_landmark_score: float = 0.5,
-    ):
+    ) -> None:
         """
         Construct a mediapipe hand application.
 
-        Inputs:
-            model: MediaPipeHand model
-                Hand detection & landmark model container.
-
-        See parent initializer for further parameter documentation.
+        Parameters
+        ----------
+        hand_detector
+            Hand detection model callable.
+        hand_landmark_detector
+            Hand landmark detection model callable.
+        anchors
+            Detector anchors.
+        detector_includes_postprocessing
+            Whether the detector includes postprocessing.
+        hand_detector_input_spec
+            Input spec for hand detector.
+        landmark_detector_input_spec
+            Input spec for landmark detector.
+        min_detector_hand_box_score
+            Minimum score threshold for hand box detection.
+        nms_iou_threshold
+            IoU threshold for non-maximum suppression.
+        min_landmark_score
+            Minimum score threshold for landmark detection.
         """
         super().__init__(
             hand_detector,
             anchors,
+            detector_includes_postprocessing,
             hand_landmark_detector,
             cast(
                 tuple[int, int],
@@ -118,24 +135,25 @@ class MediaPipeHandApp(MediaPipeApp):
 
         Returns
         -------
-        See parent function documentation for generic return values.
+        result : tuple[list[torch.Tensor], list[torch.Tensor], list[torch.Tensor], list[list[bool]]] | list[np.ndarray]
+            See parent function documentation for generic return values.
 
-        If raw_output is false, returns an additional output:
+            If raw_output is false, returns an additional output:
 
-        batched_is_right_hand
-            Whether each landmark represents a right (True) or left (False) hand.
-            Organized like the following:
-            [
-                # Batch 0 (for Input Image 0)
+            batched_is_right_hand
+                Whether each landmark represents a right (True) or left (False) hand.
+                Organized like the following:
                 [
-                    True (for Selected Landmark 1)
-                    False (Selected Landmark 2)
+                    # Batch 0 (for Input Image 0)
+                    [
+                        True (for Selected Landmark 1)
+                        False (Selected Landmark 2)
+                        ...
+                    ]
+                    # Batch 1 (for Input Image 1)
+                    [] # (this image has no detected palm)
                     ...
                 ]
-                # Batch 1 (for Input Image 1)
-                [] # (this image has no detected palm)
-                ...
-            ]
         """
         return super().predict_landmarks_from_image(pixel_values_or_image, raw_output)  # type: ignore[return-value]
 
@@ -147,14 +165,63 @@ class MediaPipeHandApp(MediaPipeApp):
         batched_roi_4corners: list[torch.Tensor],
         batched_selected_landmarks: list[torch.Tensor],
         batched_is_right_hand: list[list[bool]],
-    ):
+    ) -> None:
         """
-        Override of mediapipe::app.py::MediaPipeApp::draw_outputs
+        Override of mediapipe::app.py::MediaPipeApp::_draw_predictions.
         Also draws whether the detection is a right or left hand.
 
-        Additional inputs:
-            batched_is_right_hand:
-                True if the detection is a right hand, false if it's a left hand. None if no hand detected.
+        Parameters
+        ----------
+        NHWC_int_numpy_frames
+            List of numpy arrays of shape (H W C x uint8) -- RGB channel layout
+            Length of list is # of batches (the number of input images)
+
+        batched_selected_boxes
+            Selected object bounding box coordinates.
+            Empty tensor if batch had no bounding boxes with a score above the threshold.
+            Shape of each list element is [num_selected_boxes, 2, 2].
+                Layout is
+                    [[box_x1, box_y1],
+                        [box_x2, box_y2]]
+
+        batched_selected_keypoints
+            Selected object bounding box keypoints.
+            Empty tensor if batch had no bounding boxes with a score above the threshold.
+            Shape of each list element is [num_selected_boxes, # of keypoints, 2].
+                Layout is
+                    [[keypoint_0_x, keypoint_0_y],
+                        ...,
+                        [keypoint_max_x, keypoint_max_y]]
+
+        batched_roi_4corners
+            Selected object "region of interest" (region used as input to the landmark detector) corner coordinates.
+            Empty tensor if batch had no bounding boxes with a score above the threshold.
+            Shape of each list element is [num_selected_boxes, 4, 2], where 2 == (x, y)
+            The order of points is (top left point, bottom left point, top right point, bottom right point)
+
+        batched_selected_landmarks
+            Selected landmarks. Organized like the following:
+            [
+                # Batch 0 (for Input Image 0)
+                torch.Tensor([
+                    Selected Landmark 1 w/ shape (# of landmark points, 3)
+                    Selected Landmark 2 w/ shape (# of landmark points, 3)
+                    ...
+                ]),
+                # Batch 1 (for Input Image 1)
+                torch.Tensor([]) # (this image has no detected object)
+                ...
+            ]
+            The shape of each inner list element is [# of landmark points, 3],
+            where 3 == (X, Y, Conf)
+
+        batched_is_right_hand
+            True if the detection is a right hand, False if it's a left hand.
+            None if no hand detected.
+
+        Notes
+        -----
+        Drawing is done on input frame.
         """
         for batch_idx in range(len(NHWC_int_numpy_frames)):
             image = NHWC_int_numpy_frames[batch_idx]
@@ -178,7 +245,7 @@ class MediaPipeHandApp(MediaPipeApp):
         NHWC_int_numpy_frame: np.ndarray,
         landmarks: torch.Tensor,
         is_right_hand: list[bool],
-    ):
+    ) -> None:
         """
         Override of mediapipe::app.py::MediaPipeApp::draw_landmarks
         Also draws whether the detection is a right or left hand.
@@ -279,6 +346,7 @@ class MediaPipeHandApp(MediaPipeApp):
             model.hand_detector,
             model.hand_landmark_detector,
             model.hand_detector.anchors,
+            model.hand_detector.include_postprocessing,
             model.hand_detector.get_input_spec(),
             model.hand_landmark_detector.get_input_spec(),
         )

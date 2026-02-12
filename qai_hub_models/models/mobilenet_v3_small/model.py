@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import torchvision.models as tv_models
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.imagenet_classifier.model import ImagenetClassifier
 
@@ -15,6 +16,6 @@ DEFAULT_WEIGHTS = "IMAGENET1K_V1"
 
 class MobileNetV3Small(ImagenetClassifier):
     @classmethod
-    def from_pretrained(cls, weights: str = DEFAULT_WEIGHTS) -> MobileNetV3Small:
+    def from_pretrained(cls, weights: str = DEFAULT_WEIGHTS) -> Self:
         net = tv_models.mobilenet_v3_small(weights=weights)
         return cls(net)

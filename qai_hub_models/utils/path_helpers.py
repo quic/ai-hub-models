@@ -8,8 +8,7 @@ import subprocess
 from pathlib import Path
 
 from qai_hub_models._version import __version__
-from qai_hub_models.models.common import Precision, TargetRuntime
-from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, load_yaml
+from qai_hub_models.utils.asset_loaders import load_yaml
 
 MODELS_PACKAGE_NAME = "models"
 QAIHM_PACKAGE_NAME = "qai_hub_models"
@@ -42,46 +41,6 @@ def _get_all_models(
 
 
 MODEL_IDS = sorted(_get_all_models())
-
-
-def get_model_directory_for_download(
-    target_runtime: TargetRuntime,
-    precision: Precision,
-    chipset: str | None,
-    output_path: str | os.PathLike,
-    model_name: str,
-) -> Path:
-    """Get the directory path to download the model to.
-
-    Parameters
-    ----------
-    target_runtime
-        Target runtime of the model.
-    precision
-        Precision of the model.
-    chipset
-        Chipset of the model, if applicable.
-    output_path
-        Base output path.
-    model_name
-        Name of the model.
-
-    Returns
-    -------
-    Path
-        Path to the directory where the model should be downloaded.
-    """
-    return (
-        Path(output_path)
-        / os.path.splitext(
-            ASSET_CONFIG.get_release_asset_filename(
-                model_id=model_name,
-                runtime=target_runtime,
-                precision=precision,
-                chipset_with_underscores=chipset,
-            )
-        )[0]
-    )
 
 
 def get_next_free_path(path: str | os.PathLike, delim: str = "-") -> Path:

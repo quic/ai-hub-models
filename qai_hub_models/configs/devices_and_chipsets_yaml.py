@@ -298,10 +298,10 @@ class DevicesAndChipsetsYaml(BaseQAIHMConfig):
 
         Returns
         -------
-        device_name
+        device_name : str
             Device Name
 
-        device_details
+        device_details : DeviceDetailsYaml
             Device Details
         """
         device_name, chipset = get_device_and_chipset_name(device)

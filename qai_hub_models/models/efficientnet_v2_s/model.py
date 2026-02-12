@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import torchvision.models as tv_models
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.imagenet_classifier.model import ImagenetClassifier
 from qai_hub_models.models.common import Precision
@@ -17,7 +18,7 @@ DEFAULT_WEIGHTS = "IMAGENET1K_V1"
 
 class EfficientNetV2s(ImagenetClassifier):
     @classmethod
-    def from_pretrained(cls, weights: str = DEFAULT_WEIGHTS) -> EfficientNetV2s:
+    def from_pretrained(cls, weights: str = DEFAULT_WEIGHTS) -> Self:
         net = tv_models.efficientnet_v2_s(weights=weights)
         return cls(net)
 

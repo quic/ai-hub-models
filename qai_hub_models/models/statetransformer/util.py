@@ -61,7 +61,7 @@ def save_raster(
 
     Returns
     -------
-    dict or None
+    result : dict[str, np.ndarray] | None
         If `path_to_save` is None, returns a dictionary:
             `{"high_res_raster": ndarray, "low_res_raster": ndarray}`
         Otherwise, writes files to disk and returns None.

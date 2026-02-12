@@ -10,11 +10,13 @@ from typing import Any
 
 import torch
 from torch import nn
+from typing_extensions import Self
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.nuscenes_bev_evaluator import (
     NuscenesBevSegmentationEvaluator,
 )
+from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
     SourceAsRoot,
@@ -41,7 +43,7 @@ class CVT(BaseModel):
         self.model = model
 
     @classmethod
-    def from_pretrained(cls, ckpt_name: str = CKPT_NAME) -> CVT:
+    def from_pretrained(cls, ckpt_name: str = CKPT_NAME) -> Self:
         WEIGHTS_URL = CachedWebModelAsset(
             f"https://www.cs.utexas.edu/~bzhou/cvt/cvt_nuscenes_{ckpt_name}.ckpt",
             MODEL_ID,
@@ -55,7 +57,12 @@ class CVT(BaseModel):
                 remove_prefix,
                 setup_network,
             )
+            from cross_view_transformer.model.encoder import CrossAttention
             from omegaconf import DictConfig, OmegaConf
+
+            from qai_hub_models.models.cvt.model_patches import CrossAttention_forward
+
+            CrossAttention.forward = CrossAttention_forward
 
             checkpoint = load_torch(WEIGHTS_URL)
             cfg: Any = DictConfig(checkpoint["hyper_parameters"])
@@ -90,7 +97,7 @@ class CVT(BaseModel):
 
         Returns
         -------
-        bev
+        bev : torch.Tensor
             BEV heatmap tensor with predictions, shape [1, 1, 200, 200].
         """
         out = self.model(
@@ -104,6 +111,11 @@ class CVT(BaseModel):
 
     def get_evaluator(self) -> BaseEvaluator:
         return NuscenesBevSegmentationEvaluator()
+
+    @staticmethod
+    def get_hub_litemp_percentage(_: Precision) -> float:
+        """Returns the Lite-MP percentage value for the specified mixed precision quantization."""
+        return 4
 
     @staticmethod
     def eval_datasets() -> list[str]:

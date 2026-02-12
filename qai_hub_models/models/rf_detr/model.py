@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import torch
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.detr.model import DETR
 from qai_hub_models.utils.asset_loaders import SourceAsRoot
@@ -17,7 +18,6 @@ from qai_hub_models.utils.input_spec import InputSpec
 SOURCE_REPOSITORY = "https://github.com/roboflow/rf-detr.git"
 SOURCE_REPO_COMMIT = "1e63dbad402eea10f110e86013361d6b02ee0c09"
 MODEL_ID = __name__.split(".")[-2]
-DEFAULT_WEIGHTS = "rfdetr-base"
 MODEL_ASSET_VERSION = 1
 
 DEFAULT_RESOLUTION = 560
@@ -39,11 +39,11 @@ class RF_DETR(DETR):
 
         Returns
         -------
-        boxes
+        boxes : torch.Tensor
             Shape (1, 100, 4) representing the bounding box coordinates (x1, y1, x2, y2).
-        scores
+        scores : torch.Tensor
             Shape (1, 100) representing the confidence scores.
-        labels
+        labels : torch.Tensor
             Shape (1, 100) representing the class labels.
         """
         image_array = normalize_image_torchvision(image)
@@ -57,7 +57,7 @@ class RF_DETR(DETR):
         return boxes, scores, labels
 
     @classmethod
-    def from_pretrained(cls, weights: str | None = None):
+    def from_pretrained(cls) -> Self:
         with SourceAsRoot(
             SOURCE_REPOSITORY,
             SOURCE_REPO_COMMIT,

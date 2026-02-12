@@ -25,9 +25,18 @@ class QAIHMModelPerf(BaseQAIHMConfig):
     """Schema for perf.yaml files."""
 
     class PerformanceDetails(BaseQAIHMConfig):
-        class TimeToFirstTokenRangeMillieconds(BaseQAIHMConfig):
+        class TimeToFirstTokenRangeMilliseconds(BaseQAIHMConfig):
             min: float
             max: float
+
+        class LLMMetricsPerContextLength(BaseQAIHMConfig):
+            """LLM performance metrics for a specific context length."""
+
+            context_length: int
+            tokens_per_second: float
+            time_to_first_token_range_milliseconds: (
+                QAIHMModelPerf.PerformanceDetails.TimeToFirstTokenRangeMilliseconds
+            )
 
         class PeakMemoryRangeMB(BaseQAIHMConfig):
             min: int
@@ -70,13 +79,6 @@ class QAIHMModelPerf(BaseQAIHMConfig):
                     return "GPU"
                 return "CPU"
 
-        # Only set for LLMs.
-        time_to_first_token_range_milliseconds: (
-            QAIHMModelPerf.PerformanceDetails.TimeToFirstTokenRangeMillieconds | None
-        ) = None
-        tokens_per_second: float | None = None
-        context_length: int | None = None
-
         # Only set for non-LLMs.
         job_id: str | None = None
         job_status: str | None = None
@@ -89,10 +91,14 @@ class QAIHMModelPerf(BaseQAIHMConfig):
         primary_compute_unit: str | None = None
         layer_counts: QAIHMModelPerf.PerformanceDetails.LayerCounts | None = None
 
-        # Can be set for LLMs or for successful jobs.
         # The tool versions used by the profile jobs to execute this model.
-        # All jobs will include QAIRT version, + the inference engine version used (tflite, onnx ,etc.)
+        # All jobs will include QAIRT version, + the inference engine version used (tflite, onnx, etc.)
         tool_versions: ToolVersions = Field(default_factory=ToolVersions)
+
+        # Only set for LLMs.
+        llm_metrics: (
+            list[QAIHMModelPerf.PerformanceDetails.LLMMetricsPerContextLength] | None
+        ) = None
 
     class AssetDetails(BaseQAIHMConfig):
         model_id: str
@@ -117,6 +123,9 @@ class QAIHMModelPerf(BaseQAIHMConfig):
             )
 
     class ComponentDetails(BaseQAIHMConfig):
+        precision: Precision | None = (
+            None  # Used to clarify each component's precision when a component model is mixed precision
+        )
         universal_assets: dict[ScorecardProfilePath, QAIHMModelPerf.AssetDetails] = (
             Field(default_factory=dict)
         )
@@ -178,7 +187,7 @@ class QAIHMModelPerf(BaseQAIHMConfig):
                 path: ScorecardProfilePath
                     Path for this entry.
                 QAIHMModelPerf.PerformanceDetails
-                    Actual entry perf data
+                    Actual entry perf data (includes llm_metrics for LLMs)
 
             Func Returns:
                 Boolean or None.

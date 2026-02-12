@@ -22,7 +22,7 @@ OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 
 
 @skip_clone_repo_check
-def test_task():
+def test_task() -> None:
     image = load_image(IMAGE_ADDRESS)
     model = Real_ESRGAN_x4plus.from_pretrained()
     app = SuperResolutionApp(model=model)
@@ -44,5 +44,5 @@ def test_task():
 
 
 @skip_clone_repo_check
-def test_demo():
+def test_demo() -> None:
     demo_main(is_test=True)

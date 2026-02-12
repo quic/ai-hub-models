@@ -46,7 +46,7 @@ class BaseBertModel(BaseModel):
 
         Returns
         -------
-        predicted_token_ids
+        predicted_token_ids : torch.Tensor
             Predicted token IDs of shape [batch_size].
         """
         logits = self.model(input_tokens, attention_mask=attention_masks).logits

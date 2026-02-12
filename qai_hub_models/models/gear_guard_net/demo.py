@@ -35,7 +35,7 @@ def gear_guard_demo(
     model_id: str,
     app_type: Callable[..., BodyDetectionApp],
     is_test: bool = False,
-):
+) -> None:
     # Demo parameters
     parser = get_model_cli_parser(model_type)
     parser = get_on_device_demo_parser(parser, add_output_dir=True)
@@ -77,7 +77,7 @@ def gear_guard_demo(
         display_or_save_image(out, args.output_dir, "gear_guard_demo_output.png")
 
 
-def main(is_test=False):
+def main(is_test: bool = False) -> None:
     gear_guard_demo(
         model_type=GearGuardNet,
         model_id=MODEL_ID,

@@ -7,7 +7,7 @@ from qai_hub_models.models._shared.imagenet_classifier.demo import imagenet_demo
 from qai_hub_models.models.convnext_base.model import MODEL_ID, ConvNextBase
 
 
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     imagenet_demo(ConvNextBase, MODEL_ID, is_test)
 
 

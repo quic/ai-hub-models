@@ -24,14 +24,15 @@ def capture_and_display_processed_frames(
 
     User should press Esc to exit.
 
-    Inputs:
-        frame_processor: Callable[[np.ndarray], np.ndarray]
-            Processes frames.
-            Input and output are numpy arrays of shape (H W C) with RGB channel layout and dtype uint8 / byte.
-        window_display_name: str
-            Name of the window used to display frames.
-        cap_device: int
-            Identifier for the camera to use to capture frames.
+    Parameters
+    ----------
+    frame_processor
+        Processes frames. Input and output are numpy arrays of shape (H W C)
+        with RGB channel layout and dtype uint8 / byte.
+    window_display_name
+        Name of the window used to display frames.
+    cap_device
+        Identifier for the camera to use to capture frames.
     """
     if sys.platform.startswith("win"):
         print(

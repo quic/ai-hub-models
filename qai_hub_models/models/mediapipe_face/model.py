@@ -9,7 +9,10 @@ from collections.abc import Callable
 
 import torch
 
-from qai_hub_models.models._shared.mediapipe.utils import MediaPipePyTorchAsRoot
+from qai_hub_models.models._shared.mediapipe.utils import (
+    MediaPipePyTorchAsRoot,
+    mediapipe_detector_postprocess,
+)
 from qai_hub_models.models.common import Precision, SampleInputsType
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
@@ -163,6 +166,7 @@ FACE_LANDMARK_CONNECTIONS = [
 # Face detector model parameters.
 BATCH_SIZE = 1
 DETECT_SCORE_SLIPPING_THRESHOLD = 100  # Clip output scores to this maximum value.
+DETECT_DEFAULT_INCLUDE_POSTPROCESSING = False
 DETECT_DXY, DETECT_DSCALE = (
     0,
     1.1,
@@ -214,19 +218,85 @@ class FaceDetector(BaseModel):
             tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
         ],
         anchors: torch.Tensor,
-    ):
+        score_clipping_threshold: float = DETECT_SCORE_SLIPPING_THRESHOLD,
+        include_postprocessing: bool = DETECT_DEFAULT_INCLUDE_POSTPROCESSING,
+    ) -> None:
         super().__init__()
         self.detector = detector
-        self.anchors = anchors
+        self.anchors = anchors.view([*list(anchors.shape)[:-1], -1, 2])
+        self.include_postprocessing = include_postprocessing
+        self.score_clipping_threshold = score_clipping_threshold
 
-    def forward(self, image):
-        return self.detector(image)
+    def forward(
+        self, image: torch.Tensor
+    ) -> (
+        tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
+        | tuple[torch.Tensor, torch.Tensor]
+    ):
+        """
+        Detector forward pass.
+
+        Parameters
+        ----------
+        image
+          RGB input image of shape (B, 3, H, W).  Range is [0-1].
+
+        Returns
+        -------
+        boxes_and_coordinates_and_scores: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor] | tuple[torch.Tensor, torch.Tensor]
+            If self.include_postprocessing is False:
+                boxes_coords_1: torch.Tensor
+                    Boxes + Coords of shape [1, N1, 16] in pixel space
+                    In the last dimension:
+                    - indices [0-3] are the box coordinates ((x_min, y_min), (width, height))
+                    - indices [4-15] are the 10 keypoint coordinates ((x1,y1), (x2,y2), (x3,y3), (x4,y4), ...).
+
+                boxes_coords_2: torch.Tensor
+                    Boxes + Coords of shape [1, N2, 16] in pixel space
+                    In the last dimension:
+                    - indices [0-3] are the box coordinates ((x_min, y_min), (width, height))
+                    - indices [4-15] are the 10 keypoint coordinates ((x1,y1), (x2,y2), (x3,y3), (x4,y4), ...).
+
+                box_scores_1: torch.Tensor
+                    Raw model logits of shape [1, N1, 1] in pixel space
+
+                box_scores_2: torch.Tensor
+                    Raw model logits of shape [1, N2, 1] in pixel space
+
+            If self.include_postprocessing is True:
+                boxes_and_coordinates: torch.Tensor
+                    Detected boxes and coordinates in pixel space.
+                    Shape (B, N, 16). Where N is number of detections
+                    In the last dimension:
+                    - indices [0-3] are the box coordinates ((x_min, y_min), (x_max, y_max))
+                    - indices [4-15] are the 5 keypoint coordinates (x1,y1, x2,y2, x3,y3, x4,y4, x5,y5, x6,y6, x7,y7).
+
+                scores: torch.Tensor
+                    Clipped and sigmoid activated scores of shape (B, N).
+        """
+        box_coords1, box_coords2, box_scores1, box_scores2 = self.detector(image)
+
+        if self.include_postprocessing:
+            coords = torch.cat([box_coords1, box_coords2], dim=1)
+            scores = torch.cat([box_scores1, box_scores2], dim=1)
+            coords, scores = mediapipe_detector_postprocess(
+                coords,
+                scores,
+                self.score_clipping_threshold,
+                (image.shape[2], image.shape[3]),
+                self.anchors,
+            )
+            return coords, scores
+
+        return box_coords1, box_coords2, box_scores1, box_scores2
 
     @classmethod
     def from_pretrained(
         cls,
         detector_weights: str = "blazefaceback.pth",
         detector_anchors: str = "anchors_face_back.npy",
+        score_clipping_threshold: float = DETECT_SCORE_SLIPPING_THRESHOLD,
+        include_postprocessing: bool = DETECT_DEFAULT_INCLUDE_POSTPROCESSING,
     ) -> FaceDetector:
         with MediaPipePyTorchAsRoot() as repo_path:
             _apply_blazeface_fixes(repo_path)
@@ -238,7 +308,12 @@ class FaceDetector(BaseModel):
             with set_temp_env({"TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD": "1"}):
                 face_detector.load_weights(detector_weights)
             face_detector.load_anchors(detector_anchors)
-            return cls(face_detector, face_detector.anchors)
+            return cls(
+                face_detector,
+                face_detector.anchors,
+                score_clipping_threshold,
+                include_postprocessing,
+            )
 
     @staticmethod
     def get_input_spec(batch_size: int = BATCH_SIZE) -> InputSpec:
@@ -283,15 +358,17 @@ class FaceLandmarkDetector(BaseModel):
     def __init__(
         self,
         detector: Callable[[torch.Tensor], tuple[torch.Tensor, torch.Tensor]],
-    ):
+    ) -> None:
         super().__init__()
         self.detector = detector
 
-    def forward(self, image):
+    def forward(self, image: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         return self.detector(image)
 
     @classmethod
-    def from_pretrained(cls, landmark_detector_weights: str = "blazeface_landmark.pth"):
+    def from_pretrained(
+        cls, landmark_detector_weights: str = "blazeface_landmark.pth"
+    ) -> FaceLandmarkDetector:
         with MediaPipePyTorchAsRoot() as repo_path:
             # This conditional is unlikely to be hit, and breaks torch fx graph conversion
             find_replace_in_repo(
@@ -351,6 +428,8 @@ class MediaPipeFace(CollectionModel):
         detector_weights: str = "blazefaceback.pth",
         detector_anchors: str = "anchors_face_back.npy",
         landmark_detector_weights: str = "blazeface_landmark.pth",
+        detector_score_clipping_threshold: float = DETECT_SCORE_SLIPPING_THRESHOLD,
+        include_detector_postprocessing: bool = DETECT_DEFAULT_INCLUDE_POSTPROCESSING,
     ) -> MediaPipeFace:
         """
         Load mediapipe models from the source repository.
@@ -360,30 +439,12 @@ class MediaPipeFace(CollectionModel):
             <source repository>.blazeface_landmark.BlazeFaceLandmark,
         ]
         """
-        with MediaPipePyTorchAsRoot() as repo_path:
-            # This conditional is unlikely to be hit, and breaks torch fx graph conversion
-            find_replace_in_repo(
-                repo_path, "blazeface_landmark.py", "if x.shape[0] == 0:", "if False:"
-            )
-
-            _apply_blazeface_fixes(repo_path)
-
-            from blazeface import BlazeFace
-            from blazeface_landmark import BlazeFaceLandmark
-
-            face_detector = BlazeFace(back_model=True)
-            # Set the environment variable to force torch.load to use weights_only=False
-            # This is needed for PyTorch 2.8+ where the default changed to weights_only=True
-            with set_temp_env({"TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD": "1"}):
-                face_detector.load_weights(detector_weights)
-            face_detector.load_anchors(detector_anchors)
-            face_regressor = BlazeFaceLandmark()
-            # Set the environment variable to force torch.load to use weights_only=False
-            # This is needed for PyTorch 2.8+ where the default changed to weights_only=True
-            with set_temp_env({"TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD": "1"}):
-                face_regressor.load_weights(landmark_detector_weights)
-
-            return cls(
-                FaceDetector(face_detector, face_detector.anchors),
-                FaceLandmarkDetector(face_regressor),
-            )
+        return cls(
+            FaceDetector.from_pretrained(
+                detector_weights,
+                detector_anchors,
+                detector_score_clipping_threshold,
+                include_detector_postprocessing,
+            ),
+            FaceLandmarkDetector.from_pretrained(landmark_detector_weights),
+        )

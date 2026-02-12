@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 import torch
@@ -80,12 +81,12 @@ class MovenetApp:
         model: Callable[[torch.Tensor], torch.Tensor],
         input_height: int,
         input_width: int,
-    ):
+    ) -> None:
         self.model = model
         self.input_height = input_height
         self.input_width = input_width
 
-    def predict(self, *args, **kwargs):
+    def predict(self, *args: Any, **kwargs: Any) -> list[Image.Image] | np.ndarray:
         # See predict_pose_keypoints.
         return self.predict_pose_keypoints(*args, **kwargs)
 
@@ -109,13 +110,14 @@ class MovenetApp:
 
         Returns
         -------
-        If raw_output is False, returns:
-        predicted_images
-            Image with keypoints drawn.
+        result : list[Image.Image] | np.ndarray
+            If raw_output is False, returns:
+            predicted_images
+                Image with keypoints drawn.
 
-        If raw_output is True, returns:
-        kpt_with_conf
-            Keypoint coordinates with confidence. Shape (B, 1, 17, 3).
+            If raw_output is True, returns:
+            kpt_with_conf
+                Keypoint coordinates with confidence. Shape (B, 1, 17, 3).
         """
         NHWC_int_numpy_frames, NCHW_torch_images = app_to_net_image_inputs(image)
         NCHW_torch_images, scale, pad = resize_pad(

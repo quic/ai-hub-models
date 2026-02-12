@@ -3,13 +3,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 import copy
-import os
 from collections.abc import Iterable
 from functools import lru_cache
 from typing import TYPE_CHECKING
 
 import torch
-import unidic
 from melo import modules
 from qai_hub.client import Device
 from torch import Tensor
@@ -28,6 +26,7 @@ from qai_hub_models.models._shared.melotts.meloTTS_encoder import (
     OptimizedTextEncoder,
 )
 from qai_hub_models.models._shared.melotts.meloTTS_flow import OptimizedFlow
+from qai_hub_models.models._shared.melotts.utils import download_unidic
 from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.utils.base_model import (
     BaseModel,
@@ -60,8 +59,7 @@ BERT_MODEL_IDS = {
 
 @lru_cache(maxsize=1)
 def get_tts_object(language: str) -> "TTS":
-    if not os.path.exists(unidic.DICDIR):
-        os.system("python -m unidic download")
+    download_unidic()
     from melo.api import TTS
 
     return TTS(LANGUAGE_MAP[language], device="cpu")
@@ -195,17 +193,17 @@ class Encoder(BaseModel):
 
         Returns
         -------
-        y_lengths
+        y_lengths : Tensor
             shape of [1]
-        x_mask
+        x_mask : Tensor
             shape of (1, 1, MAX_SEQ_LEN), i.e., [1, 1, 512], mask of x
-        m_p
+        m_p : Tensor
             shape of (1, ENCODER_HIDDEN_DIM, MAX_SEQ_LEN), i.e., [1, 192, 512]
-        logs_p
+        logs_p : Tensor
             shape of (1, ENCODER_HIDDEN_DIM, MAX_SEQ_LEN), i.e., [1, 192, 512]
-        g
+        g : Tensor
             shape of (1, SPEAKER_EMBED_DIM, 1), i.e., [1, 256, 1]
-        w_ceil
+        w_ceil : Tensor
             shape of (1, 1, MAX_SEQ_LEN), i.e., [1, 1, 512]
         """
         g = None
@@ -247,7 +245,7 @@ class Encoder(BaseModel):
 
         Returns
         -------
-        z
+        z : Tensor
             shape of (1, 1, MAX_SEQ_LEN)
         """
         sdp = self.model.sdp
@@ -358,7 +356,7 @@ class Flow(BaseModel):
 
         Returns
         -------
-        torch.Tensor
+        output : Tensor
            the output of Flow module, shape of (1, ENCODER_HIDDEN_DIM, UPSAMPLED_MAX_SEQ_LEN), i.e., [1, 192, 1536]
         """
         m_p = torch.matmul(m_p, attn_squeezed.transpose(1, 2))
@@ -643,10 +641,11 @@ class T5Decoder(BaseModel):
 
         Returns
         -------
-        logits
-            predicted logits
-        present_key_values
-            updated key values
+        output : tuple[Tensor, ...]
+            logits
+                predicted logits
+            present_key_values
+                updated key values
         """
         input_embeds = self.embed_tokens(input_ids)
         encoder_extended_attention_mask = -10000.0 * (

@@ -3,8 +3,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
+from __future__ import annotations
+
 import contextlib
 import math
+from typing import cast
 
 import torch
 from torch import nn
@@ -12,15 +15,19 @@ from torch import nn
 
 def make_divisible(x: int, divisor: int) -> int:
     """
-    Compute the closest number that is larger or equal to X and is divisible by DIVISOR.
+    Compute the closest number that is larger or equal to x and is divisible by divisor.
 
-    Inputs:
-        x: int
-            Input intenger
-        divisor: int
-            Divisor for the input number.
-    Outputs: int
-        Closest number that is larger or equal to X and is divisible by DIVISOR.
+    Parameters
+    ----------
+    x
+        Input integer.
+    divisor
+        Divisor for the input number.
+
+    Returns
+    -------
+    result : int
+        Closest number that is larger or equal to x and is divisible by divisor.
     """
     return math.ceil(x / divisor) * divisor
 
@@ -30,19 +37,24 @@ class Concat(nn.Module):
 
     def __init__(self, dimension: int = 1) -> None:
         """
-        Inputs:
-            dimension: int
-                Dimension to concatenate tensors.
+        Parameters
+        ----------
+        dimension
+            Dimension to concatenate tensors.
         """
         super().__init__()
         self.d = dimension
 
     def forward(self, x: list[torch.Tensor]) -> torch.Tensor:
         """
-        Inputs:
-            x: list[torch.Tensor]
-                List of tensors to be concatenated.
-        Output: torch.Tensor
+        Parameters
+        ----------
+        x
+            List of tensors to be concatenated.
+
+        Returns
+        -------
+        output : torch.Tensor
             Concatenated tensor.
         """
         return torch.cat(x, self.d)
@@ -55,13 +67,17 @@ def autopad(
     """
     Compute padding size from kernel size.
 
-    Input:
-        kernel_size: int
-            Kernel size.
-        p: int | tuple[int, int]
-            Padding size.
-    Outputs: int
-        Padding size
+    Parameters
+    ----------
+    kernel_size
+        Kernel size.
+    p
+        Padding size. If None, computed from kernel_size.
+
+    Returns
+    -------
+    padding : int | tuple[int, int]
+        Padding size.
     """
     if p is not None:
         return p
@@ -82,26 +98,29 @@ class FusedConvBatchNorm(nn.Module):
         out_channels: int,
         kernel_size: int = 1,
         stride: int = 1,
-        padding=None,
+        padding: int | tuple[int, int] | None = None,
         groups: int = 1,
         act: bool = True,
     ) -> None:
         """
         Initialize FusedConvBatchNorm.
 
-        Inputs:
-            in_channels: int
-                Input channels.
-            out_channels: int
-                Output channels.
-            kernel_size: int
-                Kernel size.
-            stride: int
-                Convolution stride.
-            groups: int
-                Groups of channels for convolution.
-            act: bool
-                Whether to enable ReLU activation.
+        Parameters
+        ----------
+        in_channels
+            Input channels.
+        out_channels
+            Output channels.
+        kernel_size
+            Kernel size.
+        stride
+            Convolution stride.
+        padding
+            Padding size. If None, computed from kernel_size.
+        groups
+            Groups of channels for convolution.
+        act
+            Whether to enable ReLU activation.
         """
         super().__init__()
         self.conv = nn.Conv2d(
@@ -124,10 +143,14 @@ class FusedConvBatchNorm(nn.Module):
         """
         Forward computation of FusedConvBatchNorm module.
 
-        Inputs:
-            x: torch.Tensor
-                Input tensor
-        Output: torch.Tensor
+        Parameters
+        ----------
+        x
+            Input tensor.
+
+        Returns
+        -------
+        output : torch.Tensor
             Output tensor.
         """
         return self.act(self.bn(self.conv(x)))
@@ -147,17 +170,18 @@ class Bottleneck(nn.Module):
         """
         Initialize Bottleneck module.
 
-        Inputs:
-            in_channels: int
-                Input channels.
-            out_channels: int
-                Output channels.
-            shortcut: bool
-                Whether to enable shortcut connection.
-            groups: int
-                Groups of channels for convolution.
-            expand_ratio: float
-                Expand ratio of input channels to hidden channels.
+        Parameters
+        ----------
+        in_channels
+            Input channels.
+        out_channels
+            Output channels.
+        shortcut
+            Whether to enable shortcut connection.
+        groups
+            Groups of channels for convolution.
+        expand_ratio
+            Expand ratio of input channels to hidden channels.
         """
         super().__init__()
         hidden_channels = int(out_channels * expand_ratio)
@@ -171,10 +195,14 @@ class Bottleneck(nn.Module):
         """
         Forward computation of Bottleneck module.
 
-        Inputs:
-            x: torch.Tensor
-                Input tensor.
-        Outputs: torch.Tensor.
+        Parameters
+        ----------
+        x
+            Input tensor.
+
+        Returns
+        -------
+        output : torch.Tensor
             Output tensor.
         """
         y = self.cv2(self.cv1(x))
@@ -198,19 +226,20 @@ class C3(nn.Module):
         """
         Initialize C3 module.
 
-        Inputs:
-            in_channels: int
-                Input channels.
-            out_channels: int
-                Output channels.
-            num_blocks: int
-                Number of Bottleneck blocks.
-            shortcut: bool
-                Whether to enable shortcut connection.
-            groups: int
-                Groups of channels for convolution.
-            expand_ratio: float
-                Expand ratio of input channels to hidden channels.
+        Parameters
+        ----------
+        in_channels
+            Input channels.
+        out_channels
+            Output channels.
+        num_blocks
+            Number of Bottleneck blocks.
+        shortcut
+            Whether to enable shortcut connection.
+        group
+            Groups of channels for convolution.
+        expand_ratio
+            Expand ratio of input channels to hidden channels.
         """
         super().__init__()
         hidden_channels = int(out_channels * expand_ratio)
@@ -230,11 +259,15 @@ class C3(nn.Module):
         """
         Forward computation of C3 module.
 
-        Inputs:
-            x: torch.Tensor.
-                Input tensor.
-        Outputs: torch.Tensor.
-            Output tensor
+        Parameters
+        ----------
+        x
+            Input tensor.
+
+        Returns
+        -------
+        output : torch.Tensor
+            Output tensor.
         """
         return self.cv3(torch.cat((self.m(self.cv1(x)), self.cv2(x)), dim=1))
 
@@ -248,13 +281,14 @@ class SPPF(nn.Module):
         """
         Initialize SPPF module.
 
-        Input:
-            in_channels: int
-                Input channels.
-            out_channels: int
-                Output channels.
-            kernel_size: int
-                Kernel size.
+        Parameters
+        ----------
+        in_channels
+            Input channels.
+        out_channels
+            Output channels.
+        kernel_size
+            Kernel size.
         """
         super().__init__()
         hiddel_channels = in_channels // 2
@@ -268,11 +302,15 @@ class SPPF(nn.Module):
         """
         Forward computation of SPPF module.
 
-        Inputs:
-            x: torch.Tensor.
-                Input tensor.
-        Outputs: torch.Tensor.
-            Output tensor
+        Parameters
+        ----------
+        x
+            Input tensor.
+
+        Returns
+        -------
+        output : torch.Tensor
+            Output tensor.
         """
         x = self.cv1(x)
         y1 = self.m(x)
@@ -289,14 +327,14 @@ class Detect(nn.Module):
         """
         Initialize Detector module.
 
-        Inputs:
-            num_classes: int
-                Number of object classes.
-            anchors: tuple
-                Tuple of anchor sizes.
-            ch: tuple
-                Input channels of multi-scales
-            inplace: bool
+        Parameters
+        ----------
+        num_classes
+            Number of object classes.
+        anchors
+            Tuple of anchor sizes.
+        ch
+            Input channels of multi-scales.
         """
         super().__init__()
         self.num_classes = num_classes
@@ -316,10 +354,14 @@ class Detect(nn.Module):
         """
         Forward computation of Detect module.
 
-        Inputs:
-            x: list[torch.Tensor].
-                Input lisr of tensors.
-        Outputs: list[torch.Tensor].
+        Parameters
+        ----------
+        x
+            Input list of tensors.
+
+        Returns
+        -------
+        output : list[torch.Tensor]
             Output list of tensors.
         """
         for i in range(self.num_layers):
@@ -327,20 +369,25 @@ class Detect(nn.Module):
         return x
 
 
-def build_gear_guard_net_model(cfg: dict, ch: list[int]):
+def build_gear_guard_net_model(
+    cfg: dict[str, list], ch: list[int]
+) -> tuple[nn.Sequential, list[int]]:
     """
     Generate model module from model configuration.
 
-    Inputs:
-        cfg: dict
-            Model configurations.
-        ch: list
-            Input channels.
-    Output:
-        model: nn.Sequential
-            Model layers.
-        save: list
-            List of layer indices that needs to be saved.
+    Parameters
+    ----------
+    cfg
+        Model configurations.
+    ch
+        Input channels.
+
+    Returns
+    -------
+    model : nn.Sequential
+        Model layers.
+    save : list[int]
+        List of layer indices that needs to be saved.
     """
     anchors, nc, gd, gw = (
         cfg["anchors"],
@@ -349,7 +396,7 @@ def build_gear_guard_net_model(cfg: dict, ch: list[int]):
         cfg["width_multiple"],
     )
     num_anchors = (len(anchors[0]) // 2) if isinstance(anchors, list) else anchors
-    num_outputs = num_anchors * (nc + 5)
+    num_outputs = num_anchors * (cast(int, nc) + 5)
     layers = []
     save: list[int] = []
     c2 = ch[-1]
@@ -406,17 +453,18 @@ class DoubleBlazeBlock(nn.Module):
         """
         Initialize DoubleBlaze block.
 
-        Inputs:
-            in_channels: int
-                Number of input channels.
-            out_channels: int
-                Number of output channels.
-            stride: int
-                Convolution stride.
-            kernel_size: int
-                Kernel size.
-            bias: bool.
-                Enable bias in convolution.
+        Parameters
+        ----------
+        in_channels
+            Number of input channels.
+        out_channels
+            Number of output channels.
+        stride
+            Convolution stride.
+        kernel_size
+            Kernel size.
+        bias
+            Enable bias in convolution.
         """
         super().__init__()
         self.stride = stride
@@ -471,10 +519,14 @@ class DoubleBlazeBlock(nn.Module):
         """
         Forward computation of DoubleBlaze block.
 
-        Input:
-            x: torch.Tensor.
-                Input tensor
-        Output: torch.Tensor
+        Parameters
+        ----------
+        x
+            Input tensor.
+
+        Returns
+        -------
+        output : torch.Tensor
             Output tensor.
         """
         h = self.conv1(x)

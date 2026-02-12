@@ -14,7 +14,7 @@ import numpy as np
 import qai_hub as hub
 from pydantic import GetCoreSchemaHandler
 from pydantic_core import core_schema
-from qai_hub.client import QuantizeDtype
+from qai_hub.client import QuantizeDtype, QuantizeJob
 from qai_hub.hub import _global_client
 from qai_hub.public_rest_api import get_framework_list
 from typing_extensions import assert_never
@@ -214,11 +214,11 @@ class QAIRTVersion:
 
         Returns
         -------
-        api_url
+        api_url : str
             Currently active Hub api_url.
-        valid_frameworks
+        valid_frameworks : list[ParsedFramework]
             All valid frameworks on this Hub version.
-        default_framework
+        default_framework : ParsedFramework | None
             Framework that corresponds with AI Hub Workbench default.
         """
         try:
@@ -361,6 +361,8 @@ class InferenceEngine(Enum):
     TFLITE = "tflite"
     QNN = "qnn"
     ONNX = "onnx"
+    GENIE = "genie"
+    LLAMA_CPP = "llama_cpp"
 
     @property
     def full_package_name(self) -> str:
@@ -370,6 +372,10 @@ class InferenceEngine(Enum):
             return "QAIRT (Qualcomm AI Runtime)"
         if self == InferenceEngine.ONNX:
             return "ONNX Runtime"
+        if self == InferenceEngine.GENIE:
+            return "Genie (Qualcomm GenAI Inference Extensions)"
+        if self == InferenceEngine.LLAMA_CPP:
+            return "llama.cpp"
         assert_never(self)
 
     @property
@@ -386,7 +392,7 @@ class InferenceEngine(Enum):
     @property
     def default_qairt_version(self: InferenceEngine) -> QAIRTVersion:
         """Default QAIRT version used by this inference engine."""
-        qairt_version = "2.37" if self == InferenceEngine.ONNX else "2.41"
+        qairt_version = "2.42"  # "2.42" if self == InferenceEngine.ONNX else "2.NN"
 
         try:
             return QAIRTVersion(qairt_version)
@@ -452,6 +458,12 @@ class TargetRuntime(Enum):
     # https://github.com/microsoft/onnxruntime-genai
     ONNXRUNTIME_GENAI = "onnxruntime_genai"
 
+    # Llama.cpp runtime variants
+    # https://github.com/ggml-org/llama.cpp
+    LLAMA_CPP_CPU = "llama_cpp_cpu"
+    LLAMA_CPP_GPU = "llama_cpp_gpu"
+    LLAMA_CPP_NPU = "llama_cpp_npu"
+
     @staticmethod
     def from_hub_model_type(model_type: hub.SourceModelType) -> TargetRuntime:
         for rt in TargetRuntime:
@@ -466,7 +478,6 @@ class TargetRuntime(Enum):
         if (
             self == TargetRuntime.QNN_CONTEXT_BINARY  # noqa: PLR1714 | Can't merge comparisons and use assert_never
             or self == TargetRuntime.QNN_DLC
-            or self == TargetRuntime.GENIE
         ):
             return InferenceEngine.QNN
         if (
@@ -475,6 +486,14 @@ class TargetRuntime(Enum):
             or self == TargetRuntime.ONNXRUNTIME_GENAI
         ):
             return InferenceEngine.ONNX
+        if self == TargetRuntime.GENIE:
+            return InferenceEngine.GENIE
+        if (
+            self == TargetRuntime.LLAMA_CPP_CPU  # noqa: PLR1714 | Can't merge comparisons and use assert_never
+            or self == TargetRuntime.LLAMA_CPP_GPU
+            or self == TargetRuntime.LLAMA_CPP_NPU
+        ):
+            return InferenceEngine.LLAMA_CPP
         assert_never(self)
 
     @property
@@ -494,6 +513,12 @@ class TargetRuntime(Enum):
             return "genie.zip"
         if self == TargetRuntime.ONNXRUNTIME_GENAI:
             return "onnxruntime_genai.zip"
+        if (
+            self == TargetRuntime.LLAMA_CPP_CPU  # noqa: PLR1714 | Can't merge comparisons and use assert_never
+            or self == TargetRuntime.LLAMA_CPP_GPU
+            or self == TargetRuntime.LLAMA_CPP_NPU
+        ):
+            return "gguf"
 
         assert_never(self)
 
@@ -508,7 +533,13 @@ class TargetRuntime(Enum):
             return hub.SourceModelType.ONNX
         if self == TargetRuntime.TFLITE:
             return hub.SourceModelType.TFLITE
-        if self == TargetRuntime.GENIE or self == TargetRuntime.ONNXRUNTIME_GENAI:  # noqa: PLR1714 | Can't merge comparisons and use assert_never
+        if (
+            self == TargetRuntime.GENIE  # noqa: PLR1714 | Can't merge comparisons and use assert_never
+            or self == TargetRuntime.ONNXRUNTIME_GENAI
+            or self == TargetRuntime.LLAMA_CPP_CPU
+            or self == TargetRuntime.LLAMA_CPP_GPU
+            or self == TargetRuntime.LLAMA_CPP_NPU
+        ):
             raise ValueError(f"No Hub model type is applicable for {self.value}")
         assert_never(self)
 
@@ -533,9 +564,17 @@ class TargetRuntime(Enum):
         if precision == Precision.float:
             return True
 
+        # All of our runtimes might support this. We don't have enough information to say "no", as we don't have access to each component precision.
+        if precision == Precision.mixed_with_float:
+            return True
+
         # Check quantized types
         if self == TargetRuntime.TFLITE:
+            # Precision.mixed is not supported because it is guaranteed to have at least 1 layer that is not int8.
+            # Since "mixed" cannot have floating point layers, it must have multiple quantized precisions. TF Lite only supports one.
+            # Otherwise, the user would have picked a single precision to represent the whole component model.
             return precision == Precision.w8a8
+
         if self == TargetRuntime.ONNX:
             return precision in [
                 Precision.w8a8,
@@ -550,7 +589,9 @@ class TargetRuntime(Enum):
                 Precision.w8a16_mixed_int16,
                 Precision.w8a8_mixed_fp16,
                 Precision.w8a16_mixed_fp16,
+                Precision.mixed,
             ]
+
         if (
             self == TargetRuntime.QNN_DLC  # noqa: PLR1714 | Can't merge comparisons and use assert_never
             or self == TargetRuntime.QNN_CONTEXT_BINARY
@@ -571,6 +612,16 @@ class TargetRuntime(Enum):
                 Precision.w8a16_mixed_int16,
                 Precision.w8a8_mixed_fp16,
                 Precision.w8a16_mixed_fp16,
+                Precision.mixed,
+            ]
+        if (
+            self == TargetRuntime.LLAMA_CPP_CPU  # noqa: PLR1714 | Can't merge comparisons and use assert_never
+            or self == TargetRuntime.LLAMA_CPP_GPU
+            or self == TargetRuntime.LLAMA_CPP_NPU
+        ):
+            # Llama.cpp supports various GGUF quantization formats
+            return precision in [
+                Precision.mxfp4,
             ]
 
         assert_never(self)
@@ -578,8 +629,19 @@ class TargetRuntime(Enum):
     @property
     def aihub_target_runtime_flag(self) -> str:
         """AI Hub Workbench job flag for compiling to this runtime."""
+        # LLAMA_CPP_* runtimes don't go through AI Hub compilation
+        if self in [
+            TargetRuntime.LLAMA_CPP_CPU,
+            TargetRuntime.LLAMA_CPP_GPU,
+            TargetRuntime.LLAMA_CPP_NPU,
+        ]:
+            raise ValueError(
+                f"Runtime {self.name} does not support AI Hub compilation. "
+                "llama.cpp runtimes use pre-built GGUF models instead."
+            )
+
         if self.is_exclusively_for_genai:
-            hub_target_runtime_flag = TargetRuntime.QNN_CONTEXT_BINARY.value
+            hub_target_runtime_flag = TargetRuntime.QNN_DLC.value
         else:
             hub_target_runtime_flag = self.value
 
@@ -593,7 +655,7 @@ class TargetRuntime(Enum):
         THIS MIGHT BE DIFFERENT THAN AI HUB's DEFAULT VERSION.
         """
         if self == TargetRuntime.GENIE:
-            return QAIRTVersion("2.37")
+            return QAIRTVersion("2.42")
         return self.inference_engine.default_qairt_version
 
     @property
@@ -612,7 +674,13 @@ class TargetRuntime(Enum):
     @property
     def is_exclusively_for_genai(self) -> bool:
         """Returns true if this runtime is exclusively used to execute GenAI models."""
-        return self in [TargetRuntime.GENIE, TargetRuntime.ONNXRUNTIME_GENAI]
+        return self in [
+            TargetRuntime.GENIE,
+            TargetRuntime.ONNXRUNTIME_GENAI,
+            TargetRuntime.LLAMA_CPP_CPU,
+            TargetRuntime.LLAMA_CPP_GPU,
+            TargetRuntime.LLAMA_CPP_NPU,
+        ]
 
 
 class _FloatDtype(Enum):
@@ -622,6 +690,12 @@ class _FloatDtype(Enum):
     """
 
     FP16 = 1
+
+
+# Used to avoid type name shadowing in the Precision class.
+# With in the precision class scope, typings for function parameters might refer to "float".
+# Mypy thinks that "float" is Precision.float in that context, rather than the primitive type.
+floating = float
 
 
 class Precision:
@@ -646,6 +720,13 @@ class Precision:
     w8a8_mixed_fp16: Precision
     w8a16_mixed_fp16: Precision
 
+    # GGUF-specific Precision (for llama.cpp)
+    mxfp4: Precision
+
+    # Component model with parts that each have a different precision.
+    mixed: Precision  # No component has floating point layers.
+    mixed_with_float: Precision  # At least one component has floating point layers.
+
     _allowed_override_dtypes: set[QuantizeDtype | _FloatDtype] = {
         QuantizeDtype.INT16,
         _FloatDtype.FP16,
@@ -656,11 +737,22 @@ class Precision:
         weights_type: QuantizeDtype | None,
         activations_type: QuantizeDtype | None,
         override_type: QuantizeDtype | _FloatDtype | None = None,
+        _custom_name: str | None = None,
     ) -> None:
         """
-        `override_type` is used to specify mixed-precision
-        When provided, it overrides both `weights_type` and `activations_type`
-        for the most sensitive layer(s), applying the same dtype to both weights and activations.
+        Parameters
+        ----------
+        weights_type
+            Quantization type for model weights. If None, weights are floating point.
+        activations_type
+            Quantization type for model activations. If None, activations are floating point.
+        override_type
+            Secondary type for mixed-precision quantization. If None, no mixed-precision is used.
+            When provided, this overrides both `weights_type` and `activations_type` for the most sensitive layer(s),
+            applying the same dtype to both weights and activations.
+        _custom_name
+            `_custom_name` is used for special precision formats (e.g., GGUF formats like mxfp4)
+            that don't fit the standard wXaY naming convention.
         """
         if (
             override_type is not None
@@ -673,6 +765,58 @@ class Precision:
         self.weights_type: QuantizeDtype | None = weights_type
         self.activations_type: QuantizeDtype | None = activations_type
         self.override_type: QuantizeDtype | _FloatDtype | None = override_type
+        self._custom_name: str | None = _custom_name
+
+        if self._custom_name is not None:
+            assert (
+                self.weights_type is None
+                and self.activations_type is None
+                and self.override_type is None
+            ), "If _custom_name is set, all other Precision parameters must be None."
+
+    @staticmethod
+    def _parse_override_type(
+        type_str: str | None,
+    ) -> QuantizeDtype | _FloatDtype | None:
+        """
+        Parse an override type string to its enum value.
+
+        Parameters
+        ----------
+        type_str
+            The override type string (e.g., "int16", "fp16", "INT16", "FP16").
+
+        Returns
+        -------
+        value: QuantizeDtype | _FloatDtype | None
+            The corresponding enum value, or None if type_str is None.
+
+        Raises
+        ------
+        ValueError
+            If the type string is not a valid override type.
+        """
+        if type_str is None:
+            return None
+
+        enum_name = type_str.upper()
+
+        # Check if it's an allowed override dtype
+        is_allowed = any(
+            enum_name == otype.name for otype in Precision._allowed_override_dtypes
+        )
+        if not is_allowed:
+            raise ValueError(
+                f"Invalid override type '{type_str}'. "
+                f"Supported: {', '.join(otype.name.lower() for otype in Precision._allowed_override_dtypes)}"
+            )
+
+        # Resolve from QuantizeDtype or _FloatDtype
+        for enum_type in (QuantizeDtype, _FloatDtype):
+            if enum_name in enum_type._member_names_:
+                return enum_type[enum_name]
+
+        return None
 
     @staticmethod
     def parse(obj: Any) -> Precision:
@@ -683,13 +827,19 @@ class Precision:
         string = obj
         if string == "float":
             return Precision.float
+        if string == "mxfp4":
+            return Precision.mxfp4
+        if string == "mixed":
+            return Precision.mixed
+        if string == "mixed_with_float":
+            return Precision.mixed_with_float
 
         atype = None
         wtype = None
-        otype_enum_name = None
+        otype_str = None
 
         if match := re.match(r"(.*)_mixed_(.*)", string):
-            otype_enum_name = match.group(2).upper()
+            otype_str = match.group(2)
         if match := re.match(r"(w\d+)?(a\d+)?", string):
             wtype = match.group(1)
             atype = match.group(2)
@@ -716,38 +866,18 @@ class Precision:
                     f"Unsupported bit width {bit_width} for quantization {name}. Supported: {','.join([str(x) for x in QuantizeDtype])}"
                 )
 
-        def _is_allowed_override_dtype(enum_name: str) -> bool:
-            return any(
-                enum_name == otype.name for otype in Precision._allowed_override_dtypes
-            )
-
-        if otype_enum_name is not None and not _is_allowed_override_dtype(
-            otype_enum_name
-        ):
-            raise ValueError(
-                f"Invalid override type {otype_enum_name}, Supported: {','.join([str(x) for x in Precision._allowed_override_dtypes])}"
-            )
-
-        # Try resolving from both enums
-        otype = next(
-            (
-                enum_type[otype_enum_name]
-                for enum_type in (QuantizeDtype, _FloatDtype)
-                if otype_enum_name is not None
-                and otype_enum_name in enum_type._member_names_
-            ),
-            None,
-        )
-
         return Precision(
             QuantizeDtype[wtype_enum_name] if wtype_enum_name else None,
             QuantizeDtype[atype_enum_name] if atype_enum_name else None,
-            otype,
+            Precision._parse_override_type(otype_str),
         )
 
     @property
     def has_quantized_activations(self) -> bool:
         """True if ANY model activations are quantized (NOT floating point)."""
+        if self._custom_name in ["mixed", "mixed_with_float"]:
+            return True
+
         return (
             self.activations_type is not None
             and self.activations_type not in _FloatDtype
@@ -756,24 +886,22 @@ class Precision:
     @property
     def has_float_activations(self) -> bool:
         """True if ANY model activations are floating point (not quantized)."""
+        if self._custom_name == "mixed":
+            return False
+
         return (
             self.activations_type is None
             or self.activations_type in _FloatDtype
             or (self.override_type is not None and self.override_type in _FloatDtype)
         )
 
-    @property
-    def has_float_weights(self) -> bool:
-        """True if ANY model weights are floating point (not quantized)."""
-        return (
-            self.weights_type is None
-            if self.override_type is None
-            else self.override_type in _FloatDtype
-        )
-
     def __str__(self) -> str:
+        if self._custom_name:
+            return self._custom_name
         if self == Precision.float:
             return "float"
+        if self._custom_name is not None:
+            return self._custom_name
 
         precision_name = (
             f"w{self.weights_type.name[3:]}" if self.weights_type else ""
@@ -794,6 +922,7 @@ class Precision:
             value.activations_type == self.activations_type
             and value.weights_type == self.weights_type
             and value.override_type == self.override_type
+            and value._custom_name == self._custom_name
         )
 
     def __hash__(self) -> int:
@@ -809,6 +938,64 @@ class Precision:
             serialization=core_schema.plain_serializer_function_ser_schema(
                 Precision.__str__, when_used="json"
             ),
+        )
+
+    def get_hub_quantize_options(
+        self, litemp_percentage: floating | None = None
+    ) -> str:
+        """
+        Generates CLI flags used when submitting an AI Hub Workbench quantized job that targets this precision.
+
+        Parameters
+        ----------
+        litemp_percentage
+            The Lite-MP percentage value for mixed precision quantization.
+            Required when this precision has an override_type (mixed precision).
+
+        Returns
+        -------
+        options: str
+            The quantize options string to pass to AI Hub.
+
+        Raises
+        ------
+        ValueError
+            If this is a mixed precision but litemp_percentage is not provided.
+        """
+        if self.override_type is not None:
+            if litemp_percentage is None:
+                raise ValueError(
+                    "litemp_percentage is required for mixed precision quantization."
+                )
+            override_qtype = self.override_type.name.lower()
+            return f"--range_scheme min_max --lite_mp percentage={litemp_percentage};override_qtype={override_qtype}"
+        if self == Precision.w8a16:
+            return "--range_scheme min_max"
+        return ""
+
+    @staticmethod
+    def from_quantize_job(job: QuantizeJob) -> Precision:
+        """
+        Create a Precision from a QuantizeJob.
+
+        Parameters
+        ----------
+        job
+            The AI Hub quantize job to extract precision from.
+
+        Returns
+        -------
+        Precision
+            The precision that corresponds to the quantize job's settings.
+        """
+        override_type_str: str | None = None
+        if match := re.search(r"override_qtype=(\w+)", job.options):
+            override_type_str = match.group(1)
+
+        return Precision(
+            job.weights_dtype,
+            job.activations_dtype,
+            Precision._parse_override_type(override_type_str),
         )
 
 
@@ -830,6 +1017,9 @@ Precision.w8a8_mixed_fp16 = Precision(
 Precision.w8a16_mixed_fp16 = Precision(
     QuantizeDtype.INT8, QuantizeDtype.INT16, _FloatDtype.FP16
 )
+Precision.mxfp4 = Precision(None, None, _custom_name="mxfp4")
+Precision.mixed = Precision(None, None, _custom_name="mixed")
+Precision.mixed_with_float = Precision(None, None, _custom_name="mixed_with_float")
 
 
 @unique

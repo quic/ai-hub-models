@@ -46,15 +46,15 @@ class FaceMap3DMMEvaluator(BaseEvaluator):
 
         for i in range(len(image_ids)):
             gt_landmark = gt_landmarks[i].numpy()
-            pred_landmark = project_landmark(output[i])
+            pred_landmark_pt = project_landmark(output[i])
             transform_landmark_coordinates(
-                pred_landmark,
+                pred_landmark_pt,
                 tuple(int(x) for x in bboxes[i]),  # type: ignore[arg-type]
                 self.image_height,
                 self.image_width,
             )
 
-            pred_landmark = pred_landmark[:, :2].numpy()
+            pred_landmark = pred_landmark_pt[:, :2].numpy()
             eye_length = np.sqrt(np.sum((gt_landmark[36, :] - gt_landmark[45, :]) ** 2))
             gt_landmark = np.concatenate((gt_landmark[17:30, :], gt_landmark[36:48, :]))
             pred_landmark = np.concatenate(

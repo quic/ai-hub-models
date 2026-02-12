@@ -13,6 +13,7 @@ from qai_hub_models.models._shared.imagenet_classifier.model import (
     ImagenetClassifier,
     normalize_image_torchvision,
 )
+from qai_hub_models.models.common import Precision
 
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 2
@@ -41,7 +42,7 @@ class LeViT(ImagenetClassifier):
 
         Returns
         -------
-        class_logits
+        class_logits : torch.Tensor
             A [1, 1000] where each value is the log-likelihood of
             the image belonging to the corresponding Imagenet class.
         """
@@ -49,6 +50,6 @@ class LeViT(ImagenetClassifier):
         return predictions[0]
 
     @staticmethod
-    def get_hub_litemp_percentage(_) -> float:
+    def get_hub_litemp_percentage(precision: Precision) -> float:
         """Returns the Lite-MP percentage value for the specified mixed precision quantization."""
         return 10

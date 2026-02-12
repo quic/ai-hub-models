@@ -29,16 +29,14 @@ from qai_hub_models.utils.args import (
     get_input_spec_kwargs,
     get_model_kwargs,
 )
+from qai_hub_models.utils.asset_loaders import ASSET_CONFIG
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.compare import torch_inference
 from qai_hub_models.utils.export_result import ExportResult
 from qai_hub_models.utils.export_without_hub_access import export_without_hub_access
 from qai_hub_models.utils.input_spec import InputSpec, make_torch_inputs
 from qai_hub_models.utils.onnx.helpers import download_and_unzip_workbench_onnx_model
-from qai_hub_models.utils.path_helpers import (
-    get_model_directory_for_download,
-    get_next_free_path,
-)
+from qai_hub_models.utils.path_helpers import get_next_free_path
 from qai_hub_models.utils.printing import (
     print_inference_metrics,
     print_on_target_demo_cmd,
@@ -60,11 +58,6 @@ def quantize_model(
     quantize_job: hub.client.QuantizeJob | None = None
 
     if precision != Precision.float:
-        if not precision.activations_type or not precision.weights_type:
-            raise ValueError(
-                "Quantization is only supported if both weights and activations are quantized."
-            )
-
         output_names = model.get_output_names()
         source_model = torch.jit.trace(model.to("cpu"), make_torch_inputs(input_spec))
         print(f"Compiling {model_name} to ONNX before quantization.")
@@ -77,6 +70,11 @@ def quantize_model(
         )
 
         print(f"Quantizing {model_name}.")
+        if not precision.activations_type or not precision.weights_type:
+            raise ValueError(
+                "Quantization is only supported if both weights and activations are quantized."
+            )
+
         calibration_data = quantization_utils.get_calibration_data(
             model, input_spec, num_calibration_samples
         )
@@ -88,7 +86,6 @@ def quantize_model(
             name=model_name,
             options=model.get_hub_quantize_options(precision, options),
         )
-
     return quantize_job
 
 
@@ -158,6 +155,9 @@ def inference_model(
 
 def download_model(
     output_dir: os.PathLike | str,
+    model: BaseModel,
+    runtime: TargetRuntime,
+    precision: Precision,
     tool_versions: ToolVersions,
     compile_job: hub.client.CompileJob,
     model_name: str,
@@ -182,12 +182,15 @@ def download_model(
             downloaded_path = target_model.download(os.path.join(dst_path, model_name))
             model_file_name = os.path.basename(downloaded_path)
 
-        tool_versions.to_yaml(os.path.join(dst_path, "tool-versions.yaml"))
+        # Dump supplementary files into the model folder
+        model.write_supplementary_files(dst_path, runtime, precision)
 
         # Extract and save metadata alongside downloaded model
         metadata_path = dst_path / "metadata.yaml"
         file_metadata = ModelFileMetadata.from_hub_model(target_model)
-        model_metadata = ModelMetadata(model_files={model_file_name: file_metadata})
+        model_metadata = ModelMetadata(
+            model_files={model_file_name: file_metadata}, tool_versions=tool_versions
+        )
         model_metadata.to_yaml(metadata_path)
 
         if zip_assets:
@@ -295,9 +298,8 @@ def export_model(
 
     output_path = Path(output_dir or Path.cwd() / "export_assets")
     if fetch_static_assets or not can_access_qualcomm_ai_hub():
-        export_without_hub_access(
+        static_model_path = export_without_hub_access(
             MODEL_ID,
-            "Depth-Anything-V3",
             device,
             skip_profiling,
             skip_inferencing,
@@ -309,7 +311,7 @@ def export_model(
             quantize_options + compile_options + profile_options,
             qaihm_version_tag=fetch_static_assets,
         )
-        return ExportResult()
+        return ExportResult(download_path=static_model_path)
 
     hub_device = hub.get_devices(
         name=device.name, attributes=device.attributes, os=device.os
@@ -392,11 +394,18 @@ def export_model(
     # 7. Downloads the model asset to the local directory
     downloaded_model_path: Path | None = None
     if not skip_downloading and tool_versions is not None:
-        model_directory = get_model_directory_for_download(
-            target_runtime, precision, chipset, output_path, MODEL_ID
+        model_directory = output_path / ASSET_CONFIG.get_release_asset_name(
+            MODEL_ID, target_runtime, precision, chipset
         )
         downloaded_model_path = download_model(
-            model_directory, tool_versions, compile_job, MODEL_ID, zip_assets
+            model_directory,
+            model,
+            target_runtime,
+            precision,
+            tool_versions,
+            compile_job,
+            MODEL_ID,
+            zip_assets,
         )
 
     # 8. Summarizes the results from profiling and inference

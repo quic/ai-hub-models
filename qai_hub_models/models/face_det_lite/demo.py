@@ -30,7 +30,7 @@ INPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 # Run face_det_lite model end-to-end on a sample image.
 # The demo will output the face bounding boxes in json files
 # the bounding box represented by left, top, width, and height.
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     # Demo parameters
     parser = get_model_cli_parser(FaceDetLite)
     parser = get_on_device_demo_parser(parser, add_output_dir=True)

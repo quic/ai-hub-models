@@ -16,7 +16,7 @@ INPUT_IMAGE = CachedWebModelAsset.from_asset_store(
 )
 
 
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     fastsam_demo(FastSAM_S, MODEL_ID, image_path=INPUT_IMAGE, is_test=is_test)
 
 

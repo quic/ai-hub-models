@@ -21,7 +21,7 @@ from qai_hub_models.utils.args import export_parser
 DEFAULT_EXPORT_DEVICE = "Snapdragon 8 Elite QRD"
 
 
-def main():
+def main() -> None:
     warnings.filterwarnings("ignore")
     parser = export_parser(
         model_cls=Model,

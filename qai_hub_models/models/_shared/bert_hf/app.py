@@ -38,9 +38,9 @@ class BaseBertApp:
 
         Returns
         -------
-        input_tokens
+        input_tokens : torch.Tensor
             Tokenized input tensor.
-        attention_masks
+        attention_masks : torch.Tensor
             Attention mask tensor.
         """
         encoded = self.tokenizer(
@@ -65,7 +65,7 @@ class BaseBertApp:
 
         Returns
         -------
-        predicted_sequence
+        predicted_sequence : str
             Predicted sequence text.
         """
         input_ids, attention_mask = self.preprocess_text(text)

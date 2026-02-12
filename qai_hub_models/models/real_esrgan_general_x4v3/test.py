@@ -22,7 +22,7 @@ OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 
 
 @skip_clone_repo_check
-def test_realesrgan_app():
+def test_realesrgan_app() -> None:
     image = load_image(IMAGE_ADDRESS)
     output_image = load_image(OUTPUT_IMAGE_ADDRESS)
     model = Real_ESRGAN_General_x4v3.from_pretrained()
@@ -37,5 +37,5 @@ def test_realesrgan_app():
 
 
 @skip_clone_repo_check
-def test_demo():
+def test_demo() -> None:
     demo_main(is_test=True)

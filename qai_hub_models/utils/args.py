@@ -21,7 +21,6 @@ from typing import Any, TypeVar
 import qai_hub as hub
 from numpydoc.docscrape import FunctionDoc
 
-from qai_hub_models._version import __version__
 from qai_hub_models.models.common import Precision
 from qai_hub_models.models.protocols import (
     FromPrecompiledTypeVar,
@@ -39,6 +38,7 @@ from qai_hub_models.utils.inference import OnDeviceModel, compile_model_from_arg
 from qai_hub_models.utils.qai_hub_helpers import (
     can_access_qualcomm_ai_hub,
 )
+from qai_hub_models.utils.version_helpers import QAIHMVersion
 
 
 class ParseEnumAction(argparse.Action):
@@ -180,7 +180,7 @@ class QAIHMArgumentParser(argparse.ArgumentParser):
     def parse_args(
         self, args: list[str] | None = None, namespace: argparse.Namespace | None = None
     ) -> argparse.Namespace:
-        parsed = super().parse_args(args, namespace)
+        parsed = super().parse_args(args, namespace or argparse.Namespace())
         parsed.device = self.get_hub_device(
             getattr(parsed, "device_str", None),
             getattr(parsed, "chipset", None),
@@ -392,7 +392,7 @@ def get_on_device_demo_parser(
 
     Returns
     -------
-    parser
+    parser : QAIHMArgumentParser
         Argument parser with all required arguments for on-device demos.
     """
     if available_target_runtimes is None:
@@ -572,13 +572,22 @@ def get_model_cli_parser(
 
     from_pretrained_sig = inspect.signature(cls.from_pretrained)
 
+    export_docs = {
+        param.name: "\n".join(param.desc)
+        for param in FunctionDoc(cls.from_pretrained)["Parameters"]
+    }
+
     def get_help(name: str, default_value: Any) -> str:
         # Suppress help for argument that need not be exposed for model.
         arg_name = f"--{name.replace('_', '-')}"
         if suppress_help_arguments is not None and arg_name in suppress_help_arguments:
             return argparse.SUPPRESS
-        helpmsg = (
-            f"For documentation, see {cls.__name__}::from_pretrained::parameter {name}."
+
+        helpmsg = export_docs.get(
+            name,
+            (
+                f"For documentation, see {cls.__name__}::from_pretrained::parameter {name}."
+            ),
         )
         if default_value is True:
             helpmsg = f"{helpmsg} Setting this flag will set parameter {name} to False."
@@ -680,7 +689,7 @@ def demo_model_components_from_cli_args(
 
     Returns
     -------
-    components
+    components : tuple[FromPretrainedProtocol | OnDeviceModel, ...]
         Model instances for each component.
     """
     res = []
@@ -793,6 +802,11 @@ def get_model_input_spec_parser(
     if not parser:
         parser = get_parser()
 
+    input_spec_docs = {
+        param.name: "\n".join(param.desc)
+        for param in FunctionDoc(func=model_cls.get_input_spec)["Parameters"]
+    }
+
     get_input_spec_sig = inspect.signature(model_cls.get_input_spec)
     for name, param in get_input_spec_sig.parameters.items():
         if name == "self":
@@ -821,7 +835,9 @@ def get_model_input_spec_parser(
             f"--{name.replace('_', '-')}",
             type=type_,
             default=param.default,
-            help=f"For documentation, see {model_cls.__name__}::get_input_spec.",
+            help=input_spec_docs.get(
+                name, f"For documentation, see {model_cls.__name__}::get_input_spec."
+            ),
         )
     return parser
 
@@ -926,8 +942,10 @@ def add_export_function_args(
         parser.add_argument(
             "--fetch-static-assets",
             nargs="?",
-            const=f"v{__version__}",
-            default=f"v{__version__}" if force_fetch_static_assets else None,
+            const=QAIHMVersion.CURRENT_TAG_ALIAS,
+            default=QAIHMVersion.CURRENT_TAG_ALIAS
+            if force_fetch_static_assets
+            else None,
             help="If set, known assets are fetched rather than re-computing them. Can be passed as:\n"
             "    `--fetch-static-assets`            (get current release assets)\n"
             "    `--fetch-static-assets latest`     (get latest release assets)\n"
@@ -994,7 +1012,7 @@ def export_parser(
 
     Returns
     -------
-    parser
+    parser : QAIHMArgumentParser
         ArgumentParser object.
     """
     if supported_precision_runtimes is None:
@@ -1052,7 +1070,7 @@ def evaluate_parser(
 
     Returns
     -------
-    parser
+    parser : QAIHMArgumentParser
         ArgumentParser object.
     """
     if supported_precision_runtimes is None:

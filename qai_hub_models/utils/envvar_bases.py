@@ -48,7 +48,7 @@ class QAIHMEnvvar(Generic[ParsedT]):
 
         Returns
         -------
-        value
+        value : ParsedT
             The parsed environment variable value, or the default.
         """
         envvar = os.environ.get(cls.VARNAME)
@@ -121,7 +121,7 @@ class QAIHMEnvvar(Generic[ParsedT]):
 
         Returns
         -------
-        is_default
+        is_default : bool
             True if the value equals the default.
         """
         return (value or cls.get()) == cls.default()

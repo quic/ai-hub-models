@@ -5,7 +5,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import Any
+
 import numpy as np
+import torch
 from PIL.Image import Image, fromarray
 
 from qai_hub_models.utils.draw import draw_points
@@ -15,10 +19,10 @@ from qai_hub_models.utils.image_processing import app_to_net_image_inputs
 class HRNetFaceApp:
     """End-to-end app for HRNet Face landmark inference."""
 
-    def __init__(self, model):
+    def __init__(self, model: Callable[[torch.Tensor], torch.Tensor]) -> None:
         self.model = model
 
-    def predict(self, *args, **kwargs):
+    def predict(self, *args: Any, **kwargs: Any) -> np.ndarray | list[Image]:
         return self.predict_face_keypoints(*args, **kwargs)
 
     def predict_face_keypoints(
@@ -38,7 +42,7 @@ class HRNetFaceApp:
 
         Returns
         -------
-        keypoints or annotated_images
+        keypoints_or_annotated_images : np.ndarray | list[Image]
             If raw_output is True, returns np.ndarray of shape [B, K, 2], where B is batch size,
             K is number of keypoints, and 2 is (x, y) coordinates scaled to the input image dimensions.
             If raw_output is False, returns list of PIL Images with keypoints drawn as red dots.
@@ -84,7 +88,7 @@ def refine_keypoints_from_heatmaps(
 
     Returns
     -------
-    keypoints
+    keypoints : np.ndarray
         [B, K, 2] keypoints in heatmap coordinates (x, y).
     """
     B, K, H, W = heatmaps.shape

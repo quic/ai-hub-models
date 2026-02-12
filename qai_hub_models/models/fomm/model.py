@@ -10,6 +10,11 @@ import os
 import torch
 from typing_extensions import Self
 
+from qai_hub_models.models.fomm.model_patches import (
+    kp2gaussian,
+    make_coordinate_grid,
+    patched_grid_sample,
+)
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
     SourceAsRoot,
@@ -48,7 +53,7 @@ DEFAULT_WEIGHTS = CachedWebModelAsset.from_asset_store(
 class FOMMDetector(BaseModel):
     """Keypoint detector that finds keypoints over source and driving images"""
 
-    def __init__(self, kp_detector: torch.nn.Module):
+    def __init__(self, kp_detector: torch.nn.Module) -> None:
         super().__init__()
         self.model = kp_detector
 
@@ -64,14 +69,14 @@ class FOMMDetector(BaseModel):
 
         Returns
         -------
-        keypoints
+        keypoints : torch.Tensor
             Keypoints detected in the image.
             Shape: B x Num keypoints x 2.
-        jacobian
+        jacobian : torch.Tensor
             Jacobian matrix around each keypoint.
             Shape: B x Num keypoints x 2 x 2.
         """
-        result = self.model(image * 255)
+        result = self.model(image)
         keypoints = result["value"]
         jacobian = result["jacobian"]
         return keypoints, jacobian
@@ -104,7 +109,7 @@ class FOMMGenerator(BaseModel):
     generates the new target image
     """
 
-    def __init__(self, generator: torch.nn.Module):
+    def __init__(self, generator: torch.nn.Module) -> None:
         super().__init__()
         self.model = generator
 
@@ -139,7 +144,7 @@ class FOMMGenerator(BaseModel):
 
         Returns
         -------
-        output_image
+        output_image : torch.Tensor
             Predicted output image for the given driving frame keypoints.
             Shape: BxCxHxW.
         """
@@ -148,7 +153,7 @@ class FOMMGenerator(BaseModel):
             value=source_keypoint_values, jacobian=source_keypoint_jacobians
         )
         kp_norm = dict(value=kp_norm_values, jacobian=kp_norm_jacobians)
-        out = self.model(image * 255, kp_source=source_kp, kp_driving=kp_norm)
+        out = self.model(image, kp_source=source_kp, kp_driving=kp_norm)
         return out["prediction"]
         # For the purposes of tracing we return only the prediction element of the dictionary
         # as this is the only part that the app uses
@@ -185,7 +190,7 @@ class FOMMGenerator(BaseModel):
 class FOMM(CollectionModel):
     """Exportable FOMM for Image Editing"""
 
-    def __init__(self, detector: FOMMDetector, generator: FOMMGenerator):
+    def __init__(self, detector: FOMMDetector, generator: FOMMGenerator) -> None:
         super().__init__(detector, generator)
         self.detector = detector
         self.generator = generator
@@ -203,7 +208,20 @@ class FOMM(CollectionModel):
             # Change filename to avoid import clash with current file
             if os.path.exists("demo.py"):
                 os.rename("demo.py", "fomm_demo.py")
+            import modules.dense_motion
+
+            # Model Patches
+            import modules.util
             from fomm_demo import load_checkpoints
+
+            # Patch util
+            modules.util.kp2gaussian = kp2gaussian
+            modules.util.make_coordinate_grid = make_coordinate_grid
+
+            modules.dense_motion.kp2gaussian = kp2gaussian
+            modules.dense_motion.make_coordinate_grid = make_coordinate_grid
+            modules.dense_motion.F.grid_sample = patched_grid_sample
+            modules.generator.F.grid_sample = patched_grid_sample
 
             # Download default config
             fomm_config = DEFAULT_CONFIG.fetch()

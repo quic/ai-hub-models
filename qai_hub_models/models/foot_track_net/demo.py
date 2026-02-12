@@ -23,7 +23,7 @@ INPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 )
 
 
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     parser = get_model_cli_parser(FootTrackNet)
     parser = get_on_device_demo_parser(parser, add_output_dir=True)
     parser.add_argument(

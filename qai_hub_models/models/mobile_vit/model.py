@@ -7,7 +7,9 @@
 from __future__ import annotations
 
 import numpy as np
+import torch
 from transformers import MobileViTFeatureExtractor, MobileViTForImageClassification
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.imagenet_classifier.model import ImagenetClassifier
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
@@ -34,7 +36,7 @@ class MobileVIT(ImagenetClassifier):
         self.feature_extractor = feature_extractor
 
     @classmethod
-    def from_pretrained(cls, ckpt_name: str = DEFAULT_WEIGHTS):
+    def from_pretrained(cls, ckpt_name: str = DEFAULT_WEIGHTS) -> Self:
         feature_extractor = MobileViTFeatureExtractor.from_pretrained(ckpt_name)
         assert isinstance(feature_extractor, MobileViTFeatureExtractor)
         feature_extractor.size = {"height": 256, "width": 256}
@@ -42,7 +44,7 @@ class MobileVIT(ImagenetClassifier):
         assert isinstance(net, MobileViTForImageClassification)
         return cls(net, feature_extractor)
 
-    def forward(self, image_tensor):
+    def forward(self, image_tensor: torch.Tensor) -> torch.Tensor:
         return self.net(image_tensor, return_dict=False)[0]
 
     @staticmethod

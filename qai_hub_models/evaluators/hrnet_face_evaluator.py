@@ -73,7 +73,7 @@ class HRNetFaceEvaluator(BaseEvaluator):
 
         Returns
         -------
-        nme_values
+        nme_values : np.ndarray
             NME values for each sample, normalized by inter-ocular distance.
 
         Notes

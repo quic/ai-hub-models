@@ -34,7 +34,7 @@ def compute_iou_3d_rotated(box1: np.ndarray, box2: np.ndarray) -> float:
 
     Returns
     -------
-    IoU
+    IoU : float
         IoU value between 0.0 and 1.0.
     """
     x1, y1, z1, l1, w1, h1, _ = box1
@@ -79,7 +79,7 @@ def compute_box_3d(
 
     Returns
     -------
-    corners_3d
+    corners_3d : np.ndarray
         A NumPy array of shape (8, 3) representing the 8 corners
         of the 3D bounding box in camera coordinates (x, y, z).
     """
@@ -121,7 +121,7 @@ def draw_3d_bbox(
 
     Returns
     -------
-    image_with_boxes
+    image_with_boxes : np.ndarray
         Numpy array of image with bboxes (H W C x uint8) in RGB channel layout.
     """
     canvas = image.copy()
@@ -178,7 +178,7 @@ def transform_to_matrix(
 
     Returns
     -------
-    transformation_matrix
+    transformation_matrix : np.ndarray
         4x4 transformation matrix with shape [4, 4].
     """
     from pyquaternion import Quaternion
@@ -223,9 +223,8 @@ def rotation_3d_in_axis(
 
     Returns
     -------
-    points_new
+    points_new : torch.Tensor | tuple[torch.Tensor, torch.Tensor]
         If return_mat is False, rotated points in shape (N, M, 3).
-    rotation_matrix
         If return_mat is True, also returns the rotation matrix.
 
     Raises
@@ -329,7 +328,7 @@ def circle_nms(
 
     Returns
     -------
-    keep_indices
+    keep_indices : torch.LongTensor
         Indexes of the detections to be kept.
     """
     x1 = dets[:, 0]
@@ -377,7 +376,7 @@ def compute_iou_bev(box_a: np.ndarray | list, box_b: np.ndarray | list) -> float
 
     Returns
     -------
-    iou
+    iou : float
         IoU (Intersection over Union) value between the two boxes.
     """
     x_a, y_a, w_a, h_a, angle_a = box_a
@@ -402,7 +401,7 @@ def compute_iou_bev(box_a: np.ndarray | list, box_b: np.ndarray | list) -> float
 
         Returns
         -------
-        corners
+        corners : np.ndarray
             Array of shape (4, 2) containing the four corner points.
         """
         cos_a = np.cos(angle)
@@ -472,7 +471,7 @@ def nms_cpu(
 
     Returns
     -------
-    keep_indices
+    keep_indices : list[int]
         Indices of selected boxes after NMS.
     """
     if isinstance(boxes, torch.Tensor):
@@ -518,7 +517,7 @@ def xywhr2xyxyr(boxes_xywhr: torch.Tensor) -> torch.Tensor:
 
     Returns
     -------
-    boxes_xyxyr
+    boxes_xyxyr : torch.Tensor
         Converted boxes in XYXYR format.
     """
     boxes = torch.zeros_like(boxes_xywhr)
@@ -543,7 +542,7 @@ def compute_corners(tensor: torch.Tensor) -> torch.Tensor:
 
     Returns
     -------
-    corners
+    corners : torch.Tensor
         Corners of boxes in shape [N, 8, 3].
     """
     dims = tensor[:, 3:6]  # w, l, h
@@ -604,7 +603,7 @@ def rotate_3d_along_axis(
 
     Returns
     -------
-    rotated_points
+    rotated_points : torch.Tensor
         Rotated points in shape (N, M, 3).
 
     Raises
@@ -661,7 +660,7 @@ def triangle_area(a: np.ndarray, b: np.ndarray, c: np.ndarray) -> float:
 
     Returns
     -------
-    area
+    area : float
         Signed area of the triangle.
     """
     return ((a[0] - c[0]) * (b[1] - c[1]) - (a[1] - c[1]) * (b[0] - c[0])) / 2.0
@@ -680,7 +679,7 @@ def sort_vertex(pts: np.ndarray, num_pts: int) -> np.ndarray:
 
     Returns
     -------
-    sorted_vertices
+    sorted_vertices : np.ndarray
         Sorted vertices of shape (num_pts, 2).
     """
     center = np.zeros(2, dtype=np.float32)
@@ -719,9 +718,9 @@ def line_intersection(
 
     Returns
     -------
-    has_intersection
+    has_intersection : bool
         True if intersection occurs, False otherwise.
-    intersection_point
+    intersection_point : np.ndarray
         Intersection point (x, y) if intersection occurs.
         Zero vector with shape (2,) otherwise.
     """
@@ -750,7 +749,7 @@ def point_in_quad(pt: np.ndarray, corners: np.ndarray) -> bool:
 
     Returns
     -------
-    is_inside
+    is_inside : bool
         True if point is inside, Otherwise False.
     """
     ab, ad = corners[1] - corners[0], corners[3] - corners[0]
@@ -771,7 +770,7 @@ def rbbox_to_corners(box: np.ndarray) -> np.ndarray:
 
     Returns
     -------
-    corners
+    corners : np.ndarray
         4 corner points of the rotated box, of shape (4, 2).
     """
     angle = box[4]
@@ -795,7 +794,7 @@ def inter(box1: np.ndarray, box2: np.ndarray) -> float:
 
     Returns
     -------
-    intersection_area
+    intersection_area : float
         Intersection area.
     """
     c1, c2 = rbbox_to_corners(box1), rbbox_to_corners(box2)
@@ -842,7 +841,7 @@ def get_bev_iou_matrix(boxes: np.ndarray, query_boxes: np.ndarray) -> np.ndarray
 
     Returns
     -------
-    iou_matrix
+    iou_matrix : np.ndarray
         IoU matrix of shape (N, K).
     """
     N, K = boxes.shape[0], query_boxes.shape[0]

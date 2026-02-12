@@ -140,9 +140,9 @@ class Phi3LongRoPEScaledRotaryEmbedding(Embedding):
 
         Returns
         -------
-        cos
+        cos : torch.Tensor
             Cosine embeddings with shape [batch_size, 1, sequence_length, head_dim].
-        sin
+        sin : torch.Tensor
             Sine embeddings with shape [batch_size, 1, sequence_length, head_dim].
         """
         cos = self.cos[0, 0, :, :].to(position_ids.device)  # [seq_len, dim]

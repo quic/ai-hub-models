@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import cast
 
+from typing_extensions import Self
 from ultralytics.models import YOLO as ultralytics_YOLO
 from ultralytics.nn.tasks import SegmentationModel
 
@@ -33,7 +34,7 @@ class YoloV8Segmentor(UltralyticsMulticlassSegmentor, YoloSegEvalMixin):
     @classmethod
     def from_pretrained(
         cls, ckpt_name: str = DEFAULT_WEIGHTS, precision: Precision = Precision.float
-    ):
+    ) -> Self:
         if ckpt_name not in SUPPORTED_WEIGHTS:
             raise ValueError(
                 f"Unsupported checkpoint name provided {ckpt_name}.\n"

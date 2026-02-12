@@ -44,11 +44,11 @@ def bev_pool(
 
     Returns
     -------
-    x
+    x : torch.Tensor
         Pooled features, shape (N', C).
-    lengths
+    lengths : torch.Tensor
         Group lengths, shape (N').
-    geom_feats
+    geom_feats : torch.Tensor
         Filtered coordinates, shape (2, N').
     """
     geom_feats = coords
@@ -239,15 +239,15 @@ def patched_topk(
 
     Returns
     -------
-    topk_score
+    topk_score : torch.Tensor
         Selected scores with shape [B, K].
-    topk_inds
+    topk_inds : torch.Tensor
         Selected indices with shape [B, K].
-    topk_clses
+    topk_clses : torch.Tensor
         Selected class indices with shape [B, K].
-    topk_ys
+    topk_ys : torch.Tensor
         Selected y-coordinates with shape [B, K].
-    topk_xs
+    topk_xs : torch.Tensor
         Selected x-coordinates with shape [B, K].
     """
     batch, cat, height, width = scores.size()
@@ -308,11 +308,11 @@ def patched_lss_forward(
 
     Returns
     -------
-    x
+    x : torch.Tensor
         Feature tensor of shape (-1, 80).
-    geom_feats
+    geom_feats : torch.Tensor
         Geometric features of shape (2, -1).
-    ranks
+    ranks : torch.Tensor
         Sorted ranks tensor of shape (-1,).
 
     Notes
@@ -446,9 +446,9 @@ def PatchMerging_forward_optimized(
 
     Returns
     -------
-    x
+    x : torch.Tensor
         Has shape (B, Merged_H * Merged_W, C_out).
-    out_size
+    out_size : tuple[int, int]
         Spatial shape of x, arrange as (Merged_H, Merged_W).
     """
     B, L, C = x.shape

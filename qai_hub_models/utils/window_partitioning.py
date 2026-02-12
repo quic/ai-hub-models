@@ -31,9 +31,9 @@ def window_partition_5d(
 
     Returns
     -------
-    windows
+    windows : torch.Tensor
         Windows after partition with [B * num_windows, window_size, window_size, C].
-    padded_hw
+    padded_hw : tuple[int, int]
         Padded height and width before partition (Hp, Wp).
     """
     B, H, W, C = x.shape
@@ -80,7 +80,7 @@ def window_unpartition_5d(
 
     Returns
     -------
-    x
+    x : torch.Tensor
         Unpartitioned sequences with [B, H, W, C].
     """
     Hp, Wp = pad_hw
@@ -116,7 +116,7 @@ def window_reverse_optimized(
 
     Returns
     -------
-    output
+    output : torch.Tensor
         Output tensor of shape (B, H, W, C).
     """
     window_size: int = self.window_size
@@ -146,7 +146,7 @@ def window_partition_optimized(self: Any, x: torch.Tensor) -> torch.Tensor:
 
     Returns
     -------
-    windows
+    windows : torch.Tensor
         Windows of shape (num_windows*B, window_size, window_size, C).
     """
     B, H, W, C = x.shape
@@ -184,7 +184,7 @@ def WindowMSA_forward_optimized(
 
     Returns
     -------
-    output
+    output : torch.Tensor
         Output with shape of (num_windows*B, N, C).
     """
     B, N, C = x.shape

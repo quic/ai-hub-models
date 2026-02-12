@@ -28,7 +28,7 @@ from qai_hub_models.utils.testing import assert_most_close
 WEIGHTS = "nvidia/segformer-b0-finetuned-ade-512-512"
 
 
-def test_task():
+def test_task() -> None:
     """Verify that raw (numeric) outputs of both (QAIHM and non-qaihm) networks are the same."""
     source_model = SegformerForSemanticSegmentation.from_pretrained(WEIGHTS)
     qaihm_model = SegformerBase.from_pretrained(WEIGHTS)
@@ -45,7 +45,7 @@ def test_task():
 
 
 @pytest.mark.trace
-def test_trace():
+def test_trace() -> None:
     net = SegformerBase.from_pretrained(WEIGHTS)
     input_spec = net.get_input_spec()
     trace = net.convert_to_torchscript(input_spec, check_trace=False)
@@ -68,6 +68,6 @@ def test_trace():
     )
 
 
-def test_demo():
+def test_demo() -> None:
     # Run demo and verify it does not crash
     demo_main(is_test=True)

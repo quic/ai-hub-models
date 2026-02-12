@@ -104,7 +104,7 @@ class NuscenesBevDataset(NuscenesDataset):
 
         Returns
         -------
-        input_data
+        input_data : tuple[torch.Tensor, torch.Tensor, torch.Tensor]
             images
                 Shape [S, 3, H, W], float32.
                 Preprocessed RGB images from S=6 cameras, normalized to [0, 1], size 224x480.
@@ -114,7 +114,7 @@ class NuscenesBevDataset(NuscenesDataset):
             extrinsics
                 Shape [S, 4, 4] as float32.
                 Matrices transforming camera sensor to global frame, aligned with LiDAR.
-        gt_data
+        gt_data : tuple[torch.Tensor, torch.Tensor]
             gt_bev
                 torch.Tensor of shape [H_bev, W_bev, 12] as float32
                 Binary BEV segmentation map with 12 classes.

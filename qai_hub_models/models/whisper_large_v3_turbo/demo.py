@@ -9,7 +9,7 @@ from qai_hub_models.models.whisper_large_v3_turbo.model import (
 )
 
 
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     hf_whisper_demo(WhisperLargeV3Turbo, is_test)
 
 

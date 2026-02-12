@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
+from typing import cast
+
 import numpy as np
 
 from qai_hub_models.models.posenet_mobilenet.app import PosenetApp
@@ -34,7 +36,9 @@ def test_task() -> None:
     model = PosenetMobilenet.from_pretrained()
     h, w = PosenetMobilenet.get_input_spec()["image"][0][2:]
     app = PosenetApp(model, h, w)
-    pose_scores, keypoint_scores, keypoint_coords = app.predict(image, raw_output=True)
+    pose_scores, keypoint_scores, keypoint_coords = cast(
+        tuple[np.ndarray, np.ndarray, np.ndarray], app.predict(image, raw_output=True)
+    )
 
     assert pose_scores[0] >= 0.5
     assert pose_scores[1] >= 0.5

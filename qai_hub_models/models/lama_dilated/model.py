@@ -11,6 +11,7 @@ from importlib import reload
 
 import torch
 from omegaconf import OmegaConf
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.repaint.model import RepaintModel
 from qai_hub_models.utils.asset_loaders import (
@@ -36,12 +37,12 @@ LAMA_DILATED_SOURCE_PATCHES = [
 class LamaDilated(RepaintModel):
     """Exportable LamaDilated inpainting algorithm by Samsung Research."""
 
-    @staticmethod
-    def from_pretrained(weights_name: str = DEFAULT_WEIGHTS) -> LamaDilated:
+    @classmethod
+    def from_pretrained(cls, weights_name: str = DEFAULT_WEIGHTS) -> Self:
         """Load LamaDilated from a weights file created by the source LaMa repository."""
         # Load PyTorch model from disk
         lama_dilated_model = _load_lama_dilated_source_model_from_weights(weights_name)
-        return LamaDilated(lama_dilated_model)
+        return cls(lama_dilated_model)
 
     def forward(self, image: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
         """
@@ -60,7 +61,7 @@ class LamaDilated(RepaintModel):
 
         Returns
         -------
-        inpainted_image
+        inpainted_image : torch.Tensor
             Pixel values
             Range: float[0, 1]
             3-channel Color Space: RGB
@@ -74,14 +75,14 @@ class LamaDilated(RepaintModel):
         return mask * predicted_image + (1 - mask) * image
 
 
-def _get_weightsfile_from_name(weights_name: str):
+def _get_weightsfile_from_name(weights_name: str) -> CachedWebModelAsset:
     """Convert from names of weights files to the url for the weights file"""
     return CachedWebModelAsset.from_asset_store(
         MODEL_ID, MODEL_ASSET_VERSION, f"checkpoints/{weights_name}.ckpt"
     )
 
 
-def _get_config_url():
+def _get_config_url() -> CachedWebModelAsset:
     """Get the url for the config file"""
     return CachedWebModelAsset.from_asset_store(
         MODEL_ID, MODEL_ASSET_VERSION, "checkpoints/training_config.json"

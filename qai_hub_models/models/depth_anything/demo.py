@@ -17,7 +17,7 @@ INPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 )
 
 
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     depth_estimation_demo(DepthAnything, MODEL_ID, INPUT_IMAGE_ADDRESS, is_test)
 
 

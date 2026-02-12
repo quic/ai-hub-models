@@ -65,7 +65,7 @@ class KineticsClassifier(BaseModel):
 
         Returns
         -------
-        class_log_likelihoods
+        class_log_likelihoods : torch.Tensor
             A [1, 400] where each value is the log-likelihood of
             the video belonging to the corresponding Kinetics class.
         """
@@ -87,7 +87,7 @@ class KineticsClassifier(BaseModel):
 
         Returns
         -------
-        InputSpec
+        input_spec : InputSpec
             Input specification mapping input names to (shape, type) tuples.
         """
         return {

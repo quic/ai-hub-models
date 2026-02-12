@@ -32,7 +32,7 @@ AOTGAN_SOURCE_PATCHES = [
 MODEL_ID = __name__.split(".")[-2]
 SUPPORTED_PRETRAINED_MODELS = {"celebahq", "places2"}
 DEFAULT_WEIGHTS = "celebahq"
-MODEL_ASSET_VERSION = 3
+MODEL_ASSET_VERSION = 4
 
 
 class AOTGAN(RepaintModel):
@@ -40,6 +40,19 @@ class AOTGAN(RepaintModel):
 
     @classmethod
     def from_pretrained(cls, ckpt_name: str = DEFAULT_WEIGHTS) -> Self:
+        """
+        Load AOTGAN from pretrained weights.
+
+        Parameters
+        ----------
+        ckpt_name
+            Name of the pre-trained model to load. Supported values are 'celebahq' and 'places2'.
+
+        Returns
+        -------
+        AOTGAN : Self
+            An instance of the AOTGAN model loaded with the specified pre-trained weights.
+        """
         if ckpt_name not in SUPPORTED_PRETRAINED_MODELS:
             raise ValueError(
                 "Unsupported pre_trained model requested. Please provide either 'celeabhq' or 'places2'."
@@ -99,22 +112,19 @@ class AOTGAN(RepaintModel):
 
         Returns
         -------
-        inpainted_image
+        inpainted_image : torch.Tensor
             In-painted image for given image and mask of shape [N, C, H, W]
             Range: float[0, 1]
             3-channel color space: RGB
         """
         image_normalized_rgb = image * 2 - 1
-        image_normalized_bgr = torch.flip(image_normalized_rgb, dims=[1])
-        image_masked_normalized_bgr = (image_normalized_bgr * (1 - mask).float()) + mask
+        image_masked_normalized_rgb = (image_normalized_rgb * (1 - mask).float()) + mask
 
-        pred_bgr = self.model(image_masked_normalized_bgr, mask)
-        # Uncomment to overlay the mask over the prediction. Useful for debugging.
-        # pred_bgr = pred_bgr * mask + image * (1 - mask)
+        pred_rgb = self.model(image_masked_normalized_rgb, mask)
 
-        pred_rgb = torch.flip(pred_bgr, dims=[1])
         pred_rgb_clamped = torch.clamp(pred_rgb, -1, 1)
-        return (pred_rgb_clamped + 1) / 2
+        pred_rgb_normalized = (pred_rgb_clamped + 1) / 2
+        return pred_rgb_normalized * mask + image * (1 - mask)
 
     def get_evaluator(self) -> BaseEvaluator:
         return InpaintEvaluator()

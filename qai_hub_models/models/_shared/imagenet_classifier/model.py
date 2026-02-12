@@ -74,7 +74,7 @@ class ImagenetClassifier(BaseModel):
 
         Returns
         -------
-        class_log_likelihoods
+        class_log_likelihoods : torch.Tensor
             A [1, 1000] where each value is the log-likelihood of
             the image belonging to the corresponding Imagenet class.
         """
@@ -131,6 +131,10 @@ class ImagenetClassifier(BaseModel):
     def calibration_dataset_name() -> str:
         return "imagenette"
 
+    @classmethod
+    def get_labels_file_name(cls) -> str | None:
+        return "imagenet_labels.txt"
+
 
 class ImagenetClassifierWithModelBuilder(ImagenetClassifier):
     model_builder: Callable
@@ -149,5 +153,18 @@ class ImagenetClassifierWithModelBuilder(ImagenetClassifier):
         cls,
         weights: str | None = None,
     ) -> Self:
+        """
+        Load the model with pretrained weights.
+
+        Parameters
+        ----------
+        weights
+            Pre-trained weights name string or URL.
+
+        Returns
+        -------
+        model: Self
+            The model loaded with pretrained weights.
+        """
         net = cls.model_builder(weights=weights or cls.DEFAULT_WEIGHTS)
         return cls(net)

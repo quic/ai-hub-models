@@ -131,11 +131,11 @@ class MPIIDataset(BaseDataset):
 
         Returns
         -------
-        input_image
+        input_image : torch.Tensor
             NCHW input image of range [0-1] and RGB channel layout.
             Height and width will confirm to self.input_spec.
 
-        gt_data
+        gt_data : tuple[torch.Tensor, torch.Tensor, torch.Tensor, NDArray, NDArray]
             gt_keypoints
                 shape (self.num_joints, 2):
                 coordinates of ground truth keypoint

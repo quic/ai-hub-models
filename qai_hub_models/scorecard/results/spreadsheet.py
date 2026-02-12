@@ -51,6 +51,7 @@ class ResultsSpreadsheet(list):
         tags: list[str]
         known_failure_reasons: ModelDisableReasonsMapping
         default_quantized_precision: Precision | None
+        default_device: ScorecardDevice
 
     @dataclass
     class Entry:
@@ -164,6 +165,8 @@ class ResultsSpreadsheet(list):
                         and metadata.default_quantized_precision == entry.precision
                     ):
                         tags.append("default_quantized")
+                    if metadata.default_device.chipset == entry.chipset:
+                        tags.append("default_chipset")
                     return ", ".join(tags)
                 if field_name == "branch":
                     return branch
@@ -231,6 +234,7 @@ class ResultsSpreadsheet(list):
         use_case: MODEL_USE_CASE,
         tags: list[str],
         default_quantized_precision: Precision | None,
+        default_device: ScorecardDevice,
         known_failure_reasons: ModelDisableReasonsMapping | None = None,
     ) -> None:
         self._model_metadata[model_id] = ResultsSpreadsheet.ModelMetadata(
@@ -239,6 +243,7 @@ class ResultsSpreadsheet(list):
             tags,
             known_failure_reasons or ModelDisableReasonsMapping(),
             default_quantized_precision,
+            default_device,
         )
 
     def set_date(self, date: datetime | None) -> None:

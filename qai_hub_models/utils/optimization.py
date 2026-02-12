@@ -17,7 +17,7 @@ def optimized_cumsum(data: torch.Tensor) -> torch.Tensor:
 
     Returns
     -------
-    cumsum_output
+    cumsum_output : torch.Tensor
         Cumsum output along b, h, w with shape (b,h,w,c).
     """
     b, h, w, c = data.shape

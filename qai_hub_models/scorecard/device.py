@@ -278,6 +278,11 @@ class ScorecardDevice:
         This applies both to submitted jobs and analyses applied to an existing scorecard job yaml.
         """
         valid_test_devices = EnabledDevicesEnvvar.get()
+        if self.name in valid_test_devices and not self.available_in_hub:
+            raise ValueError(
+                f"Device {self.name} is not available in AI Hub Workbench."
+            )
+
         return self.name in ScorecardDevice._registry and (
             (self.public and SpecialDeviceSetting.ALL in valid_test_devices)
             or self.name == UNIVERSAL_DEVICE_SCORECARD_NAME
@@ -624,8 +629,8 @@ cs_8550 = ScorecardDevice(name="cs_8550", reference_device_name="QCS8550 (Proxy)
 
 cs_9075 = ScorecardDevice(
     name="cs_9075",
-    reference_device_name="QCS9075 (Proxy)",
-    mirror_device=cs_auto_lemans_8775,
+    reference_device_name="Dragonwing IQ-9075 EVK",
+    npu_count=2,
 )
 
 

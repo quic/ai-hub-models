@@ -16,6 +16,7 @@ from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.nuscenes_bev_evaluator import (
     NuscenesBevSegmentationEvaluator,
 )
+from qai_hub_models.models.common import Precision
 from qai_hub_models.models.gkt.model_patches import (
     GeometryKernelAttention_forward,
     IndexBEVProjector_forward,
@@ -130,7 +131,7 @@ class GKT(BaseModel):
 
         Returns
         -------
-        bev
+        bev : torch.Tensor
             BEV heatmap tensor with predictions, shape [B, 1, 200, 200].
         """
         image = image.flatten(0, 1)
@@ -190,6 +191,6 @@ class GKT(BaseModel):
         return "nuscenes_bev_gkt"
 
     @staticmethod
-    def get_hub_litemp_percentage(_) -> float:
+    def get_hub_litemp_percentage(precision: Precision) -> float:
         """Returns the Lite-MP percentage value for the specified mixed precision quantization."""
         return 4

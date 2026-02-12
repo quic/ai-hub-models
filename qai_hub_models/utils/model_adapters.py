@@ -85,7 +85,7 @@ class Conv2dLinear(torch.nn.Module):
 
         Returns
         -------
-        output_tensor
+        output_tensor : torch.Tensor
             The output tensor after applying the Conv2D transformation.
         """
         return self.conv(x)

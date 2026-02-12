@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import os
+from typing import Any
 
 import cv2
 import numpy as np
@@ -64,7 +65,7 @@ class DeepBoxApp:
         bbox3D_dectector: VGG3DDetection,
         nms_score_threshold: float = 0.5,
         nms_iou_threshold: float = 0.3,
-    ):
+    ) -> None:
         """
         Construct a DeepBox 3D object detection application.
 
@@ -86,7 +87,17 @@ class DeepBoxApp:
         self.nms_score_threshold = nms_score_threshold
         self.nms_iou_threshold = nms_iou_threshold
 
-    def predict(self, *args, **kwargs):
+    def predict(
+        self, *args: Any, **kwargs: Any
+    ) -> (
+        tuple[
+            list[npt.NDArray[np.float64]],
+            list[np.float64],
+            list[npt.NDArray[np.float32]],
+            list[list[np.float64]],
+        ]
+        | Image.Image
+    ):
         # See predict_3d_boxes_from_image.
         return self.detect_image(*args, **kwargs)
 
@@ -115,19 +126,18 @@ class DeepBoxApp:
 
         Returns
         -------
-        If raw_output is False, returns:
-        image
-            PIL Image with predicted 3D Bounding Boxes applied.
-
-        If raw_output is True, returns:
-        proj_matrixes
-            Camera to img matrix.
-        orients
-            Global orientations.
-        dims
-            Dimensions for the 3D bboxes.
-        locations
-            Centers of 3D bboxes.
+        result : tuple[list[npt.NDArray[np.float64]], list[np.float64], list[npt.NDArray[np.float32]], list[list[np.float64]]] | Image.Image
+            If raw_output is False:
+                PIL Image with predicted 3D Bounding Boxes applied.
+            If raw_output is True:
+                proj_matrixes
+                    Camera to img matrix.
+                orients
+                    Global orientations.
+                dims
+                    Dimensions for the 3D bboxes.
+                locations
+                    Centers of 3D bboxes.
         """
         # Input Prep
         numpy_image = np.array(image)

@@ -113,10 +113,17 @@ class PerformanceDiff:
         previous_report: dict[ScorecardProfilePath, QAIHMModelPerf.PerformanceDetails],
         new_report: dict[ScorecardProfilePath, QAIHMModelPerf.PerformanceDetails],
     ) -> None:
-        prev_results = previous_report.get(path, QAIHMModelPerf.PerformanceDetails())
+        prev_entry = previous_report.get(path, QAIHMModelPerf.PerformanceDetails())
+        new_entry = new_report.get(path, QAIHMModelPerf.PerformanceDetails())
+
+        # Skip LLM metrics - this method only handles non-LLM PerformanceDetails
+        if prev_entry.llm_metrics is not None or new_entry.llm_metrics is not None:
+            return
+
+        prev_results = prev_entry
         prev_inference_time = prev_results.inference_time_milliseconds
 
-        new_results = new_report.get(path, QAIHMModelPerf.PerformanceDetails())
+        new_results = new_entry
         new_inference_time = new_results.inference_time_milliseconds
         if prev_inference_time and new_inference_time:
             progression_speedup = float(prev_inference_time) / float(new_inference_time)
@@ -330,7 +337,7 @@ class PerformanceDiff:
 
         Returns
         -------
-        table
+        table : PrettyTable
             Summary table for the given bucket.
         """
         table = PrettyTable(

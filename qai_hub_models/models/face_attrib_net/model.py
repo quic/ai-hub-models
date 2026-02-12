@@ -45,7 +45,7 @@ class FaceAttribNet(BaseModel):
         sunglasses_enable: bool = True,
         group_size: int = 32,
         activ_type: str = "prelu",
-    ):
+    ) -> None:
         """
         Initializes the `face_attrib_net` model with configurable output attributes.
 
@@ -339,7 +339,7 @@ class FaceAttribNet(BaseModel):
 
         Returns
         -------
-        network_blocks
+        network_blocks : nn.Sequential
             custom neural network blocks
         """
         cnn_x: list[nn.Module] = []
@@ -361,7 +361,7 @@ class FaceAttribNet(BaseModel):
 
         Returns
         -------
-        logit
+        logit : torch.Tensor
             Shape(N, M, B), where:
             - N: Batch size
             - M: Number of attributes (5)
@@ -377,11 +377,9 @@ class FaceAttribNet(BaseModel):
                 - sunglasses_out : Logits indicating the presence of sunglasses.
 
             may contain `NaN` entries if the corresponding attribute is disabled.
-
-        prob
+        prob : torch.Tensor
             Shape(N, M). Probabilites
-
-        fea4
+        fea4 : torch.Tensor
             Shape(N, 512, 8, 8). Feature maps.
 
         """
@@ -483,7 +481,7 @@ class FaceAttribNet(BaseModel):
 
         Returns
         -------
-        prob
+        prob : torch.Tensor
             Range [0, 1]
             Shape(N, M), where:
             - N: Batch size
@@ -516,7 +514,7 @@ class FaceAttribNet(BaseModel):
 
         Returns
         -------
-        model
+        model : Self
             An initialized and pre-trained model ready for inference.
         """
         faceattribnet_model = cls(
@@ -559,7 +557,7 @@ class FaceAttribNet(BaseModel):
 
         Returns
         -------
-        output_names
+        output_names : list[str]
             each output name corresponds to one in forward function output.
         """
         return ["probability"]
@@ -571,7 +569,7 @@ class FaceAttribNet(BaseModel):
 
         Returns
         -------
-        channel_last_inputs
+        channel_last_inputs : list[str]
             list of name string of "channel-last" input
         """
         return ["image"]
@@ -582,7 +580,7 @@ class FaceAttribNet(BaseModel):
 
         Returns
         -------
-        evaluator
+        evaluator : BaseEvaluator
             evaluator class for evaluating this model.
         """
         return FaceAttribNetEvaluator()
@@ -595,7 +593,7 @@ class FaceAttribNet(BaseModel):
 
         Returns
         -------
-        dataset_names
+        dataset_names : list[str]
             list of strings with names of all datasets on which `face_attrib_net` model can be evaluated.
         """
         return ["face_attrib_dataset"]
@@ -607,7 +605,7 @@ class FaceAttribNet(BaseModel):
 
         Returns
         -------
-        dataset_name
+        dataset_name : str
             name of the calibration dataset
 
         """

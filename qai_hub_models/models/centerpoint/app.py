@@ -110,7 +110,7 @@ def rotate_nms_pcdet(
 
     Returns
     -------
-    selected
+    selected : torch.Tensor
         Tensor containing the indices of selected boxes after NMS.
     """
     boxes_np = boxes.clone().cpu().numpy()
@@ -208,7 +208,7 @@ class CenterPointApp:
 
         Returns
         -------
-        dict
+        dict : dict[str, torch.Tensor]
             A dictionary containing preprocessed tensors including voxels, coordinates, and number of points.
         """
         info = {
@@ -276,7 +276,7 @@ class CenterPointApp:
 
         Returns
         -------
-        Image
+        Image : Image.Image
             Rendered PIL image with detections overlaid on the point cloud.
         """
         voxels, coordinates, num_points, lidar_points = (
@@ -333,7 +333,7 @@ class CenterPointApp:
 
         Returns
         -------
-        prediction_dicts
+        prediction_dicts : list[dict[str, torch.Tensor]]
             A list of prediction dicts for the batch, one per sample, with keys:
             - "box3d_lidar"
                 Selected 3D boxes after NMS and filtering.
@@ -417,7 +417,7 @@ class CenterPointApp:
 
         Returns
         -------
-        image
+        image : Image.Image
             The rendered image as a PIL Image object, or None if the image could not be loaded.
         """
         post_center_range = self.test_cfg.post_center_limit_range

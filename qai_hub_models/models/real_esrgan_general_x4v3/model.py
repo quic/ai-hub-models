@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 
 import torch
+from typing_extensions import Self
 
 from qai_hub_models.extern.basicsr.archs.srvgg_arch import SRVGGNetCompact
 from qai_hub_models.models._shared.super_resolution.model import SuperResolutionModel
@@ -36,7 +37,7 @@ class Real_ESRGAN_General_x4v3(SuperResolutionModel):
     def from_pretrained(
         cls,
         weight_path: str = DEFAULT_WEIGHTS,
-    ) -> Real_ESRGAN_General_x4v3:
+    ) -> Self:
         """Load Real_ESRGAN_General_x4v3 from a weightfile created by the source RealESRGAN repository."""
         # Load PyTorch model from disk
         realesrgan_model = _load_realesrgan_source_model_from_weights(weight_path)
@@ -44,7 +45,7 @@ class Real_ESRGAN_General_x4v3(SuperResolutionModel):
         return cls(realesrgan_model)
 
 
-def _get_weightsfile_from_name(weights_name: str = DEFAULT_WEIGHTS):
+def _get_weightsfile_from_name(weights_name: str = DEFAULT_WEIGHTS) -> str:
     """Convert from names of weights files to the url for the weights file"""
     if weights_name == DEFAULT_WEIGHTS:
         return "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesr-general-x4v3.pth"

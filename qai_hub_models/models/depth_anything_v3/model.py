@@ -19,6 +19,7 @@ from qai_hub_models.utils.asset_loaders import (
     find_replace_in_repo,
 )
 from qai_hub_models.utils.image_processing import normalize_image_torchvision
+from qai_hub_models.utils.input_spec import InputSpec
 
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 1
@@ -74,7 +75,7 @@ class DepthAnythingV3(DepthEstimationModel):
 
         return cls(model)
 
-    def forward(self, image: torch.Tensor):
+    def forward(self, image: torch.Tensor) -> torch.Tensor:
         """
         Run DepthAnythingV3 on `image`, and produce a predicted depth.
 
@@ -87,7 +88,7 @@ class DepthAnythingV3(DepthEstimationModel):
 
         Returns
         -------
-        depth
+        depth : torch.Tensor
             Shape [batch, 1, 518, 518]
         """
         image = normalize_image_torchvision(image).unsqueeze(1)
@@ -99,7 +100,7 @@ class DepthAnythingV3(DepthEstimationModel):
         batch_size: int = 1,
         height: int = 518,
         width: int = 518,
-    ):
+    ) -> InputSpec:
         """
         Returns the input specification (name -> (shape, type). This can be
         used to submit profiling job on Qualcomm AI Hub Workbench.

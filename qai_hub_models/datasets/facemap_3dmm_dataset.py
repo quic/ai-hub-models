@@ -59,12 +59,12 @@ class FaceMap3DMMDataset(BaseDataset):
 
         Returns
         -------
-        input_image
+        input_image : torch.Tensor
             shape  - [3, H, W]
             range  - [0, 1]
             channel layout - [RGB]
 
-        ground_truth
+        ground_truth : tuple[int, torch.Tensor, torch.Tensor]
             image_id_tensor
                 integer value to represent image id, not used
             gt_landmarks_tensor

@@ -9,7 +9,7 @@ from qai_hub_models.models.quicksrnetlarge.model import MODEL_ID, QuickSRNetLarg
 
 # Run QuickSRNet end-to-end on a sample image.
 # The demo will display an upscaled image
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     super_resolution_demo(
         model_cls=QuickSRNetLarge,
         model_id=MODEL_ID,

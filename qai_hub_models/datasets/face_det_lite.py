@@ -67,12 +67,12 @@ class FaceDetLiteDataset(BaseDataset):
 
         Returns
         -------
-        input_image
+        input_image : torch.Tensor
             shape  - [1, H, W]
             channel layout - [RGB]
             range  - [0, 1]
 
-        ground_truth
+        ground_truth : tuple[int, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
             image_id_tensor
                 integer value to represent image id, not used
             scale_tensor

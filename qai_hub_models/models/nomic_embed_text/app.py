@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import cast
+from typing import Any, cast
 
 import torch
 from transformers import AutoTokenizer
@@ -32,14 +32,14 @@ class NomicEmbedTextApp:
         self,
         model: ExecutableModelProtocol[torch.Tensor],
         seq_len: int,
-    ):
+    ) -> None:
         self.model = model
         self.seq_len = seq_len
         self.tokenizer = AutoTokenizer.from_pretrained(
             "bert-base-uncased", model_max_length=self.seq_len
         )
 
-    def predict(self, *args, **kwargs):
+    def predict(self, *args: Any, **kwargs: Any) -> torch.Tensor:
         # See predict_embeddings.
         return self.predict_embeddings(*args, **kwargs)
 
@@ -54,7 +54,7 @@ class NomicEmbedTextApp:
 
         Returns
         -------
-        token_embeddings
+        token_embeddings : torch.Tensor
             The generated transformer embeddings of shape [1, 512], dtype of fp32
         """
         inputs = self.tokenizer(text, padding="max_length", return_tensors="pt")

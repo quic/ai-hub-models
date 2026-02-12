@@ -258,7 +258,7 @@ class PanopticSegmentationEvaluator(BaseEvaluator):
 
         Returns
         -------
-        metrics
+        metrics : dict[str, dict]
             Metrics for "All", "Things", "Stuff" with pq, sq, rq, and n (number of categories).
         """
         metrics = [("All", None), ("Things", True), ("Stuff", False)]

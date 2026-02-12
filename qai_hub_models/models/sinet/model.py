@@ -9,10 +9,12 @@ import os
 from importlib import reload
 
 import torch
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.cityscapes_segmentation.model import (
     CityscapesSegmentor,
 )
+from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
     SourceAsRoot,
@@ -37,7 +39,7 @@ class SINet(CityscapesSegmentor):
     """Exportable SINet portrait segmentation application, end-to-end."""
 
     @classmethod
-    def from_pretrained(cls, weights: str = DEFAULT_WEIGHTS) -> SINet:
+    def from_pretrained(cls, weights: str = DEFAULT_WEIGHTS) -> Self:
         sinet_model = _load_sinet_source_model_from_weights(weights)
 
         return cls(sinet_model)
@@ -55,7 +57,7 @@ class SINet(CityscapesSegmentor):
 
         Returns
         -------
-        class_logits
+        class_logits : torch.Tensor
             1x2xHxW tensor of class logits per pixel
         """
         # These mean and std values were computed using the prescribed training data
@@ -88,12 +90,14 @@ class SINet(CityscapesSegmentor):
         return "eg1800"
 
     @staticmethod
-    def get_hub_litemp_percentage(_) -> float:
+    def get_hub_litemp_percentage(precision: Precision) -> float:
         """Returns the Lite-MP percentage value for the specified mixed precision quantization."""
         return 10
 
 
-def _get_weightsfile_from_name(weights_name: str = DEFAULT_WEIGHTS):
+def _get_weightsfile_from_name(
+    weights_name: str = DEFAULT_WEIGHTS,
+) -> CachedWebModelAsset:
     """Convert from names of weights files to the url for the weights file"""
     if weights_name == DEFAULT_WEIGHTS:
         return CachedWebModelAsset(
@@ -122,7 +126,7 @@ def _load_sinet_source_model_from_weights(
             weights_path = os.path.expanduser(weights_name_or_path)
         elif not os.path.exists(weights_name_or_path):
             # Load SINet model from the source repository using the given weights.
-            weights_path = _get_weightsfile_from_name(weights_name_or_path)
+            weights_path = _get_weightsfile_from_name(weights_name_or_path).fetch()
         else:
             weights_path = None
         weights = load_torch(weights_path or weights_name_or_path)

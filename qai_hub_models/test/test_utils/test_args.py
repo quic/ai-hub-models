@@ -454,3 +454,25 @@ def test_compile_model_from_args() -> None:
         assert kwargs["device"].attributes == "chipset:qualcomm-snapdragon-8gen3"
         assert kwargs["compile_options"] == "'--qairt_version=2.39'"
         assert kwargs["quantize_options"] == "'--range_scheme min_max'"
+
+
+def test_model_parser_uses_docstrings_for_help() -> None:
+    """Test that get_model_cli_parser uses docstrings for help messages."""
+    parser = get_model_cli_parser(ResnetModel)
+
+    # Find the --weights action and check its help message
+    weights_action = None
+    for action in parser._actions:
+        if "--weights" in action.option_strings:
+            weights_action = action
+            break
+
+    assert weights_action is not None, "Expected --weights argument"
+    # The help should contain the docstring content, not the generic fallback
+    assert (
+        weights_action.help is not None and "Pre-trained weights" in weights_action.help
+    )
+    assert (
+        weights_action.help is not None
+        and "For documentation, see" not in weights_action.help
+    )

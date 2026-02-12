@@ -29,7 +29,7 @@ def display_with_sig_figs(num: float, num_sig_figs: int = 3) -> str:
 
     Returns
     -------
-    formatted_number
+    formatted_number : str
         Number formatted as a string with the specified number of significant figures.
 
     Examples
@@ -59,7 +59,7 @@ def get_formatted_size(size: float, units: list[str], unit_step_size: float) -> 
 
     Returns
     -------
-    formatted_size
+    formatted_size : str
         Formatted size string with appropriate units.
 
     Examples
@@ -89,7 +89,7 @@ def get_checkpoint_file_size(model_path: str, as_str: bool = True) -> str | int:
 
     Returns
     -------
-    checkpoint_size
+    checkpoint_size : str | int
         If as_str is True, returns formatted size string. Otherwise, returns size in bytes as an int.
     """
     num_bytes = os.path.getsize(model_path)
@@ -159,7 +159,7 @@ def get_disk_size(path: str | Path, unit: str = "byte") -> float:
 
     Returns
     -------
-    disk_size
+    disk_size : float
         Size of the file or directory in the specified unit.
     """
     if os.path.isdir(path):

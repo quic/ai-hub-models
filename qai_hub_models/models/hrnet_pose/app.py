@@ -6,13 +6,14 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import cast
+from typing import Any, cast
 
 import numpy as np
 import torch
 from PIL.Image import Image, fromarray
 
 from qai_hub_models.evaluators.utils.pose import get_final_preds
+from qai_hub_models.extern.mmengine import patch_mmengine_pkgresources
 from qai_hub_models.extern.mmpose import patch_mmpose_no_build_deps
 from qai_hub_models.models._shared.mmpose.silence import (
     set_mmpose_inferencer_show_progress,
@@ -20,7 +21,7 @@ from qai_hub_models.models._shared.mmpose.silence import (
 from qai_hub_models.utils.draw import draw_points
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs
 
-with patch_mmpose_no_build_deps():
+with patch_mmpose_no_build_deps(), patch_mmengine_pkgresources():
     from mmpose.apis import MMPoseInferencer
     from mmpose.structures.pose_data_sample import PoseDataSample
 
@@ -30,7 +31,7 @@ with patch_mmpose_no_build_deps():
 DEFAULT_INFERENCER_ARCH = "td-hm_hrnet-w32_8xb64-210e_coco-256x192"
 
 
-def get_max_preds(batch_heatmaps):
+def get_max_preds(batch_heatmaps: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """
     Get predictions from score maps
     heatmaps: numpy.ndarray([batch_size, num_joints, height, width])
@@ -90,14 +91,14 @@ class HRNetPoseApp:
     def __init__(
         self,
         model: Callable[[torch.Tensor], torch.Tensor],
-    ):
+    ) -> None:
         self.model = model
         # Use mmpose inferencer for example preprocessing
         self.inferencer = MMPoseInferencer(DEFAULT_INFERENCER_ARCH, device="cpu")
         set_mmpose_inferencer_show_progress(self.inferencer, False)
         self.pre_processor = self.inferencer.inferencer.model.data_preprocessor
 
-    def predict(self, *args, **kwargs):
+    def predict(self, *args: Any, **kwargs: Any) -> np.ndarray | list[Image]:
         # See predict_pose_keypoints.
         return self.predict_pose_keypoints(*args, **kwargs)
 
@@ -151,14 +152,15 @@ class HRNetPoseApp:
 
         Returns
         -------
-        If raw_output is True, returns:
-        keypoints
-            Numpy array of keypoints with shape [B, N, 2].
-            Each keypoint is an (x, y) pair of coordinates within the image.
+        result : np.ndarray | list[Image]
+            If raw_output is True, returns:
+            keypoints
+                Numpy array of keypoints with shape [B, N, 2].
+                Each keypoint is an (x, y) pair of coordinates within the image.
 
-        If raw_output is False, returns:
-        predicted_images
-            Images with keypoints drawn.
+            If raw_output is False, returns:
+            predicted_images
+                Images with keypoints drawn.
         """
         (NHWC_int_numpy_frames, proc_inputs, x) = self.preprocess_input(
             pixel_values_or_image

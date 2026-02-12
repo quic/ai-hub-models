@@ -172,7 +172,7 @@ class ScorecardJobYaml(
 
         Returns
         -------
-        job_id
+        job_id : str | None
             The job ID if found, None otherwise.
         """
         return self.job_id_mapping.get(
@@ -256,7 +256,7 @@ class ScorecardJobYaml(
 
         Returns
         -------
-        job
+        job : ScorecardJobTypeVar
             The scorecard job matching these parameters.
         """
         job_id = self.get_job_id(
@@ -424,7 +424,7 @@ class CompileScorecardJobYaml(
 
         Returns
         -------
-        job_id
+        job_id : str | None
             The job ID if found, None otherwise.
         """
         if isinstance(path, ScorecardProfilePath):
@@ -571,7 +571,12 @@ class ScorecardAssetYaml(BaseQAIHMConfig):
     ) -> None:
         if model_id not in self.models:
             self.models[model_id] = QAIHMModelReleaseAssets()
-        self.models[model_id].add_asset(details, precision, device, path)
+        self.models[model_id].add_asset(
+            details,
+            precision,
+            device.chipset if path.runtime.is_aot_compiled else None,
+            path,
+        )
 
     def get_asset(
         self,
@@ -582,4 +587,6 @@ class ScorecardAssetYaml(BaseQAIHMConfig):
     ) -> QAIHMModelReleaseAssets.AssetDetails | None:
         if model_id not in self.models:
             return None
-        return self.models[model_id].get_asset(precision, device, path)
+        return self.models[model_id].get_asset(
+            precision, device.chipset if path.runtime.is_aot_compiled else None, path
+        )

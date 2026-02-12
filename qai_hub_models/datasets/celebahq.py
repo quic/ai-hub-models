@@ -59,7 +59,7 @@ class CelebAHQDataset(BaseDataset):
 
     def __getitem__(
         self, index: int
-    ) -> tuple[tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
+    ) -> tuple[tuple[torch.Tensor, torch.Tensor], tuple[torch.Tensor, torch.Tensor]]:
         # Load image
         image = Image.open(self.image_paths[index]).convert("RGB")
         image = image.resize((self.input_height, self.input_width))
@@ -71,13 +71,13 @@ class CelebAHQDataset(BaseDataset):
             mask_array[
                 self.input_height // 4 : self.input_width // 4 * 3,
                 self.input_height // 4 : self.input_width // 4 * 3,
-            ] = 1
+            ] = 255
         mask = Image.fromarray(mask_array).convert("L")
 
         gt = app_to_net_image_inputs(image)[1].squeeze(0)
         inputs = preprocess_inputs(image, mask)
         img_tensor, mask_tensor = inputs["image"].squeeze(0), inputs["mask"].squeeze(0)
-        return (img_tensor, mask_tensor), gt
+        return (img_tensor, mask_tensor), (gt, mask_tensor)
 
     def random_stroke(self, img_width: int, img_height: int) -> NDArray:
         """
@@ -92,8 +92,8 @@ class CelebAHQDataset(BaseDataset):
 
         Returns
         -------
-        strokes
-            Numpy array (0=background, 1=stroke) with shape (height, width)
+        strokes : NDArray
+            Numpy array (0=background, 255=stroke) with shape (height, width)
         """
         min_num_vertex = 4
         max_num_vertex = 12
@@ -141,7 +141,7 @@ class CelebAHQDataset(BaseDataset):
 
             draw = ImageDraw.Draw(mask)
             width = int(self.random_gen.uniform(min_width, max_width))
-            draw.line(vertex, fill=1, width=width)
+            draw.line(vertex, fill=255, width=width)
             for v in vertex:
                 draw.ellipse(
                     (
@@ -150,7 +150,7 @@ class CelebAHQDataset(BaseDataset):
                         v[0] + width // 2,
                         v[1] + width // 2,
                     ),
-                    fill=1,
+                    fill=255,
                 )
 
         if self.random_gen.normal() > 0:

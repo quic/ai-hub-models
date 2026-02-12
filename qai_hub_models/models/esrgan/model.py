@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 
 import torch
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.super_resolution.model import SuperResolutionModel
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, SourceAsRoot
@@ -32,7 +33,7 @@ class ESRGAN(SuperResolutionModel):
         super().__init__(esrgan_model, scale_factor=SCALING_FACTOR)
 
     @classmethod
-    def from_pretrained(cls, weights_path: str | None = None) -> ESRGAN:
+    def from_pretrained(cls, weights_path: str | None = None) -> Self:
         """Load ESRGAN from a weightfile created by the source ESRGAN repository."""
         # Load PyTorch model from disk
         esrgan_model = _load_esrgan_source_model_from_weights(weights_path)

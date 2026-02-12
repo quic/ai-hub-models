@@ -12,7 +12,7 @@ from qai_hub_models.models.pspnet.model import (
 )
 
 
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     segmentation_demo(
         PSPNet, MODEL_ID, INPUT_IMAGE_ADDRESS, is_test, normalize_input=False
     )

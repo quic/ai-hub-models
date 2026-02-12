@@ -19,7 +19,7 @@ WEIGHTS_HELP_MSG = "RealESRGAN checkpoint `.pth` name from the Real-ESRGAN repo.
 
 # Run Real-ESRGAN end-to-end on a sample image.
 # The demo will display a image with the predicted bounding boxes.
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     super_resolution_demo(
         model_cls=Real_ESRGAN_x4plus,
         model_id=MODEL_ID,

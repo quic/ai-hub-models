@@ -2,9 +2,8 @@
 
 JAIS 6.7B is a bilingual large language model (LLM) for both Arabic and English developed by Inception, a G42 company in partnership with MBZUAI and Cerebras. This is a 6.7 billion parameter LLM, trained on a dataset containing 141 billion Arabic tokens and 339 billion English/code tokens. The model is based on transformer-based decoder-only (GPT-3) architecture and uses SwiGLU non-linearity. It implements ALiBi position embeddings, enabling the model to extrapolate to long sequence lengths, providing improved context handling and model precision. The JAIS family of models is a comprehensive series of bilingual English-Arabic LLMs. These models are optimized to excel in Arabic while having strong English capabilities.
 
-This is based on the implementation of JAIS-6p7b-Chat found [here](https://huggingface.co/inceptionai/jais-family-6p7b). This repository contains scripts for optimized on-device
-export suitable to run on Qualcomm® devices. More details on model performance
-across various devices, can be found [here](https://aihub.qualcomm.com/models/jais_6p7b_chat).
+This is based on the implementation of JAIS-6p7b-Chat found [here](https://huggingface.co/inceptionai/jais-family-6p7b).
+This repository contains scripts for optimized on-device export suitable to run on Qualcomm® devices. More details on model performance across various devices, can be found [here](https://aihub.qualcomm.com/models/jais_6p7b_chat).
 
 Qualcomm AI Hub Models uses [Qualcomm AI Hub Workbench](https://workbench.aihub.qualcomm.com) to compile, profile, and evaluate this model. [Sign up](https://myaccount.qualcomm.com/signup) to run these models on a hosted Qualcomm® device.
 
@@ -15,17 +14,13 @@ Please follow the [LLM on-device deployment](https://github.com/quic/ai-hub-apps
 
 
 
-
 ## References
 * [Jais and Jais-chat: Arabic-Centric Foundation and Instruction-Tuned Open Generative Large Language Models](https://arxiv.org/abs/2308.16149)
 * [Source Model Implementation](https://huggingface.co/inceptionai/jais-family-6p7b)
 
-
-
 ## Community
 * Join [our AI Hub Slack community](https://aihub.qualcomm.com/community/slack) to collaborate, post questions and learn more about on-device AI.
 * For questions or feedback please [reach out to us](mailto:ai-hub-support@qti.qualcomm.com).
-
 
 ## Usage and Limitations
 

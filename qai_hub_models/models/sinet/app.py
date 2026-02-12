@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-from collections import OrderedDict
 from collections.abc import Callable
 
 import numpy as np
@@ -25,7 +24,7 @@ class SINetApp:
         * Convert the raw output into probabilities using softmax
     """
 
-    def __init__(self, model: Callable[[torch.Tensor], OrderedDict]):
+    def __init__(self, model: Callable[[torch.Tensor], dict]) -> None:
         self.model = model
 
     def predict(
@@ -45,19 +44,20 @@ class SINetApp:
 
         Returns
         -------
-        If raw_output is true, returns a tuple of 2 arrays:
+        Image.Image | tuple[np.ndarray, np.ndarray]
+            If raw_output is true, returns a tuple of 2 arrays:
 
-        face_map
-            Array of face mask predictions per pixel as 0 or 1.
-            Shape: (H, W)
-        bg_map
-            Array of background mask predictions per pixel as 0 or 1.
-            Shape: (H, W)
+            face_map
+                Array of face mask predictions per pixel as 0 or 1.
+                Shape: (H, W)
+            bg_map
+                Array of background mask predictions per pixel as 0 or 1.
+                Shape: (H, W)
 
-        Otherwise, returns:
+            Otherwise, returns:
 
-        segmented_image
-            Image of face segmented out or background segmented out.
+            segmented_image
+                Image of face segmented out or background segmented out.
         """
         input_tensor = transforms.ToTensor()(image).unsqueeze(0)
         output = self.model(input_tensor)

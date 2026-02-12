@@ -15,10 +15,10 @@ from qai_hub_models.models._shared.ultralytics.segment_patches import (
 )
 from qai_hub_models.models._shared.yolo.utils import (
     get_most_likely_score,
-    transform_box_layout_xywh2xyxy,
 )
 from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.base_model import BaseModel, InputSpec
+from qai_hub_models.utils.bounding_box_processing import box_xywh_to_xyxy
 
 DEFAULT_ULTRALYTICS_IMAGE_INPUT_HW = 640
 
@@ -45,13 +45,13 @@ class UltralyticsSingleClassSegmentor(BaseModel):
 
         Returns
         -------
-        boxes
+        boxes : torch.Tensor
             Shape [1, num_anchors, 4] where 4 = [x1, y1, x2, y2] (box coordinates in pixel space).
-        scores
+        scores : torch.Tensor
             Shape [batch_size, num_anchors] per-anchor confidence of whether the anchor box contains an object.
-        mask_coeffs
+        mask_coeffs : torch.Tensor
             Shape [batch_size, num_anchors, num_prototype_masks] per-anchor mask coefficients.
-        mask_protos
+        mask_protos : torch.Tensor
             Shape [batch_size, num_prototype_masks, mask_x_size, mask_y_size] mask protos.
         """
         boxes: torch.Tensor
@@ -61,7 +61,7 @@ class UltralyticsSingleClassSegmentor(BaseModel):
         boxes, scores, mask_coeffs, mask_protos = self.model(image)
 
         # Convert boxes to (x1, y1, x2, y2)
-        boxes = transform_box_layout_xywh2xyxy(boxes.permute(0, 2, 1))
+        boxes = box_xywh_to_xyxy(boxes.permute(0, 2, 1))
 
         return boxes, scores.squeeze(1), mask_coeffs.permute(0, 2, 1), mask_protos
 
@@ -131,15 +131,15 @@ class UltralyticsMulticlassSegmentor(BaseModel):
 
         Returns
         -------
-        boxes
+        boxes : torch.Tensor
             Shape [1, num_anchors, 4] where 4 = [x1, y1, x2, y2] (box coordinates in pixel space).
-        scores
+        scores : torch.Tensor
             Shape [batch_size, num_anchors, num_classes + 1] per-anchor confidence of whether the anchor box contains an object.
-        mask_coeffs
+        mask_coeffs : torch.Tensor
             Shape [batch_size, num_anchors, num_prototype_masks] per-anchor mask coefficients.
-        class_idx
+        class_idx : torch.Tensor
             Shape [batch_size, num_anchors] class index.
-        mask_protos
+        mask_protos : torch.Tensor
             Shape [batch_size, num_prototype_masks, mask_x_size, mask_y_size] mask protos.
         """
         boxes: torch.Tensor
@@ -149,7 +149,7 @@ class UltralyticsMulticlassSegmentor(BaseModel):
         boxes, scores, mask_coeffs, mask_protos = self.model(image)
 
         # Convert boxes to (x1, y1, x2, y2)
-        boxes = transform_box_layout_xywh2xyxy(boxes.permute(0, 2, 1))
+        boxes = box_xywh_to_xyxy(boxes.permute(0, 2, 1))
 
         # Get class ID of most likely score.
         scores = scores.permute(0, 2, 1)

@@ -70,24 +70,29 @@ def test_perf_yaml() -> None:
                         model_name
                     ].performance_metrics.values():
                         for performance_details in runtime_performance_details.values():
-                            tps_is_none = performance_details.tokens_per_second is None
-                            ttft_is_none = (
-                                performance_details.time_to_first_token_range_milliseconds
-                                is None
-                            )
-                            cl_is_none = performance_details.context_length is None
-
-                            assert tps_is_none == ttft_is_none == cl_is_none, (
-                                "Either all of TPS, TTFT, and context length must all be set, or must all be None"
-                            )
-                            if (
-                                performance_details.time_to_first_token_range_milliseconds
-                                is not None
-                            ):
-                                assert (
-                                    performance_details.time_to_first_token_range_milliseconds.max
-                                    >= performance_details.time_to_first_token_range_milliseconds.min
+                            # Validate LLM metrics if present
+                            if performance_details.llm_metrics is not None:
+                                assert len(performance_details.llm_metrics) > 0, (
+                                    "For LLM models, at least one context length entry must be provided"
                                 )
+                                for ctx in performance_details.llm_metrics:
+                                    assert ctx.context_length is not None, (
+                                        "For LLM models, context length value must be provided"
+                                    )
+                                    assert ctx.tokens_per_second is not None, (
+                                        "For LLM models, tokens per second must be provided"
+                                    )
+                                    assert (
+                                        ctx.time_to_first_token_range_milliseconds
+                                        is not None
+                                    ), (
+                                        "For LLM models, time to first token must be provided"
+                                    )
+                                    assert (
+                                        ctx.time_to_first_token_range_milliseconds.max
+                                        >= ctx.time_to_first_token_range_milliseconds.min
+                                    ), "Time to first token max must be >= min"
+
     except Exception as err:
         raise AssertionError(
             f"{model_id} perf yaml validation failed: {err!s}"

@@ -31,7 +31,7 @@ def calculate_p0(h: int, w: int, stride_h: int, stride_w: int) -> torch.Tensor:
 
     Returns
     -------
-    base_grid
+    base_grid : torch.Tensor
         Tensor of shape (1, 2, h, w) representing
         the base sampling grid coordinates (y, x) for each
         output pixel and each kernel point.
@@ -68,7 +68,7 @@ def calculate_pk(
 
     Returns
     -------
-    kernel_offsets
+    kernel_offsets : torch.Tensor
         Tensor of shape (K, 2, 1, 1) representing
         the relative offsets (y, x) for each kernel point.
         K = kernel_h * kernel_w.
@@ -100,7 +100,7 @@ def bilinear_sample(input_tensor: torch.Tensor, coords: torch.Tensor) -> torch.T
 
     Returns
     -------
-    sampled_features
+    sampled_features : torch.Tensor
         Sampled tensor, shape is (K, H_out, W_out, C).
     """
     _, _, H, W = input_tensor.shape
@@ -179,7 +179,7 @@ def custom_deformconv2d(
 
     Returns
     -------
-    output
+    output : torch.Tensor
         Output tensor of shape (B, C_out, H_out, W_out).
     """
     B, C_in, H_in, W_in = x.shape
@@ -238,7 +238,7 @@ def custom_dcn_forward(self: Any, x: torch.Tensor) -> torch.Tensor:
 
     Returns
     -------
-    output_features
+    output_features : torch.Tensor
         Output feature map of shape (B, C_out, H_out, W_out).
     """
     out = self.conv_offset_mask(x)

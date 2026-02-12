@@ -11,6 +11,7 @@ from PIL import Image
 from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs
+from qai_hub_models.utils.input_spec import InputSpec
 
 ADE_FOLDER_NAME = "ade"
 ADE_VERSION = 1
@@ -26,8 +27,7 @@ class ADESegmentationDataset(BaseDataset):
     def __init__(
         self,
         split: DatasetSplit = DatasetSplit.VAL,
-        input_height: int = 512,
-        input_width: int = 512,
+        input_spec: InputSpec | None = None,
     ) -> None:
         BaseDataset.__init__(
             self, ADE_ASSET.path(extracted=True) / "ADEChallengeData2016", split
@@ -56,8 +56,9 @@ class ADESegmentationDataset(BaseDataset):
                 f"No valid image-annotation pairs found in {self.image_dir} and {self.category_dir}"
             )
 
-        self.input_height = input_height
-        self.input_width = input_width
+        input_spec = input_spec or {"image": ((1, 3, 512, 512), "")}
+        self.input_height = input_spec["image"][0][2]
+        self.input_width = input_spec["image"][0][3]
 
     def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
         orig_image = Image.open(self.images[index]).convert("RGB")
@@ -89,3 +90,22 @@ class ADESegmentationDataset(BaseDataset):
             link="https://ade20k.csail.mit.edu/",
             split_description="validation split",
         )
+
+
+class ADE10SegmentationDataset(ADESegmentationDataset):
+    """
+    Wrapper class around ADESegmentationDataset that sets samples_per_job and
+    num_calibration_samples to 10 by default to fix eval and quantization issues.
+    """
+
+    @staticmethod
+    def dataset_name() -> str:
+        return "ade20k_10"
+
+    @staticmethod
+    def default_samples_per_job() -> int:
+        return 10
+
+    @staticmethod
+    def default_num_calibration_samples() -> int:
+        return 10

@@ -18,7 +18,7 @@ from qai_hub_models.models.ddcolor.model import DDColor
 class DDColorApp:
     """Wraps DDColor model for image preprocessing and postprocessing."""
 
-    def __init__(self, model: Callable[[torch.Tensor], torch.Tensor]):
+    def __init__(self, model: Callable[[torch.Tensor], torch.Tensor]) -> None:
         self.model = model
 
     def predict(self, *args: Any, **kwargs: Any) -> Image.Image:
@@ -34,7 +34,7 @@ class DDColorApp:
 
         Returns
         -------
-        colorized_image
+        colorized_image : Image.Image
             The colorized output image.
         """
         return self.colorize(*args, **kwargs)
@@ -50,7 +50,7 @@ class DDColorApp:
 
         Returns
         -------
-        colorized_image
+        colorized_image : Image.Image
             Colorized output image.
         """
         img = np.array(pil_image)

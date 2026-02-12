@@ -6,5 +6,5 @@
 from qai_hub_models.models.whisper_small_quantized.demo import main as demo_main
 
 
-def test_demo():
+def test_demo() -> None:
     demo_main(is_test=True)

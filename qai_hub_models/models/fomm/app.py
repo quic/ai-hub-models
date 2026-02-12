@@ -2,10 +2,10 @@
 # Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import imageio
 import numpy as np
@@ -22,7 +22,11 @@ EXPECTED_SIZE = 256
 def resize_frame(
     frame: np.ndarray, size: tuple[int, int] = (EXPECTED_SIZE, EXPECTED_SIZE)
 ) -> np.ndarray:
-    return resize(pad_to_square(frame), size)[..., :3]
+    """Resize helper that keeps inputs in [0,1] regardless of original scale."""
+    frame = frame.astype(np.float32)
+    if frame.max() > 1.0:
+        frame /= 255.0
+    return resize(pad_to_square(frame, pad_value=1.0), size)[..., :3]
 
 
 # This comes from https://github.com/AliaksandrSiarohin/first-order-model/blob/master/animate.py
@@ -31,28 +35,28 @@ def resize_frame(
 # The only modification is instead of inputs being dictionaries with keys "value" and "jacobian",
 # these are split into separate variables
 def normalize_kp(
-    kp_source_value,
-    kp_source_jacobian,
-    kp_driving_value,
-    kp_driving_jacobian,
-    kp_driving_initial_value,
-    kp_driving_initial_jacobian,
-    adapt_movement_scale=False,
-    use_relative_movement=False,
-    use_relative_jacobian=False,
-):
+    kp_source_value: torch.Tensor,
+    kp_source_jacobian: torch.Tensor,
+    kp_driving_value: torch.Tensor,
+    kp_driving_jacobian: torch.Tensor,
+    kp_driving_initial_value: torch.Tensor,
+    kp_driving_initial_jacobian: torch.Tensor,
+    adapt_movement_scale: bool = False,
+    use_relative_movement: bool = False,
+    use_relative_jacobian: bool = False,
+) -> dict[str, torch.Tensor]:
     if adapt_movement_scale:
         source_area = ConvexHull(kp_source_value[0].data.cpu().numpy()).volume
         driving_area = ConvexHull(kp_driving_initial_value[0].data.cpu().numpy()).volume
-        adapt_movement_scale = np.sqrt(source_area) / np.sqrt(driving_area)
+        adapt_movement_scale_num = np.sqrt(source_area) / np.sqrt(driving_area)
     else:
-        adapt_movement_scale = 1
+        adapt_movement_scale_num = 1
 
     kp_new = {"value": kp_driving_value, "jacobian": kp_driving_jacobian}
 
     if use_relative_movement:
         kp_value_diff = kp_driving_value - kp_driving_initial_value
-        kp_value_diff *= adapt_movement_scale
+        kp_value_diff *= adapt_movement_scale_num
         kp_new["value"] = kp_value_diff + kp_source_value
 
         if use_relative_jacobian:
@@ -65,7 +69,9 @@ def normalize_kp(
 
 
 def load_video_frames(
-    video_filepath: str | Path, sample_rate: int = 1
+    video_filepath: str | Path,
+    sample_rate: int = 1,
+    max_frames: int | None = None,
 ) -> list[np.ndarray]:
     """
     Loads video frames from a .mp4 file.
@@ -75,12 +81,13 @@ def load_video_frames(
     video_filepath
         Filepath to the .mp4 file.
     sample_rate
-        Only return one every {sample_rate} frames.
-        By default, returns all frames.
+        Only return one every {sample_rate} frames
+    max_frames
+        Maximum number of frames to return (default: None, all frames).
 
     Returns
     -------
-    frames
+    frames : list[np.ndarray]
         List of frames as numpy arrays.
     """
     try:
@@ -101,6 +108,8 @@ def load_video_frames(
             curr_frame = resize_frame(im)
             if i % sample_rate == 0:
                 driving_video_frames.append(curr_frame)
+                if max_frames is not None and len(driving_video_frames) >= max_frames:
+                    break
             i += 1
     except RuntimeError:
         pass
@@ -121,11 +130,11 @@ class FOMMApp:
         * generate new frames with the source image performing the motion of the driving video
     """
 
-    def __init__(self, model: FOMM):
+    def __init__(self, model: FOMM) -> None:
         self.kp_detector = model.detector
         self.generator = model.generator
 
-    def predict(self, *args, **kwargs):
+    def predict(self, *args: Any, **kwargs: Any) -> list[np.ndarray]:
         # See copy_motion_to_video.
         return self.copy_motion_to_video(*args, **kwargs)
 
@@ -148,7 +157,7 @@ class FOMMApp:
 
         Returns
         -------
-        predicted_images
+        predicted_images : list[np.ndarray]
             A list of predicted images. Each image is a numpy array
             (H W C x float32 [0, 1]).
         """
@@ -183,6 +192,7 @@ class FOMMApp:
                 kp_driving_jacobian=driving_kp_j,
                 kp_driving_initial_value=driving_kp_initial_v,
                 kp_driving_initial_jacobian=driving_kp_initial_j,
+                use_relative_movement=True,
                 use_relative_jacobian=True,
                 adapt_movement_scale=True,
             )

@@ -144,6 +144,9 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
     python_version_less_than: str | None = None
     python_version_less_than_reason: str | None = None
 
+    # Enables PT2 export (replaces TorchScript export)
+    enable_pt2: bool = False
+
     def is_supported(
         self,
         precision: Precision,
@@ -304,6 +307,11 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
             raise ValueError(
                 f"Default device must be any of these canary devices: {CANARY_DEVICES}"
             )
+        if not self.is_collection_model and any(
+            p in [Precision.mixed, Precision.mixed_with_float]
+            for p in self.supported_precisions
+        ):
+            raise ValueError("Only collection models can have mixed precisions")
 
         return self
 

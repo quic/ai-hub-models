@@ -20,7 +20,7 @@ from qai_hub_models.utils.base_model import CollectionModel
 
 MODEL_ASSET_VERSION = 3
 MODEL_ID = __name__.split(".")[-2]
-HF_REPO = "stabilityai/stable-diffusion-2-1-base"
+HF_REPO = "sd2-community/stable-diffusion-2-1"
 
 
 def make_tokenizer() -> CLIPTokenizer:
@@ -62,5 +62,5 @@ class StableDiffusionV2_1_Quantized(StableDiffusionBase):
     hf_repo_id = HF_REPO
 
     @staticmethod
-    def make_tokenizer():
+    def make_tokenizer() -> CLIPTokenizer:
         return make_tokenizer()

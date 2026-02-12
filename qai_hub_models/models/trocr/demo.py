@@ -18,7 +18,7 @@ DEFAULT_SAMPLE_IMAGE = CachedWebModelAsset.from_asset_store(
 # Run TrOCR end-to-end on a sample line of handwriting.
 # The demo will output the text contained within the source image.
 # Text will be printed to terminal as it is generated with each decoder loop.
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     # Demo parameters
     parser = get_model_cli_parser(TrOCR)
     parser.add_argument(

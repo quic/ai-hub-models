@@ -67,11 +67,11 @@ class DETRApp:
 
         Returns
         -------
-        scores
+        scores : torch.Tensor
             Confidence scores for the predicted class.
-        labels
+        labels : torch.Tensor
             Labels (class number) for the predicted class.
-        boxes
+        boxes : torch.Tensor
             Bounding boxes for the predicted class.
         """
         mask = pred_scores > threshold
@@ -104,7 +104,6 @@ class DETRApp:
     def predict(
         self,
         image: Image,
-        default_weights: str,
         threshold: float = 0.9,
     ) -> tuple[list[npt.NDArray[np.uint8]], torch.Tensor, torch.Tensor, torch.Tensor]:
         """
@@ -114,22 +113,20 @@ class DETRApp:
         ----------
         image
             A PIL Image in NCHW, RGB format.
-        default_weights
-            Default weights name for the model.
         threshold
             Prediction score threshold.
 
         Returns
         -------
-        numpy_array
+        numpy_array : list[npt.NDArray[np.uint8]]
             Original image numpy array with the corresponding predictions.
-        scores
+        scores : torch.Tensor
             Confidence scores for the predicted class.
             Shape is [Number of predictions above threshold].
-        labels
+        labels : torch.Tensor
             Labels (class number) for the predicted class.
             Shape is [Number of predictions above threshold].
-        boxes
+        boxes : torch.Tensor
             Bounding boxes for the predicted class.
             Shape is [Number of predictions above threshold, 4].
         """

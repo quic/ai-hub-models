@@ -24,7 +24,9 @@ SAMPLE_RATE = 16000
 CHUNK_LENGTH = 0.98
 
 
-def preprocessing_yamnet_from_source(waveform_for_torch: torch.Tensor):
+def preprocessing_yamnet_from_source(
+    waveform_for_torch: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Parameters
     ----------
@@ -33,9 +35,9 @@ def preprocessing_yamnet_from_source(waveform_for_torch: torch.Tensor):
 
     Returns
     -------
-    patches
+    patches : torch.Tensor
         batched torch tsr of shape [N, C, T]
-    spectrogram
+    spectrogram : torch.Tensor
         Mel frequency spectrogram of size (..., ``n_mels``, time)
     """
     from torch_audioset.data.torch_input_processing import (
@@ -51,7 +53,7 @@ def preprocessing_yamnet_from_source(waveform_for_torch: torch.Tensor):
     return patches, spectrogram
 
 
-def parse_category_meta():
+def parse_category_meta() -> list[str]:
     """Read the class name definition file and return a list of strings."""
     YAMNET_CLASS_CSV = CachedWebModelAsset.from_asset_store(
         MODEL_ID, MODEL_ASSET_VERSION, "yamnet_class_map.csv"
@@ -87,7 +89,7 @@ def chunk_and_resample_audio(
 
     Returns
     -------
-    audio_chunks
+    audio_chunks : list[np.ndarray]
         List of audio arrays, chunked into N arrays of model_chunk_seconds seconds.
     """
     if audio_sample_rate != model_sample_rate:
@@ -111,7 +113,7 @@ def chunk_and_resample_audio(
     ]
 
 
-def load_audiofile(path: str | Path):
+def load_audiofile(path: str | Path) -> tuple[np.ndarray, int]:
     """
     Decode the WAV file.
 
@@ -122,9 +124,9 @@ def load_audiofile(path: str | Path):
 
     Returns
     -------
-    x
+    x : np.ndarray
         Reads audio sample from path and converts to torch tensor.
-    sr
+    sr : int
         sampling rate of audio samples
     """
     x, sr = sf.read(path, dtype="int16", always_2d=True)
@@ -147,10 +149,12 @@ class YamNetApp:
         * Return the class index of audio CHUNK_LENGTH of 0.98 seconds.
     """
 
-    def __init__(self, model: ExecutableModelProtocol[torch.Tensor]):
+    def __init__(self, model: ExecutableModelProtocol[torch.Tensor]) -> None:
         self.model = model
 
-    def predict(self, path: str | Path, audio_sample_rate: int | None = None):
+    def predict(
+        self, path: str | Path, audio_sample_rate: int | None = None
+    ) -> list[str]:
         """
         Predict audio classes for given sample.
 
@@ -165,7 +169,7 @@ class YamNetApp:
 
         Returns
         -------
-        predicted_classes
+        predicted_classes : list[str]
             List of class ids from AudioSet-YouTube corpus is returned.
         """
         audio, audio_sample_rate = load_audiofile(path)
@@ -199,7 +203,7 @@ class YamNetApp:
 
         Returns
         -------
-        class_probabilities
+        class_probabilities : np.ndarray
             raw_prediction, class_probs for each chunk of audio samples
         """
         patches, _ = preprocessing_yamnet_from_source(torch.tensor(segment))

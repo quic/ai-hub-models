@@ -30,7 +30,7 @@ def create_streaming_feature_extractor() -> knf.OnlineFbank:
 
     Returns
     -------
-    OnlineFbank:
+    OnlineFbank : knf.OnlineFbank
         a CPU streaming feature extractor.
     """
     opts = knf.FbankOptions()
@@ -128,7 +128,7 @@ class ZipformerApp(CollectionAppProtocol):
 
         Returns
         -------
-        text
+        text : str
             transcribed text
         """
         online_fbank = create_streaming_feature_extractor()  # 100 frames / s

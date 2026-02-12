@@ -41,7 +41,7 @@ class FootTrackNet(BaseModel):
         RGB: bool = True,
         strict: bool = False,
         n_lmk: int = 17,
-    ):
+    ) -> None:
         """
         FootTrackNet multi task human detector model for person, face detection plus head and feet landmark detection.
         Draw the given points on the frame.
@@ -128,13 +128,13 @@ class FootTrackNet(BaseModel):
 
         Returns
         -------
-        heatmap
+        heatmap : torch.Tensor
             N,C,H,W the heatmap for the person/face detection.
-        bbox
+        bbox : torch.Tensor
             N,C*4, H,W the bounding box coordinate as a map.
-        landmark
+        landmark : torch.Tensor
             N,C*34,H,W the coordinates of landmarks as a map.
-        landmark_visibility
+        landmark_visibility : torch.Tensor
             N,C*17,H,W the visibility of the landmark as a map.
         """
         x = x * 255.0
@@ -164,7 +164,7 @@ class FootTrackNet(BaseModel):
             landmark_vis,
         )  # simple one landmark
 
-    def load_weights(self, base_file):
+    def load_weights(self, base_file: str) -> None:
         """Load pretrined weights"""
         _, ext = os.path.splitext(base_file)
         if ext in {".pkl", ".pth"}:
@@ -206,7 +206,7 @@ class FootTrackNet(BaseModel):
 
         Returns
         -------
-        model
+        model : Self
             FootTrackNet model.
         """
         model = cls()
@@ -258,3 +258,7 @@ class FootTrackNet(BaseModel):
     @staticmethod
     def calibration_dataset_name() -> str:
         return "foot_track_dataset"
+
+    @classmethod
+    def get_labels_file_name(cls) -> str | None:
+        return "foot_track_net_labels.txt"

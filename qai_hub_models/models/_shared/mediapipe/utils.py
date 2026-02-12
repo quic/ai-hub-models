@@ -9,6 +9,7 @@ from typing import cast
 import torch
 
 from qai_hub_models.utils.asset_loaders import SourceAsRoot
+from qai_hub_models.utils.bounding_box_processing import box_xywh_to_xyxy
 from qai_hub_models.utils.input_spec import InputSpec
 
 # ContextManager for running code with MediaPipePyTorch in python path and the
@@ -49,70 +50,51 @@ def trace_mediapipe(
 
 
 def decode_preds_from_anchors(
-    box_coords: torch.Tensor, img_size: tuple[int, int], anchors: torch.Tensor
-) -> None:
+    boxes_and_coordinates: torch.Tensor,
+    img_size: tuple[int, int],
+    anchors: torch.Tensor,
+) -> torch.Tensor:
     """
     Decode predictions using the provided anchors.
 
     This function can be exported and run inside inference frameworks if desired.
 
-    Note: If included in the model, this code is likely to be unfriendly to quantization.
-          This is because of the high range and variability of the output tensor.
+    Parameters
+    ----------
+    boxes_and_coordinates
+        Coordiantes in pixel space. Shape (B, N, K, 2), where N is number of detections, and K is the number of coordinates.
+        In the second to last dimension:
+        - indices [0-1] are the box coordinates ((x_min, y_min), (width, height))
+        - indices [2-K-1] are the K keypoint coordinates ((x1,y1), (x2,y2), (x3,y3), (x4,y4), (x5,y5), (x6,y6), (x7,y7)).
+    img_size
+        The size of the tensor that was fed to the NETWORK (NOT the original image size). Layout is [H, W]
+        H / W is the same order as coordinates.
+    anchors
+        Box anchors. Range must be [0, 1]. Shape is [Batch, Num Anchors, 2, 2],
+        where [2, 2] == [[x_offset, y_offset], [x_scale, y_scale]]
 
-          For best quantization accuracy, this code should be run separately from the model,
-          or the model should de-quantize activations before running these layers.
-
-    Inputs:
-        box_coords: torch.Tensor
-            coordinates. Range must be [0, 1]. Shape is [Batch, Num Anchors, 2, 2]
-            where [2, 2] == [[xcenter, ycenter], [w, h]]
-
-        img_size: tuple(int, int)
-            The size of the tensor that was fed to the NETWORK (NOT the original image size).
-            H / W is the same order as coordinates.
-
-        anchors: float
-            box anchors. Range must be [0, 1]. Shape is [Batch, Num Anchors, 2, 2],
-            where [2, 2] == [[xcenter, ycenter], [w, h]]
-
-        pad: tuple(int, int)
-            Padding used during resizing of input image to network input tensor. (w, h)
-            This is the absolute # of padding pixels in the network input tensor, NOT in the original image.
-
-    Outputs:
-        coordinates: [..., m] tensor, where m is always (x0, y0)
-            The absolute coordinates of the box in the original image.
-            The "coordinates" input is modified in place.
+    Returns
+    -------
+    decoded_coords: torch.Tensor
+        The "boxes_and_coordinates" input decoded using the provided anchors.
     """
-    assert box_coords.shape[-1] == anchors.shape[-1] == 2
-    assert box_coords.shape[-3] == anchors.shape[-3]
+    assert boxes_and_coordinates.shape[-1] == anchors.shape[-1] == 2
+    assert boxes_and_coordinates.shape[-3] == anchors.shape[-3]
 
-    w_size, h_size = img_size
-    anchors_x, anchors_y, anchors_w, anchors_h = (
-        anchors[..., 0, 0],
-        anchors[..., 0, 1],
-        anchors[..., 1, 0],
-        anchors[..., 1, 1],
+    h_size, w_size = img_size
+
+    # Convert offset from normalized [0,1] to image space
+    offset = anchors[..., 0:1, :] * torch.tensor(
+        [[w_size, h_size]], dtype=anchors.dtype
     )
-    expanded_anchors_shape = [*list(anchors_w.shape), 1]
+    scale = anchors[..., 1:2, :]
 
-    # Determine real center X and Y, as well as real pixel W and H
-    box_coords[..., 0, 0] = (
-        box_coords[..., 0, 0] / w_size * anchors_w + anchors_x
-    )  # x_center
-    box_coords[..., 0, 1] = (
-        box_coords[..., 0, 1] / h_size * anchors_h + anchors_y
-    )  # y_center
-    box_coords[..., 1, 0] = box_coords[..., 1, 0] / w_size * anchors_w  # w
-    box_coords[..., 1, 1] = box_coords[..., 1, 1] / h_size * anchors_h  # h
+    # Create mask to zero out offset at index 1 (wh doesn't get offset added)
+    K = boxes_and_coordinates.shape[-2]
+    mask = (torch.arange(K) != 1).view(K, 1)
 
-    # Get X and Y values of keypoints
-    box_coords[..., 2:, 0] = box_coords[..., 2:, 0] / w_size * anchors_w.view(
-        expanded_anchors_shape
-    ) + anchors_x.view(expanded_anchors_shape)
-    box_coords[..., 2:, 1] = box_coords[..., 2:, 1] / h_size * anchors_h.view(
-        expanded_anchors_shape
-    ) + anchors_y.view(expanded_anchors_shape)
+    # Scale all coordinates, then add masked offset
+    return boxes_and_coordinates * scale + (offset * mask)
 
 
 def preprocess_hand_x64(
@@ -157,3 +139,76 @@ def preprocess_hand_x64(
 
     # Append handedness scalar
     return torch.cat([flat, handedness.view(-1, 1).float()], dim=1)
+
+
+def mediapipe_detector_postprocess(
+    coords: torch.Tensor,
+    scores: torch.Tensor,
+    score_clipping_threshold: float,
+    img_size: tuple[int, int],
+    anchors: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """
+    Mediapipe detector postprocessing.
+
+    Parameters
+    ----------
+    coords
+        Detected boxes and coordinates in pixel space. Can be either:
+        * shape (B, N, K, 2). Where N is number of detections, and K is the number of coordinates.
+            In the second to last dimension:
+            - indices [0:1] are the box coordinates ((x_min, y_min), (width, height))
+            - indices [2:K-1] are the K keypoint coordinates ((x1,y1), (x2,y2), (x3,y3), (x4,y4), (x5,y5), (x6,y6), (x7,y7)).
+        * shape (B, N, M). Where N is number of detections, and M is total number of coordinates K * 2.
+            In the last dimension:
+            - indices [0:3] are the box coordinates ((x_min, y_min), (width, height))
+            - indices [4:M] are the K keypoint coordinates ((x1,y1), (x2,y2), (x3,y3), ...
+    scores
+        Raw model output scores of shape (B, N, 1).
+    score_clipping_threshold
+        Score clipping threshold for postprocessing.
+    img_size
+        Shape of the network image input (H, W).
+    anchors
+        Anchors used for decoding bounding box predictions. Shape [N, 2, 2],
+        where [2, 2] == [[x_scale, y_scale], [w_offset, h_offset]]
+
+    Returns
+    -------
+    coords: torch.Tensor
+        Detected boxes and coordinates in pixel space.
+        Shape (B, N, M), where N is number of detections, and M is total number of coordinates K * 2.
+        In the last dimension:
+        - indices [0-3] are the box coordinates ((x_min, y_min), (x_max, y_max))
+        - indices [4-M] are the K keypoint coordinates ((x1,y1), (x2,y2), (x3,y3), ...).e.
+
+    scores: torch.Tensor
+        Clipped and sigmoid activated scores of shape (B, N).
+    """
+    scores = scores.clamp(
+        -score_clipping_threshold,
+        score_clipping_threshold,
+    )
+    scores = scores.sigmoid()
+
+    # Ensure scores are of shape [B, N]
+    if scores.dim() == 3 and scores.size(-1) == 1:
+        scores = scores.squeeze(dim=-1)
+
+    # Reshape outputs so that they have shape [..., # of coordinates, 2], where 2 == (x, y)
+    if coords.dim() == 3:
+        coords = coords.view([*list(coords.shape)[:-1], -1, 2])
+
+    # Decode to output coordinates using the model's trained anchors.
+    coords = decode_preds_from_anchors(coords, img_size, anchors)
+
+    # flatten coords (remove final [2] dim)
+    coords = (
+        coords.view([*list(coords.shape)[:-2], -1]) if len(coords.shape) > 3 else coords
+    )
+
+    # Convert box coordinates from CWH -> XYXY format.
+    xyxy_boxes = box_xywh_to_xyxy(coords[..., :4])
+    coords = torch.cat([xyxy_boxes, coords[..., 4:]], dim=-1)
+
+    return coords, scores

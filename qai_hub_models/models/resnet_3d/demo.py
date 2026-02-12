@@ -16,7 +16,7 @@ INPUT_VIDEO_PATH = CachedWebModelAsset.from_asset_store(
 )
 
 
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     kinetics_classifier_demo(
         model_type=ResNet3D,
         default_video=INPUT_VIDEO_PATH,

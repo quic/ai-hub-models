@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from typing_extensions import Self
+
 from qai_hub_models.models._shared.fastsam.model import Fast_SAM
 
 MODEL_ID = __name__.split(".")[-2]
@@ -16,7 +18,7 @@ class FastSAM_S(Fast_SAM):
     """Exportable FastSAM model, end-to-end."""
 
     @classmethod
-    def from_pretrained(cls, ckpt_name: str = DEFAULT_WEIGHTS):
+    def from_pretrained(cls, ckpt_name: str = DEFAULT_WEIGHTS) -> Self:
         # It seems that we're using __func__ directly to ensure that the
         # returned object is a FastSAM_S rather than a FastSAM.
         return Fast_SAM.from_pretrained.__func__(FastSAM_S, ckpt_name)  # type: ignore[attr-defined]

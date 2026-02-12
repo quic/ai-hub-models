@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import torch
 from transformers import Wav2Vec2Processor
@@ -23,11 +25,11 @@ class HuggingFaceWavLMBasePlusApp:
         * Run HuggingFaceWavLMBasePlus inference on the input and return the transciptions
     """
 
-    def __init__(self, wavlm_model):
+    def __init__(self, wavlm_model: Any) -> None:
         self.model = wavlm_model
         self.processor = get_processor()
 
-    def predict(self, *args, **kwargs):
+    def predict(self, *args: Any, **kwargs: Any) -> str:
         # See predict_features.
         return self.predict_features(*args, **kwargs)
 
@@ -46,7 +48,7 @@ class HuggingFaceWavLMBasePlusApp:
 
         Returns
         -------
-        transcription
+        transcription : str
             The transcribed text from the audio input.
         """
         # preprocess audio
@@ -77,7 +79,7 @@ def get_processor(
 
     Returns
     -------
-    processor
+    processor : Wav2Vec2Processor
         The initialized processor.
     """
     return Wav2Vec2Processor.from_pretrained(default_weights)

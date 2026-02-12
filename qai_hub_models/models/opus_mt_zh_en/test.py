@@ -18,7 +18,7 @@ from qai_hub_models.models.opus_mt_zh_en.model import (
 )
 
 
-def test_tokenizer():
+def test_tokenizer() -> None:
     """Test that the tokenizer can be loaded and works correctly."""
     model = OpusMTZhEn.from_pretrained()
     tokenizer = get_tokenizer(model.hf_source)
@@ -37,21 +37,21 @@ def test_tokenizer():
     assert isinstance(decoded, str)
 
 
-def test_demo():
+def test_demo() -> None:
     """Test that demo runs without errors."""
     demo_main(is_test=True)
 
 
-def test_numerical_accuracy():
+def test_numerical_accuracy() -> None:
     """Test numerical accuracy against HuggingFace implementation."""
     run_test_wrapper_numerics(OpusMTZhEn)
 
 
-def test_encoder_decoder_consistency():
+def test_encoder_decoder_consistency() -> None:
     """Test encoder-decoder consistency."""
     run_test_encoder_decoder_consistency(OpusMTZhEn)
 
 
-def test_translation_end_to_end():
+def test_translation_end_to_end() -> None:
     """Test end-to-end translation functionality."""
     run_test_translation_end_to_end(OpusMTZhEn)

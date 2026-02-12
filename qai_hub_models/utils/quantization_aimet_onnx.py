@@ -162,7 +162,7 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
 
         Returns
         -------
-        calibration_data
+        calibration_data : DatasetEntries | None
             The calibration dataset entries, or None if not available.
         """
         return None
@@ -174,9 +174,9 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
 
         Returns
         -------
-        onnx_path
+        onnx_path : str
             Path to .onnx file.
-        encodings_path
+        encodings_path : str
             Path to .encodings file.
         """
         if not cls.model_id or cls.model_asset_version == -1:

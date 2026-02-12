@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from typing_extensions import Self
+
 from qai_hub_models.models._shared.quicksrnet.common import (
     _load_quicksrnet_source_model,
 )
@@ -28,9 +30,7 @@ class QuickSRNetSmall(SuperResolutionModel):
     """Exportable QuickSRNetSmall super resolution model, end-to-end."""
 
     @classmethod
-    def from_pretrained(
-        cls, scale_factor: int = DEFAULT_SCALE_FACTOR
-    ) -> QuickSRNetSmall:
+    def from_pretrained(cls, scale_factor: int = DEFAULT_SCALE_FACTOR) -> Self:
         validate_scale_factor(scale_factor)
         model = _load_quicksrnet_source_model(
             scale_factor,

@@ -99,10 +99,10 @@ class KittiDataset(BaseDataset):
 
         Returns
         -------
-        image_tensor
+        image_tensor : torch.Tensor
              Normalized image tensor [C, H, W], RGB [0-1]
 
-        gt_data
+        gt_data : tuple[int, np.ndarray, np.ndarray, np.ndarray]
             img_id
                 image id
             center

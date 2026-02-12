@@ -12,7 +12,7 @@ MODEL_ASSET_VERSION = 1
 MODEL_ID = __name__.split(".")[-2]
 
 
-def project_landmark(output):
+def project_landmark(output: torch.Tensor) -> torch.Tensor:
     # 3DMM related parameters
     face_path = CachedWebModelAsset.from_asset_store(
         MODEL_ID, MODEL_ASSET_VERSION, "meanFace.npy"

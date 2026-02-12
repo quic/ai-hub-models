@@ -29,7 +29,7 @@ ENGLISH_INPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 
 
 @skip_clone_repo_check
-def test_task():
+def test_task() -> None:
     model = EasyOCR.from_pretrained(LANG_LIST)
     detector_shape = tuple(model.detector.get_input_spec()["image"][0][2:4])
     recognizer_shape = tuple(model.recognizer.get_input_spec()["image"][0][2:4])
@@ -89,5 +89,5 @@ def test_task():
     assert results[0][1][5] == "Yuyuan"
 
 
-def test_demo():
+def test_demo() -> None:
     demo_main(is_test=True)

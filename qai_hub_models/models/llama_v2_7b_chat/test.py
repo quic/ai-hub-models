@@ -4,6 +4,7 @@
 # ---------------------------------------------------------------------
 
 from inspect import signature
+from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
@@ -48,7 +49,7 @@ def _mock_from_pretrained() -> Mock:
     return mock_from_pretrained
 
 
-def test_cli_device_with_skips(tmp_path) -> None:
+def test_cli_device_with_skips(tmp_path: Path) -> None:
     patch_get_cache = patch(
         "qai_hub_models.utils.model_cache.get_or_create_cached_model",
         return_value=Mock(),
@@ -92,7 +93,7 @@ def test_cli_device_with_skips(tmp_path) -> None:
         assert tmp_path.is_dir()
 
 
-def test_cli_chipset_with_options(tmp_path) -> None:
+def test_cli_chipset_with_options(tmp_path: Path) -> None:
     patch_get_cache = patch(
         "qai_hub_models.utils.model_cache.get_or_create_cached_model",
         return_value=Mock(),
@@ -137,7 +138,7 @@ def test_cli_chipset_with_options(tmp_path) -> None:
         assert tmp_path.is_dir()
 
 
-def test_cli_default_device_select_component(tmp_path) -> None:
+def test_cli_default_device_select_component(tmp_path: Path) -> None:
     mock_get_cache = Mock()
     patch_get_cache = patch(
         "qai_hub_models.utils.model_cache.get_or_create_cached_model", mock_get_cache

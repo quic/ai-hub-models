@@ -6,8 +6,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import torch
+from typing_extensions import Self
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.camouflage_evaluator import CamouflageEvaluator
@@ -40,7 +42,7 @@ class BGNet(BaseModel):
     """Exportable BGNet segmentation end-to-end."""
 
     @classmethod
-    def from_pretrained(cls, weights_path: str | None = None) -> BGNet:
+    def from_pretrained(cls, weights_path: str | None = None) -> Self:
         """Load bgnet from a weightfile created by the source bgnet repository."""
         # Load PyTorch model from disk
         bgnet_model = _load_bgnet_source_model_from_weights(weights_path)
@@ -57,7 +59,7 @@ class BGNet(BaseModel):
 
         Returns
         -------
-        masks_per_class
+        masks_per_class : torch.Tensor
             Predicted per-class, per-pixel mask logits. Shape [batch, classes, height, width]
         """
         image = normalize_image_torchvision(image)
@@ -105,7 +107,7 @@ class BGNet(BaseModel):
         return "camouflage_dataset"
 
 
-def res2net50_v1b_26w_4s(pretrained: bool = False, **kwargs):
+def res2net50_v1b_26w_4s(pretrained: bool = False, **kwargs: Any) -> torch.nn.Module:
     """
     Constructs a Res2Net-50_v1b_26w_4s lib.
 
@@ -118,7 +120,7 @@ def res2net50_v1b_26w_4s(pretrained: bool = False, **kwargs):
 
     Returns
     -------
-    model
+    model : torch.nn.Module
         Res2Net model instance.
     """
     weights_path_res2net50 = CachedWebModelAsset.from_asset_store(

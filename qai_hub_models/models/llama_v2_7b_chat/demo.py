@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from qai_hub_models.models._shared.llama.demo import llama_chat_demo
-from qai_hub_models.models._shared.llama.model import Llama2BundledModel
+from qai_hub_models.models._shared.llama.model import Llama2BundledModel, LlamaMixin
 from qai_hub_models.models.llama_v2_7b_chat import MODEL_ID, Model
 from qai_hub_models.models.llama_v2_7b_chat.model import (
     DEFAULT_USER_PROMPT,
@@ -31,7 +31,9 @@ from qai_hub_models.models.llama_v2_7b_chat.model import (
 from qai_hub_models.utils.base_model import TargetRuntime
 
 
-def _get_model_class(split_part: int, is_token_generator: bool = False):
+def _get_model_class(
+    split_part: int, is_token_generator: bool = False
+) -> type[LlamaMixin]:
     if split_part < 1 or split_part > 4:
         raise RuntimeError(
             f"Incorrect index provided to request Model split class. Must be within (1-4), provided ({split_part})."
@@ -64,7 +66,7 @@ def llama_2_chat_demo(
     default_prompt: str = DEFAULT_USER_PROMPT,
     is_test: bool = False,
     available_target_runtimes: list[TargetRuntime] | None = None,
-):
+) -> None:
     if available_target_runtimes is None:
         available_target_runtimes = [TargetRuntime.QNN_CONTEXT_BINARY]
     llama_chat_demo(

@@ -62,7 +62,7 @@ class FaceMap_3DMM(BaseModel):
 
         Returns
         -------
-        parameters_3dmm
+        parameters_3dmm : torch.Tensor
             3DMM model parameters for facial landmark reconstruction: Shape [batch, 265]
         """
         return self.model(image * 255)

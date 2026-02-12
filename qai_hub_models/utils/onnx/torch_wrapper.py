@@ -158,9 +158,9 @@ def extract_onnx_zip(
 
     Returns
     -------
-    model_path
+    model_path : Path
         model path (always exists if validate_exists is true)
-    model_weights
+    model_weights : Path
         model weights path (may not exist, even if validate_exists is true)
     """
     assert os.path.splitext(path)[1].endswith(".zip")

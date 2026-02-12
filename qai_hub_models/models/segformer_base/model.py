@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import torch
 from transformers import SegformerForSemanticSegmentation
+from typing_extensions import Self
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.segmentation_evaluator import SegmentationOutputEvaluator
@@ -32,11 +33,11 @@ class SegformerBase(BaseModel):
     """Segformer Base segmentation"""
 
     @classmethod
-    def from_pretrained(cls, ckpt: str = DEFAULT_WEIGHTS) -> SegformerBase:
+    def from_pretrained(cls, ckpt: str = DEFAULT_WEIGHTS) -> Self:
         net = SegformerForSemanticSegmentation.from_pretrained(ckpt)
         return cls(net)
 
-    def forward(self, image_tensor: torch.Tensor):
+    def forward(self, image_tensor: torch.Tensor) -> torch.Tensor:
         """
         Predict semantic segmentation an input `image`.
 
@@ -49,7 +50,7 @@ class SegformerBase(BaseModel):
 
         Returns
         -------
-        class_logits
+        class_logits : torch.Tensor
             Raw logit probabilities as a tensor of shape
             [1, num_classes, modified_height, modified_width],
             where the modified height and width will be some factor smaller

@@ -60,7 +60,7 @@ class CityscapesSegmentor(BaseModel):
 
         Returns
         -------
-        logits
+        logits : torch.Tensor
             Raw logit probabilities as a tensor of shape
             [1, num_classes, modified_height, modified_width],
             where the modified height and width will be some factor smaller
@@ -108,3 +108,7 @@ class CityscapesSegmentor(BaseModel):
     @staticmethod
     def calibration_dataset_name() -> str:
         return "cityscapes"
+
+    @classmethod
+    def get_labels_file_name(cls) -> str | None:
+        return "cityscapes_labels.txt"

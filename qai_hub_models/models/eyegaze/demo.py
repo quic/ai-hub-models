@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import cast
 
 import numpy as np
+from PIL import Image
 
 from qai_hub_models.models.eyegaze.app import EyeGazeApp
 from qai_hub_models.models.eyegaze.model import MODEL_ASSET_VERSION, MODEL_ID, EyeGaze
@@ -31,7 +32,7 @@ def eyegaze_demo(
     model_id: str,
     default_image: CachedWebModelAsset,
     is_test: bool = False,
-):
+) -> None:
     # Demo parameters
     parser = get_model_cli_parser(model_type)
     parser = get_on_device_demo_parser(parser, add_output_dir=True)
@@ -62,14 +63,14 @@ def eyegaze_demo(
     # Initialize app and run inference
     app = EyeGazeApp(model)
     print("Model Loaded")
-    output = app.predict_gaze_angle(image_np, side=args.side)
+    output = cast(Image.Image, app.predict_gaze_angle(image_np, side=args.side))
 
     if not is_test:
         image_annotated = output.resize(orig_image.size)
         display_or_save_image(image_annotated, args.output_dir)
 
 
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     eyegaze_demo(EyeGaze, MODEL_ID, INPUT_IMAGE_ADDRESS, is_test)
 
 

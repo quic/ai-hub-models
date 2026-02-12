@@ -42,11 +42,11 @@ class YoloV7DetectionApp(YoloObjectDetectionApp):
 
         Returns
         -------
-        boxes
+        boxes: torch.Tensor
             Bounding box locations. Shape is [batch, num preds, 4] where 4 == (x1, y1, x2, y2)
-        scores
+        scores: torch.Tensor
             class scores multiplied by confidence: Shape is [batch, num_preds]
-        class_idx
+        class_idx: torch.Tensor
             Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
         """
         return detect_postprocess(torch.cat(predictions, -1))

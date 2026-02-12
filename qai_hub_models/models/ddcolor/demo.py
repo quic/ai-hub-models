@@ -19,7 +19,7 @@ def ddcolor_demo(
     model: type[DDColor],
     default_image: CachedWebModelAsset,
     is_test: bool = False,
-):
+) -> None:
     # Demo parameters
     parser = get_model_cli_parser(model)
     parser = get_on_device_demo_parser(parser, add_output_dir=True)

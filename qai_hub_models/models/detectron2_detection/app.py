@@ -117,20 +117,19 @@ class Detectron2DetectionApp(Detectron2App):
 
         Returns
         -------
-        If raw_output is True, returns:
-        boxes
-            List of bounding box tensors per batch. Each tensor has shape [num preds, 4]
-            where 4 represents (x1, y1, x2, y2).
-        scores
-            List of class score tensors per batch multiplied by confidence.
-            Each tensor has shape [num_preds, num_classes].
-        class_idx
-            List of class index tensors. Each tensor has shape [num_preds] with values
-            indicating the most probable class.
-
-        If raw_output is False, returns:
-        images
-            List of PIL images with detected objects drawn and labeled.
+        result : tuple[list[torch.Tensor], list[torch.Tensor], list[torch.Tensor]] | list[Image.Image]
+            If raw_output is True:
+                boxes
+                    List of bounding box tensors per batch. Each tensor has shape [num preds, 4]
+                    where 4 represents (x1, y1, x2, y2).
+                scores
+                    List of class score tensors per batch multiplied by confidence.
+                    Each tensor has shape [num_preds, num_classes].
+                class_idx
+                    List of class index tensors. Each tensor has shape [num_preds] with values
+                    indicating the most probable class.
+            If raw_output is False:
+                List of PIL images with detected objects drawn and labeled.
         """
         NHWC_int_numpy_frames, image_tensor = app_to_net_image_inputs(images)
 

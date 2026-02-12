@@ -53,15 +53,15 @@ def compute_statistics_jit(
 
     Returns
     -------
-    tp
+    tp : int
         Number of true positives.
-    fp
+    fp : int
         Number of false positives.
-    fn
+    fn : int
         Number of false negatives.
-    similarity
+    similarity : float
         Orientation similarity (AOS), or -1 if no matches.
-    thresholds
+    thresholds : np.ndarray
         Score thresholds for matched true positives with shape (num_matched_tps,).
     """
     det_size = dt_datas.shape[0]
@@ -197,19 +197,19 @@ def _prepare_data(
 
     Returns
     -------
-    gt_datas_list
+    gt_datas_list : list[np.ndarray]
         List of concatenated GT bboxes and alpha, each element of shape (N_i, 5).
-    dt_datas_list
+    dt_datas_list : list[np.ndarray]
         List of concatenated DT bboxes, alpha, and score, each element of shape (M_i, 6).
-    ignored_gts
+    ignored_gts : list[np.ndarray]
         List of GT ignore flags per frame, each element of shape (N_i,).
-    ignored_dets
+    ignored_dets : list[np.ndarray]
         List of DT ignore flags per frame, each element of shape (M_i,).
-    dontcares
+    dontcares : list[np.ndarray]
         List of Don't Care bboxes per frame, each element of shape (K_i, 4).
-    dc_bboxes_num
+    dc_bboxes_num : np.ndarray
         Count of don't-care objects per frame with shape (num_frames,).
-    total_num_valid_gt
+    total_num_valid_gt : int
         Total number of valid GTs across all frames.
     """
     MIN_HEIGHT = [40, 25, 25]
@@ -306,7 +306,7 @@ def get_thresholds(
 
     Returns
     -------
-    thresholds
+    thresholds : list[float]
         List of score thresholds.
     """
     scores = np.sort(scores)[::-1]
@@ -352,13 +352,13 @@ def eval_class(
 
     Returns
     -------
-    bbox_ap
+    bbox_ap : np.ndarray
         Average precision (AP) for 'Car' class based on 2D bounding box IoU
         with shape of (len(difficultys),).
-    aos
+    aos : np.ndarray
         Average orientation similarity (AOS) for 'Car' class
         with shape of (len(difficultys),).
-    bev_ap
+    bev_ap : np.ndarray
         Average precision (AP) for 'Car' class based on Bird's Eye View IoU
         with shape of (len(difficultys),).
     """
@@ -501,7 +501,7 @@ def get_mAP(prec: np.ndarray) -> np.ndarray:
 
     Returns
     -------
-    mAP_scores
+    mAP_scores : np.ndarray
         mAP score for each difficulty level with shape (num_difficulties,).
     """
     sums = np.array([0.0] * prec.shape[0])

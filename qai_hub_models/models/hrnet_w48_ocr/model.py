@@ -26,7 +26,7 @@ DEFAULT_WEIGHTS = "hrnet_ocr_cs_8162_torch11.pth"
 MODEL_ASSET_VERSION = 1
 
 
-def fixup_repo(repo_path):
+def fixup_repo(repo_path: str) -> None:
     find_replace_in_repo(
         repo_path=repo_path,
         filepaths="lib/models/__init__.py",
@@ -105,7 +105,7 @@ class HRNET_W48_OCR(CityscapesSegmentor):
             model.eval()
             return cls(model)
 
-    def forward(self, image: torch.Tensor):
+    def forward(self, image: torch.Tensor) -> torch.Tensor:
         """
         Predict semantic segmentation an input `image`.
 
@@ -119,7 +119,7 @@ class HRNET_W48_OCR(CityscapesSegmentor):
 
         Returns
         -------
-        class_logits
+        class_logits : torch.Tensor
             Raw logit probabilities as a tensor of shape
             [1, num_classes, modified_height, modified_width],
             where the modified height and width will be some factor smaller

@@ -15,7 +15,7 @@ from qai_hub_models.models.mobile_bert_uncased_google.model import (
 DEMO_TEXT = "Paris is the [MASK] of France."
 
 
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     """Demo for BERT base uncased model"""
     bert_demo(MobileBertUncasedGoogle, MODEL_ID, DEMO_TEXT, is_test)
 

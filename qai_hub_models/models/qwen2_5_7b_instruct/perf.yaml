@@ -1,7 +1,7 @@
 supported_devices:
-- Snapdragon X Elite CRD
+  - Snapdragon X Elite CRD
 supported_chipsets:
-- qualcomm-snapdragon-x-elite
+  - qualcomm-snapdragon-x-elite
 precisions:
   w4a16:
     components:
@@ -9,15 +9,17 @@ precisions:
         performance_metrics:
           Snapdragon 8 Elite QRD:
             qnn_context_binary:
-              context_length: 4096
-              time_to_first_token_range_milliseconds:
-                min: 135.6538
-                max: 4340.9216
-              tokens_per_second: 15.40274
+              llm_metrics:
+                - context_length: 4096
+                  tokens_per_second: 15.40274
+                  time_to_first_token_range_milliseconds:
+                    min: 135.6538
+                    max: 4340.9216
           Snapdragon X Elite CRD:
             qnn_context_binary:
-              context_length: 4096
-              time_to_first_token_range_milliseconds:
-                min: 174.9494
-                max: 5598.3808
-              tokens_per_second: 12.33811
+              llm_metrics:
+                - context_length: 4096
+                  tokens_per_second: 12.33811
+                  time_to_first_token_range_milliseconds:
+                    min: 174.9494
+                    max: 5598.3808

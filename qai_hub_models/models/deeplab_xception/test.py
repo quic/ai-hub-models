@@ -27,7 +27,7 @@ OUTPUT_IMAGE_MASK = CachedWebModelAsset.from_asset_store(
 
 
 @skip_clone_repo_check
-def test_task():
+def test_task() -> None:
     image = load_image(INPUT_IMAGE_ADDRESS)
     app = DeepLabV3App(DeeplabXception.from_pretrained(), num_classes=NUM_CLASSES)
     output_mask = app.predict(image, True)
@@ -37,7 +37,7 @@ def test_task():
 
 @pytest.mark.trace
 @skip_clone_repo_check
-def test_trace():
+def test_trace() -> None:
     image = load_image(INPUT_IMAGE_ADDRESS)
     app = DeepLabV3App(
         DeeplabXception.from_pretrained().convert_to_torchscript(),
@@ -49,5 +49,5 @@ def test_trace():
 
 
 @skip_clone_repo_check
-def test_demo():
+def test_demo() -> None:
     demo_main(is_test=True)

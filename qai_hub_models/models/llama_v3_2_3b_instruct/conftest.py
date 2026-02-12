@@ -4,6 +4,8 @@
 # ---------------------------------------------------------------------
 import gc
 import inspect
+from collections.abc import Generator
+from typing import Any
 
 import pytest
 
@@ -14,13 +16,13 @@ from qai_hub_models.models.llama_v3_2_3b_instruct import Model
 # Mock from_pretrained to always return the initialized model.
 # This speeds up tests and limits memory leaks.
 @pytest.fixture(scope="module", autouse=True)
-def cached_from_pretrained():
+def cached_from_pretrained() -> Generator[pytest.MonkeyPatch, None, None]:
     with pytest.MonkeyPatch.context() as mp:
         pretrained_cache: dict[str, Model] = {}
         from_pretrained = Model.from_pretrained
         sig = inspect.signature(from_pretrained)
 
-        def _cached_from_pretrained(*args, **kwargs):
+        def _cached_from_pretrained(*args: Any, **kwargs: Any) -> Model:
             cache_key = str(args) + str(kwargs)
             model = pretrained_cache.get(cache_key)
             if model:
@@ -36,5 +38,5 @@ def cached_from_pretrained():
 
 
 @pytest.fixture(scope="module", autouse=True)
-def ensure_gc():
+def ensure_gc() -> None:
     gc.collect()

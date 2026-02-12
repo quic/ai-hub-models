@@ -119,6 +119,14 @@ def test_extract_tool_versions_from_compile_job(
 
     # Compile job: Failed
     for rt in TargetRuntime:
+        # Skip runtimes that don't go through AI Hub compilation
+        if rt in [
+            TargetRuntime.LLAMA_CPP_CPU,
+            TargetRuntime.LLAMA_CPP_GPU,
+            TargetRuntime.LLAMA_CPP_NPU,
+        ]:
+            continue
+
         j = MagicMock(
             spec=hub.CompileJob,
             _job_type=JobType.COMPILE,

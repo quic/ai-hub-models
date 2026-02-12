@@ -95,10 +95,9 @@ class StableDiffusionApp:
 
         Returns
         -------
-        cond_embedding
+        cond_embedding : torch.Tensor
             Conditional text embedding.
-
-        uncond_embedding
+        uncond_embedding : torch.Tensor
             Unconditional text embedding.
 
         Notes
@@ -195,7 +194,7 @@ class StableDiffusionApp:
 
         Returns
         -------
-        generated_image
+        generated_image : torch.Tensor
             The generated image in RGB scaled in [0, 1] with tensor shape
             (OUT_H, OUT_W, 3). The height and the width may depend on the
             underlying Stable Diffusion version, but is typically 512x512.
@@ -284,7 +283,7 @@ def run_diffusion_steps_on_latents(
 
     Returns
     -------
-    latent_or_tuple
+    latent_or_tuple : torch.Tensor | tuple[torch.Tensor, dict[str, Any]]
         Final latent sample, or tuple of final latent and intermediates dict if return_all_steps is True.
     """
     use_controlnet = controlnet is not None

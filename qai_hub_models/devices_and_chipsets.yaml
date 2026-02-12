@@ -4,8 +4,11 @@ scorecard_path_to_website_runtime:
   qnn_context_binary: qnn
   onnx: onnx
   precompiled_qnn_onnx: onnx
-  genie: qnn
+  genie: genie
   onnxruntime_genai: onnx
+  llama_cpp_cpu: llama_cpp
+  llama_cpp_gpu: llama_cpp
+  llama_cpp_npu: llama_cpp
 scorecard_path_assets_require_chipset:
   tflite: false
   qnn_dlc: false
@@ -14,6 +17,9 @@ scorecard_path_assets_require_chipset:
   precompiled_qnn_onnx: true
   genie: true
   onnxruntime_genai: true
+  llama_cpp_cpu: false
+  llama_cpp_gpu: false
+  llama_cpp_npu: false
 scorecard_path_extensions:
   tflite: .tflite
   qnn_dlc: .dlc
@@ -22,6 +28,9 @@ scorecard_path_extensions:
   precompiled_qnn_onnx: .onnx.zip
   genie: .genie.zip
   onnxruntime_genai: .onnxruntime_genai.zip
+  llama_cpp_cpu: .gguf
+  llama_cpp_gpu: .gguf
+  llama_cpp_npu: .gguf
 form_factors:
   Phone:
     display_name: Phone
@@ -398,8 +407,6 @@ devices:
     form_factor: IoT
     vendor: qualcomm
     icon: IoT_Chip
-    npu_count: 2
-    enabled_in_scorecard: true
   QCS8275 (Proxy):
     chipset: qualcomm-qcs8275-proxy
     os:
@@ -426,6 +433,8 @@ devices:
     form_factor: IoT
     vendor: qualcomm
     icon: IoT_Drone
+    npu_count: 2
+    enabled_in_scorecard: true
 chipsets:
   qualcomm-snapdragon-845:
     aliases:

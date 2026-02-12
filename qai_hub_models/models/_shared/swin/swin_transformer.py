@@ -81,7 +81,7 @@ class ShiftedWindowAttentionInf(torch.nn.Module):
 
         Returns
         -------
-        output
+        output : Tensor
             Tensor with same layout as input, i.e. [B, H, W, C].
         """
         relative_position_bias = self.model.get_relative_position_bias()

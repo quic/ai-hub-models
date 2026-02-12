@@ -114,7 +114,7 @@ def get_calibration_data(
 
     Returns
     -------
-    calibration_dataset
+    calibration_dataset : DatasetEntries
         Dataset compatible with the format expected by AI Hub Workbench.
     """
     calibration_dataset_name = model.calibration_dataset_name()

@@ -360,54 +360,7 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
             LLMIOType.huggingface_input_ids,
         }:
             encodings["activation_encodings"][embed_a_name]["name"] = embed_a_name
-        zero_keys = []
 
-        for layer in range(self.llm_config.num_hidden_layers):
-            for sec in ["input", "post_attention"]:
-                zero_keys += [
-                    f"/model/model/layers.{layer}/{sec}_layernorm/Pow_output_0",
-                    f"/model/model/layers.{layer}/{sec}_layernorm/ReduceMean_output_0",
-                    f"/model/model/layers.{layer}/{sec}_layernorm/Add_output_0",
-                    f"/model/model/layers.{layer}/{sec}_layernorm/Sqrt_output_0",
-                    f"/model/model/layers.{layer}/{sec}_layernorm/Div_output_0",
-                    f"/model/model/layers.{layer}/{sec}_layernorm/Mul_output_0",
-                ]
-
-        zero_keys += [
-            "/model/model/norm/Pow_output_0",
-            "/model/model/norm/ReduceMean_output_0",
-            "/model/model/norm/Add_output_0",
-            "/model/model/norm/Sqrt_output_0",
-            "/model/model/norm/Div_output_0",
-            "/model/model/norm/Mul_output_0",
-        ]
-
-        for key in zero_keys:
-            if uses_lists:
-                # aimet format 1.0
-                zero_entry: Any = {
-                    "bw": 16,
-                    "dtype": "INT",
-                    "enc_type": "PER_TENSOR",
-                    "is_sym": False,
-                    "name": key,
-                    "offset": [0],
-                    "scale": [1e-20],
-                }
-            else:
-                # aimet format 0.x
-                zero_entry = [
-                    {
-                        "bitwidth": 16,
-                        "dtype": "int",
-                        "is_symmetric": "False",
-                        "max": 0.0,
-                        "min": 0.0,
-                        "offset": 0,
-                        "scale": 1e-20,
-                    }
-                ]
-            encodings["activation_encodings"][key] = zero_entry
         propagate_memory_encodings(encodings, model)
 
         if uses_lists:

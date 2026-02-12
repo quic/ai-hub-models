@@ -87,7 +87,7 @@ class ONNXBundle:
 
         Returns
         -------
-        onnx_bundle
+        onnx_bundle : ONNXBundle
             ONNX Bundle object.
         """
         model_name_grep = model_name or "*"
@@ -130,7 +130,7 @@ class ONNXBundle:
 
         Returns
         -------
-        moved_bundle
+        moved_bundle : ONNXBundle
             `Self` is modified in-place and returned if `copy` is False (default behavior). If `copy` is True, returns a new bundle and does not modify `Self`.
         """
         dst = ONNXBundle(
@@ -188,7 +188,7 @@ def download_and_unzip_workbench_onnx_model(
 
     Returns
     -------
-    onnx_bundle
+    onnx_bundle : ONNXBundle
         ONNX Bundle object created from the downloaded workbench model.
     """
     if model.model_type not in [
@@ -343,10 +343,9 @@ def extract_io_types_from_onnx_model(
 
     Returns
     -------
-    model_input_details
+    model_input_details : dict[str, ModelIODetails]
         Model Input Details
-
-    model_output_details
+    model_output_details : dict[str, ModelIODetails]
         Model Output Details
     """
     inputs: dict[str, ModelIODetails]
@@ -440,7 +439,7 @@ def onnx_model_is_precompiled_qairt(onnx_model: onnx.ModelProto) -> bool:
 
     Returns
     -------
-    is_precompiled
+    is_precompiled : bool
         True if a model is pre-compiled.
 
     Notes

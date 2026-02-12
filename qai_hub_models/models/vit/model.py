@@ -6,8 +6,10 @@
 from __future__ import annotations
 
 import torchvision.models as tv_models
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.imagenet_classifier.model import ImagenetClassifier
+from qai_hub_models.models.common import Precision
 
 MODEL_ID = __name__.split(".")[-2]
 DEFAULT_WEIGHTS = "IMAGENET1K_V1"
@@ -15,11 +17,11 @@ DEFAULT_WEIGHTS = "IMAGENET1K_V1"
 
 class VIT(ImagenetClassifier):
     @classmethod
-    def from_pretrained(cls, weights: str = DEFAULT_WEIGHTS) -> VIT:
+    def from_pretrained(cls, weights: str = DEFAULT_WEIGHTS) -> Self:
         net = tv_models.vit_b_16(weights=weights)
         return cls(net)
 
     @staticmethod
-    def get_hub_litemp_percentage(_) -> float:
+    def get_hub_litemp_percentage(precision: Precision) -> float:
         """Returns the Lite-MP percentage value for the specified mixed precision quantization."""
         return 10

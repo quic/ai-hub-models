@@ -93,7 +93,7 @@ class FaceAttribNetEnhancedEvaluator(BaseEvaluator):
 
         Returns
         -------
-        accuracy_metric
+        accuracy_metric : float
             Accuracy metric in range [0, 1].
 
         """
@@ -132,7 +132,7 @@ class FaceAttribNetEnhancedEvaluator(BaseEvaluator):
 
         Returns
         -------
-        formatted_accuracy_string
+        formatted_accuracy_string : str
             formatted string of accuracy report
         """
         return f"{self.get_accuracy_score():.3f} Cosine Similarity"

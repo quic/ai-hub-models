@@ -465,7 +465,7 @@ class NumericsDiff:
 
         Returns
         -------
-        table
+        table : PrettyTable
             Summary table for the given data.
         """
         table = PrettyTable(

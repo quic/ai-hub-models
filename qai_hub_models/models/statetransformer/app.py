@@ -69,7 +69,7 @@ def deep_update(original: dict[str, Any], update: dict[str, Any]) -> dict[str, A
 
     Returns
     -------
-    updated_dict
+    updated_dict : dict[str, Any]
         The updated dictionary after applying the deep merge.
     """
     for key, value in update.items():
@@ -92,7 +92,7 @@ class StateTransformerApp:
         self,
         model: Callable[[torch.Tensor, torch.Tensor, torch.Tensor], torch.Tensor]
         | OnDeviceModel,
-    ):
+    ) -> None:
         """
         Initialize the StateTransformerApp.
 
@@ -140,11 +140,11 @@ class StateTransformerApp:
 
         Returns
         -------
-        high_res_raster
+        high_res_raster : torch.Tensor
             High-resolution raster input.
-        low_res_raster
+        low_res_raster : torch.Tensor
             Low-resolution raster input.
-        context_actions
+        context_actions : torch.Tensor
             Temporal context actions.
         """
         if isinstance(model_path, CachedWebModelAsset):
@@ -331,7 +331,7 @@ class StateTransformerApp:
 
         Returns
         -------
-        visualization
+        visualization : Image.Image
             A PIL Image object representing the high-resolution raster with predicted
             trajectory and key points overlaid.
         """
@@ -380,7 +380,7 @@ class StateTransformerApp:
 
         Returns
         -------
-        visualization
+        visualization : Image.Image
             A PIL Image object representing the high-resolution raster with predicted
             trajectory and key points overlaid.
         """

@@ -21,7 +21,7 @@ OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 )
 
 
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     yolo_segmentation_demo(
         YoloV11Segmentor,
         MODEL_ID,

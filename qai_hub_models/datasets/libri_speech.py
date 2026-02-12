@@ -45,10 +45,10 @@ class LibriSpeechDataset(BaseDataset):
 
         Returns
         -------
-        audio
+        audio : torch.Tensor
             Processed audio tensor of shape [sequence_length],
             normalized and padded/truncated to max_sequence_length.
-        gt_tensor
+        gt_tensor : torch.Tensor
             Tensor of shape [max_text_length] containing
             ASCII character codes for the transcription, padded with zeros if needed.
         """

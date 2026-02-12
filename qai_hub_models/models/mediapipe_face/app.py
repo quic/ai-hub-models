@@ -38,27 +38,43 @@ class MediaPipeFaceApp(MediaPipeApp):
         self,
         face_detector: Callable[
             [torch.Tensor],
-            tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
+            tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
+            | tuple[torch.Tensor, torch.Tensor],
         ],
         face_landmark_detector: Callable[
             [torch.Tensor], tuple[torch.Tensor, torch.Tensor]
         ],
+        face_detector_includes_postprocessing: bool,
         anchors: torch.Tensor,
         face_detector_input_spec: InputSpec,
         landmark_detector_input_spec: InputSpec,
         min_detector_face_box_score: float = 0.8,
         nms_iou_threshold: float = 0.3,
         min_landmark_score: float = 0.5,
-    ):
+    ) -> None:
         """
         Construct a MediaPipe Face application.
 
-        Inputs:
-            face_detector: multi-head face detector returning (coords1, coords2, scores1, scores2)
-            face_landmark_detector: landmark detector returning (scores, landmarks)
-            anchors: detector anchors
-            face_detector_input_spec: input spec for detector (to derive input dims)
-            landmark_detector_input_spec: input spec for landmark detector (to derive input dims)
+        Parameters
+        ----------
+        face_detector
+            Multi-head face detector returning (coords1, coords2, scores1, scores2).
+        face_landmark_detector
+            Landmark detector returning (scores, landmarks).
+        face_detector_includes_postprocessing
+            Whether the face detector includes postprocessing.
+        anchors
+            Detector anchors.
+        face_detector_input_spec
+            Input spec for detector (to derive input dims).
+        landmark_detector_input_spec
+            Input spec for landmark detector (to derive input dims).
+        min_detector_face_box_score
+            Minimum score threshold for face box detection.
+        nms_iou_threshold
+            IoU threshold for non-maximum suppression.
+        min_landmark_score
+            Minimum score threshold for landmark detection.
         """
         detector_input_dims = cast(
             tuple[int, int], face_detector_input_spec["image"][0][-2:]
@@ -81,21 +97,24 @@ class MediaPipeFaceApp(MediaPipeApp):
 
             Returns
             -------
-            box_coords
+            box_coords : torch.Tensor
                 Bounding box coordinates with shape [1, 896, 12]
                 (batch_size, num_anchors, 12_coordinates_per_anchor).
-            box_scores
+            box_scores : torch.Tensor
                 Confidence scores with shape [1, 896, 1]
                 (batch_size, num_anchors, 1_score_per_anchor).
             """
-            box_coords1, box_coords2, box_scores1, box_scores2 = face_detector(inp)
+            box_coords1, box_coords2, box_scores1, box_scores2 = face_detector(inp)  # type: ignore[misc]
             box_coords = torch.cat([box_coords1, box_coords2], dim=1)
             box_scores = torch.cat([box_scores1, box_scores2], dim=1)
             return box_coords, box_scores
 
         super().__init__(
-            detector=unified_face_detector,
+            detector=unified_face_detector
+            if not face_detector_includes_postprocessing
+            else face_detector,  # type: ignore[arg-type]
             detector_anchors=anchors,
+            detector_includes_postprocessing=face_detector_includes_postprocessing,
             landmark_detector=face_landmark_detector,
             detector_input_dims=detector_input_dims,
             landmark_input_dims=landmark_input_dims,
@@ -119,6 +138,7 @@ class MediaPipeFaceApp(MediaPipeApp):
         return cls(
             model.face_detector,
             model.face_landmark_detector,
+            model.face_detector.include_postprocessing,
             model.face_detector.anchors,
             model.face_detector.get_input_spec(),
             model.face_landmark_detector.get_input_spec(),

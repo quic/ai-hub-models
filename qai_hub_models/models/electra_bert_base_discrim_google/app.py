@@ -22,7 +22,7 @@ class ElectraBertApp:
         model: ExecutableModelProtocol,
         tokenizer: PreTrainedTokenizer,
         max_seq_length: int = 384,
-    ):
+    ) -> None:
         self.model = model
         self.tokenizer = tokenizer
         self.max_seq_length = max_seq_length
@@ -38,9 +38,9 @@ class ElectraBertApp:
 
         Returns
         -------
-        input_tokens
+        input_tokens : torch.Tensor
             Tokenized input tensor.
-        attention_masks
+        attention_masks : torch.Tensor
             Attention mask tensor.
         """
         encoded = self.tokenizer(
@@ -65,7 +65,7 @@ class ElectraBertApp:
 
         Returns
         -------
-        replaced_token
+        replaced_token : str
             First replaced token or "None" if none detected.
         """
         input_ids, attention_mask = self.preprocess_text(text)

@@ -45,26 +45,43 @@ class MediaPipePoseApp(MediaPipeApp):
         self,
         pose_detector: Callable[
             [torch.Tensor],
-            tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
+            tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
+            | tuple[torch.Tensor, torch.Tensor],
         ],
         pose_landmark_detector: Callable[
             [torch.Tensor], tuple[torch.Tensor, torch.Tensor]
         ],
+        pose_detector_includes_postprocessing: bool,
         anchors: torch.Tensor,
         pose_detector_input_spec: InputSpec,
         landmark_detector_input_spec: InputSpec,
         min_detector_pose_box_score: float = 0.75,
         nms_iou_threshold: float = 0.3,
         min_landmark_score: float = 0.5,
-    ):
+    ) -> None:
         """
         Construct a mediapipe pose application.
 
-        Inputs:
-            model: MediaPipePose model
-                Pose detection & landmark model container.
-
-            See parent initializer for further parameter documentation.
+        Parameters
+        ----------
+        pose_detector
+            Pose detection model callable.
+        pose_landmark_detector
+            Pose landmark detection model callable.
+        pose_detector_includes_postprocessing
+            Whether the pose detector includes postprocessing.
+        anchors
+            Detector anchors.
+        pose_detector_input_spec
+            Input spec for pose detector.
+        landmark_detector_input_spec
+            Input spec for landmark detector.
+        min_detector_pose_box_score
+            Minimum score threshold for pose box detection.
+        nms_iou_threshold
+            IoU threshold for non-maximum suppression.
+        min_landmark_score
+            Minimum score threshold for landmark detection.
         """
 
         def unified_pose_detector(
@@ -81,21 +98,24 @@ class MediaPipePoseApp(MediaPipeApp):
 
             Returns
             -------
-            box_coords
+            box_coords : torch.Tensor
                 Bounding box coordinates with shape [1, 896, 12]
                 (batch_size, num_anchors, 12_coordinates_per_anchor).
-            box_scores
+            box_scores : torch.Tensor
                 Confidence scores with shape [1, 896, 1]
                 (batch_size, num_anchors, 1_score_per_anchor).
             """
-            box_coords1, box_coords2, box_scores1, box_scores2 = pose_detector(inp)
+            box_coords1, box_coords2, box_scores1, box_scores2 = pose_detector(inp)  # type: ignore[misc]
             box_coords = torch.cat([box_coords1, box_coords2], dim=1)
             box_scores = torch.cat([box_scores1, box_scores2], dim=1)
             return box_coords, box_scores
 
         super().__init__(
-            unified_pose_detector,
+            unified_pose_detector
+            if not pose_detector_includes_postprocessing
+            else pose_detector,  # type: ignore[arg-type]
             anchors,
+            pose_detector_includes_postprocessing,
             pose_landmark_detector,
             cast(
                 tuple[int, int],
@@ -168,6 +188,7 @@ class MediaPipePoseApp(MediaPipeApp):
         return cls(
             model.pose_detector,
             model.pose_landmark_detector,
+            model.pose_detector.include_postprocessing,
             model.pose_detector.anchors,
             model.pose_detector.get_input_spec(),
             model.pose_landmark_detector.get_input_spec(),

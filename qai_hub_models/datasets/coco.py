@@ -153,10 +153,10 @@ class CocoDataset(BaseDataset):
 
         Returns
         -------
-        image
+        image : torch.Tensor
             Input image resized for the network. RGB, floating point range [0-1].
 
-        ground_truth
+        ground_truth : tuple[int, int, int, torch.Tensor, torch.Tensor, torch.Tensor]
             image_id
                 Image ID within the original dataset
             target_height

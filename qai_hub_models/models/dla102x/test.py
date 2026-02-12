@@ -15,7 +15,7 @@ from qai_hub_models.utils.testing import skip_clone_repo_check
 
 
 @skip_clone_repo_check
-def test_task():
+def test_task() -> None:
     run_imagenet_classifier_test(
         dla102x.from_pretrained(),
         MODEL_ID,
@@ -26,10 +26,10 @@ def test_task():
 
 @pytest.mark.trace
 @skip_clone_repo_check
-def test_trace():
+def test_trace() -> None:
     run_imagenet_classifier_trace_test(dla102x.from_pretrained())
 
 
 @skip_clone_repo_check
-def test_demo():
+def test_demo() -> None:
     demo_main(is_test=True)

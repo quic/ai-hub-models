@@ -171,20 +171,28 @@ def get_profile_metrics(
         ["Runtime", runtime.name],
     ]
 
-    if perf_details.tokens_per_second:
-        assert perf_details.time_to_first_token_range_milliseconds
-        rows.extend(
-            [
+    if perf_details.llm_metrics is not None:
+        # LLM metrics - show all context lengths
+        for ctx in perf_details.llm_metrics:
+            assert ctx.tokens_per_second
+            assert ctx.time_to_first_token_range_milliseconds
+            ctx_label = (
+                f" (ctx={ctx.context_length})"
+                if len(perf_details.llm_metrics) > 1
+                else ""
+            )
+            rows.extend(
                 [
-                    "Response Rate (Tokens/Second)",
-                    str(perf_details.tokens_per_second),
-                ],
-                [
-                    "Time to First Token (Seconds)",
-                    f"min={perf_details.time_to_first_token_range_milliseconds.min / 1000}, max={perf_details.time_to_first_token_range_milliseconds.max / 100}",
-                ],
-            ]
-        )
+                    [
+                        f"Response Rate (Tokens/Second){ctx_label}",
+                        str(ctx.tokens_per_second),
+                    ],
+                    [
+                        f"Time to First Token (Seconds){ctx_label}",
+                        f"min={ctx.time_to_first_token_range_milliseconds.min / 1000}, max={ctx.time_to_first_token_range_milliseconds.max / 1000}",
+                    ],
+                ]
+            )
     else:
         assert perf_details.inference_time_milliseconds
         assert perf_details.estimated_peak_memory_range_mb
@@ -288,7 +296,7 @@ def print_file_tree_changes(
 
     Returns
     -------
-    output_lines
+    output_lines : list[str]
         Output lines (return value mainly used for unit testing)
 
     Raises

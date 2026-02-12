@@ -86,9 +86,9 @@ class MPIIGazeDataset(BaseDataset):
 
         Returns
         -------
-        img_tensor
+        img_tensor : torch.Tensor
             Preprocessed grayscale eye image (1, 96, 160, float32) with histogram equalization and normalization,
-        gaze_tensor
+        gaze_tensor : torch.Tensor
             ground truth gaze angles [pitch, yaw] (2, float32).
         """
         # Get entry metadata

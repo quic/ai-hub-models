@@ -30,7 +30,7 @@ def preprocess_image(image: Image) -> torch.Tensor:
 
     Returns
     -------
-    input_tensor
+    input_tensor : torch.Tensor
         Torch tensor to be directly passed to the model.
     """
     out_tensor: torch.Tensor = transforms.ToTensor()(image)
@@ -48,7 +48,7 @@ class FCN_ResNet50App:
         * Convert the raw output into probabilities using softmax
     """
 
-    def __init__(self, model: Callable[[torch.Tensor], torch.Tensor]):
+    def __init__(self, model: Callable[[torch.Tensor], torch.Tensor]) -> None:
         self.model = model
 
     def predict(self, image: Image, raw_output: bool = False) -> Image | np.ndarray:
@@ -64,14 +64,11 @@ class FCN_ResNet50App:
 
         Returns
         -------
-        output
-            If raw_output is true, returns:
-                masks: np.ndarray
-                    A list of predicted masks.
-
-            Otherwise, returns:
-                segmented_image: PIL.Image
-                    Images with segmentation map overlaid with an alpha of 0.5.
+        output : Image | np.ndarray
+            If raw_output is true:
+                A list of predicted masks.
+            Otherwise:
+                Images with segmentation map overlaid with an alpha of 0.5.
         """
         input_tensor = preprocess_image(image)
         output = self.model(input_tensor)

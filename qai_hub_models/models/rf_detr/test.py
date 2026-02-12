@@ -9,7 +9,6 @@ from qai_hub_models.models._shared.detr.app import DETRApp
 from qai_hub_models.models.rf_detr.demo import main as demo_main
 from qai_hub_models.models.rf_detr.model import (
     DEFAULT_RESOLUTION,
-    DEFAULT_WEIGHTS,
     MODEL_ASSET_VERSION,
     MODEL_ID,
     RF_DETR,
@@ -27,9 +26,7 @@ IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 def test_task() -> None:
     net = RF_DETR.from_pretrained()
     img = load_image(IMAGE_ADDRESS)
-    _, _, label, _ = DETRApp(net, DEFAULT_RESOLUTION, DEFAULT_RESOLUTION).predict(
-        img, DEFAULT_WEIGHTS
-    )
+    _, _, label, _ = DETRApp(net, DEFAULT_RESOLUTION, DEFAULT_RESOLUTION).predict(img)
     assert set(label.numpy()) == EXPECTED_OUTPUT
 
 
@@ -45,9 +42,7 @@ def test_trace() -> None:
     trace = net.convert_to_torchscript(input_spec)
 
     img = load_image(IMAGE_ADDRESS)
-    _, _, label, _ = DETRApp(trace, DEFAULT_RESOLUTION, DEFAULT_RESOLUTION).predict(
-        img, DEFAULT_WEIGHTS
-    )
+    _, _, label, _ = DETRApp(trace, DEFAULT_RESOLUTION, DEFAULT_RESOLUTION).predict(img)
     assert set(label.numpy()) == EXPECTED_OUTPUT
 
 

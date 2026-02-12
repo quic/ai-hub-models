@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from typing_extensions import Self
+
 from qai_hub_models.models._shared.ffnet.model import FFNetLowRes
 
 MODEL_ID = __name__.split(".")[-2]
@@ -12,5 +14,5 @@ MODEL_ID = __name__.split(".")[-2]
 
 class FFNet122NSLowRes(FFNetLowRes):
     @classmethod
-    def from_pretrained(cls) -> FFNet122NSLowRes:
+    def from_pretrained(cls) -> Self:
         return super().from_pretrained("segmentation_ffnet122NS_CCC_mobile_pre_down")

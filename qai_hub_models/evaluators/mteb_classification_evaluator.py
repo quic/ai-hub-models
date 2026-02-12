@@ -90,11 +90,11 @@ class ClassificationEvaluator(BaseEvaluator):
 
         Returns
         -------
-        X_sampled
+        X_sampled : list[str]
             List of under_sampled samples text.
-        y_sampled
+        y_sampled : list[int]
             List of under_sampled labels 0 or 1.
-        idxs
+        idxs : np.ndarray
             Indices of the under_sampled samples.
         """
         X_sampled = []
@@ -149,7 +149,7 @@ class ClassificationEvaluator(BaseEvaluator):
         return np.mean(scores_list) * 100
 
     def formatted_accuracy(self) -> str:
-        return f"{self.get_accuracy_score() * 100:.3f}% (Top 1)"
+        return f"{self.get_accuracy_score():.3f}% (Top 1)"
 
     def get_metric_metadata(self) -> MetricMetadata:
         return MetricMetadata(

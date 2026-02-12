@@ -36,7 +36,7 @@ INPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 # The demo will display output with the predicted landmarks,bounding boxes and label drawn.
 def mediapipe_hand_gesture_demo(
     model_cls: type[MediaPipeHandGesture], is_test: bool = False
-):
+) -> None:
     # Demo parameters
     parser = get_model_cli_parser(model_cls)
     parser.add_argument(
@@ -91,6 +91,7 @@ def mediapipe_hand_gesture_demo(
         palm_detector,  # type: ignore[arg-type]
         landmark_detector,  # type: ignore[arg-type]
         torch_model.palm_detector.anchors,
+        torch_model.palm_detector.include_postprocessing,
         torch_model.palm_detector.get_input_spec(),
         torch_model.hand_landmark_detector.get_input_spec(),
         gesture_classifier,  # type: ignore[arg-type]
@@ -115,8 +116,8 @@ def mediapipe_hand_gesture_demo(
         )
 
 
-def main(is_test: bool = False):
-    return mediapipe_hand_gesture_demo(MediaPipeHandGesture, is_test)
+def main(is_test: bool = False) -> None:
+    mediapipe_hand_gesture_demo(MediaPipeHandGesture, is_test)
 
 
 if __name__ == "__main__":

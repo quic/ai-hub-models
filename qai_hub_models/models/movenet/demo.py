@@ -25,7 +25,7 @@ IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 
 
 # The demo will display a image with the predicted keypoints.
-def movenet_demo(model_cls: type[Movenet], is_test: bool = False):
+def movenet_demo(model_cls: type[Movenet], is_test: bool = False) -> None:
     # Demo parameters
     parser = get_model_cli_parser(model_cls)
     parser = get_on_device_demo_parser(parser, add_output_dir=True)
@@ -59,7 +59,7 @@ def movenet_demo(model_cls: type[Movenet], is_test: bool = False):
         )
 
 
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     return movenet_demo(Movenet, is_test)
 
 

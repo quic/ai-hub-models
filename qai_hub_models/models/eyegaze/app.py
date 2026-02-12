@@ -5,6 +5,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import Any
+
 import cv2
 import numpy as np
 import torch
@@ -21,15 +24,20 @@ class EyeGazeApp:
     - Postprocessing: Adjusts yaw for right eye, visualizes gaze with a red arrow.
     """
 
-    def __init__(self, model):
+    def __init__(
+        self,
+        model: Callable[
+            [torch.Tensor], tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+        ],
+    ) -> None:
         self.model = model
 
-    def predict(self, *args, **kwargs):
+    def predict(self, *args: Any, **kwargs: Any) -> Image.Image | np.ndarray:
         return self.predict_gaze_angle(*args, **kwargs)
 
     def predict_gaze_angle(
         self, eye_img: np.ndarray, side: str = "left", raw_output: bool = False
-    ) -> Image.Image:
+    ) -> Image.Image | np.ndarray:
         """
         Run inference on an eye image to predict gaze and return a PIL Image with gaze visualization.
 
@@ -44,7 +52,7 @@ class EyeGazeApp:
 
         Returns
         -------
-        output_image_or_gaze
+        output_image_or_gaze : Image.Image | np.ndarray
             PIL Image with red gaze arrow visualization, or raw gaze output array if raw_output is True.
         """
         # Load image if path is provided
@@ -89,7 +97,7 @@ def preprocess_eye_crop(img: np.ndarray, side: str) -> np.ndarray:
 
     Returns
     -------
-    preprocessed_image
+    preprocessed_image : np.ndarray
         Preprocessed image (grayscale, 160x96, normalized).
     """
     img = cv2.resize(img, (160, 96))
@@ -132,7 +140,7 @@ def draw_gaze(
 
     Returns
     -------
-    output_image
+    output_image : np.ndarray
         Image with gaze arrow drawn.
     """
     image_out = image_in

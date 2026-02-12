@@ -143,7 +143,7 @@ class SAM2Normalize(nn.Module):
             )
         )
 
-    def __call__(self, x):
+    def __call__(self, x: torch.Tensor) -> torch.Tensor:
         return self.transforms(x)
 
 
@@ -182,13 +182,13 @@ def sam_decoder_predict_masks(
 
     Returns
     -------
-    masks
+    masks : torch.Tensor
         Predicted segmentation masks.
-    iou_pred
+    iou_pred : torch.Tensor
         Predicted IoU scores for each mask.
-    mask_tokens_out
+    mask_tokens_out : torch.Tensor
         Output embeddings for each mask token.
-    object_score_logits
+    object_score_logits : torch.Tensor
         Object presence confidence scores.
     """
     # Concatenate output tokens
@@ -288,7 +288,7 @@ def mask_postprocessing(
 
     Returns
     -------
-    masks
+    masks : torch.Tensor
         A tensor of masks resized to the original image dimensions.
     """
     return torch.nn.functional.interpolate(

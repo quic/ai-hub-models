@@ -186,9 +186,9 @@ class _SimpleStaticCache(Cache):
 
         Returns
         -------
-        key
+        key : torch.Tensor
             Updated key tensor up to the current end, of shape (batch, num_kv_heads, current_len, head_dim).
-        value
+        value : torch.Tensor
             Updated value tensor up to the current end, of shape (batch, num_kv_heads, current_len, head_dim).
         """
         # Concatenate existing cache with the new states.
@@ -220,9 +220,9 @@ class _SimpleStaticCache(Cache):
 
         Returns
         -------
-        keys
+        keys : list[torch.Tensor]
             List of key tensors per layer, each shaped (batch, num_kv_heads, seq_new, head_dim).
-        values
+        values : list[torch.Tensor]
             List of value tensors per layer, each shaped (batch, num_kv_heads, seq_new, head_dim).
         """
         keys_out: list[torch.Tensor] = []

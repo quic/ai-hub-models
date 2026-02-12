@@ -46,7 +46,7 @@ def processed_sample_image(trocr_app: TrOCRApp) -> np.ndarray:
 def test_predict_text_from_image(
     trocr_app: TrOCRApp,
     processed_sample_image: np.ndarray,
-):
+) -> None:
     """Verify our driver produces the correct sentences from a given image input."""
     assert trocr_app.predict_text_from_image(processed_sample_image)[0] == IMAGE_TEXT
 
@@ -55,7 +55,7 @@ def test_task(
     source_huggingface_model: VisionEncoderDecoderModel,
     trocr_app: TrOCRApp,
     processed_sample_image: np.ndarray,
-):
+) -> None:
     """Verify that raw (numeric) outputs of both networks are the same."""
     source_out = source_huggingface_model.generate(
         torch.from_numpy(processed_sample_image) * 2 - 1

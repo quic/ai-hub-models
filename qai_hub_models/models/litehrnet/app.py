@@ -39,11 +39,11 @@ class LiteHRNetApp:
             [torch.Tensor], tuple[torch.Tensor, torch.Tensor, torch.Tensor]
         ],
         inferencer: Any,
-    ):
+    ) -> None:
         self.inferencer = inferencer
         self.model = model
 
-    def predict(self, *args, **kwargs):
+    def predict(self, *args: Any, **kwargs: Any) -> np.ndarray | list[Image]:
         # See predict_pose_keypoints.
         return self.predict_pose_keypoints(*args, **kwargs)
 
@@ -68,7 +68,7 @@ class LiteHRNetApp:
 
         Returns
         -------
-        keypoints or predicted_images
+        keypoints_or_predicted_images : np.ndarray | list[Image]
             If raw_output is true, returns:
                 keypoints: np.ndarray, shape [B, N, 2]
                     Numpy array of keypoints within the images. Each keypoint is an (x, y) pair of coordinates within the image.
@@ -135,7 +135,7 @@ def refine_and_transform_keypoints(
 
     Returns
     -------
-    keypoints
+    keypoints : np.ndarray
         Refined keypoints [batch, 17, 2].
     """
     predictions_np = np.asarray(predictions)

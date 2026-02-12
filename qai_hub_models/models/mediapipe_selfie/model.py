@@ -9,6 +9,8 @@ import torch
 from tflite import Model
 from torch import nn
 
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.segmentation_evaluator import SegmentationOutputEvaluator
 from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.models.mediapipe_selfie.utils import (
     build_state_dict,
@@ -37,7 +39,9 @@ IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 
 
 class DepthwiseConv2d(nn.Module):
-    def __init__(self, in_channels, kernel_size=3, stride=2, padding=1):
+    def __init__(
+        self, in_channels: int, kernel_size: int = 3, stride: int = 2, padding: int = 1
+    ) -> None:
         super().__init__()
         self.depthwise = nn.Conv2d(
             in_channels,
@@ -48,14 +52,14 @@ class DepthwiseConv2d(nn.Module):
             groups=in_channels,
         )
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.depthwise(x)
 
 
 class SelfieSegmentation(BaseModel):
     """Reconstruct the selfie segmentation graph for square as well as landscape image."""
 
-    def __init__(self, image_type: str = "square"):
+    def __init__(self, image_type: str = "square") -> None:
         """
         Initialize SelfieSegmentation model.
 
@@ -172,7 +176,9 @@ class SelfieSegmentation(BaseModel):
         self.upsample = nn.Upsample(scale_factor=2, mode="bilinear")
 
     @classmethod
-    def from_pretrained(cls, image_type: str = DEFAULT_IMAGE_TYPE):
+    def from_pretrained(
+        cls, image_type: str = DEFAULT_IMAGE_TYPE
+    ) -> SelfieSegmentation:
         """
         Load the TFLite weights and convert them to PyTorch checkpoint.
         Weights for square input are different from landscape input.
@@ -188,7 +194,7 @@ class SelfieSegmentation(BaseModel):
 
         Returns
         -------
-        model
+        model : SelfieSegmentation
             Torch model with pretrained weights loaded.
         """
         front_net = cls(image_type)
@@ -244,7 +250,7 @@ class SelfieSegmentation(BaseModel):
 
         Returns
         -------
-        mask
+        mask : torch.Tensor
             Mask with person and the background segmented.
             Square: Shape [1, 256, 256]
             Landscape: Shape [1, 144, 256]
@@ -370,3 +376,14 @@ class SelfieSegmentation(BaseModel):
             h, w = input_spec["image"][0][2:]
             image = image.resize((w, h))
         return {"image": [app_to_net_image_inputs(image)[1].numpy()]}
+
+    def get_evaluator(self) -> BaseEvaluator:
+        return SegmentationOutputEvaluator(num_classes=2)
+
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "human_matting"
+
+    @staticmethod
+    def eval_datasets() -> list[str]:
+        return ["human_matting"]

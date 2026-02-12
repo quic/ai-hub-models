@@ -18,7 +18,7 @@ def custom_one_hot(tensor: torch.Tensor, num_classes: int = -1) -> torch.Tensor:
 
     Returns
     -------
-    Tensor
+    result : torch.Tensor
         One-hot encoded tensor with shape (*tensor.shape, num_classes).
     """
     if num_classes == -1:

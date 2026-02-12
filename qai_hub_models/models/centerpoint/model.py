@@ -10,6 +10,7 @@ from typing import Any
 
 import torch
 from qai_hub.client import Device
+from typing_extensions import Self
 
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
@@ -62,7 +63,7 @@ class CenterPoint(BaseModel):
 
         Returns
         -------
-        config
+        config : Any
             A configuration object containing model and dataset parameters.
         """
         with SourceAsRoot(
@@ -83,7 +84,7 @@ class CenterPoint(BaseModel):
     def from_pretrained(
         cls,
         weights_name: str = MODEL_URL,
-    ) -> CenterPoint:
+    ) -> Self:
         """
         Loads a pretrained CenterPoint model.
 
@@ -94,7 +95,7 @@ class CenterPoint(BaseModel):
 
         Returns
         -------
-        CenterPoint
+        CenterPoint : Self
             An instance of the CenterPoint model wrapper.
         """
         with SourceAsRoot(
@@ -149,7 +150,7 @@ class CenterPoint(BaseModel):
 
         Returns
         -------
-        batch_box_preds
+        batch_box_preds : torch.Tensor
             Dense 3D bounding box predictions for each BEV grid cell.
             Tensor of shape (B, HxW, 9), where:
                 batch_box_preds[..., 0:2]
@@ -166,8 +167,7 @@ class CenterPoint(BaseModel):
 
                 batch_box_preds[..., 7:9] (optional)
                     Velocity components (vx, vy) in m/s, if enabled.
-
-        batch_hm
+        batch_hm : torch.Tensor
             Center heatmap confidence scores for each BEV grid cell.
             Tensor of shape (B, HxW, C).
             Range: [0, 1]
@@ -195,7 +195,7 @@ class CenterPoint(BaseModel):
 
         Returns
         -------
-        input_spec
+        input_spec : InputSpec
             Dictionary specifying input shapes and data types:
             - 'voxels': (num_voxels, 20, 5), float32
             - 'coordinates': (num_voxels, 4), float32
@@ -214,7 +214,7 @@ class CenterPoint(BaseModel):
 
         Returns
         -------
-        output_names
+        output_names : list[str]
             List containing output tensor names.
         """
         return ["batch_box_preds", "batch_hm"]

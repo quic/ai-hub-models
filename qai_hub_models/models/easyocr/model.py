@@ -14,6 +14,7 @@ from easyocr.easyocr import Reader
 from easyocr.model.model import Model as Recognizer
 from easyocr.model.modules import BidirectionalLSTM
 from easyocr.model.vgg_model import Model as VGGRecognizer
+from typing_extensions import Self
 
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel
 from qai_hub_models.utils.image_processing import normalize_image_torchvision
@@ -35,7 +36,7 @@ class EasyOCRDetector(BaseModel):
     @classmethod
     def from_pretrained(
         cls, lang_list: list = LANG_LIST, detect_network: str = "craft"
-    ) -> EasyOCRDetector:
+    ) -> Self:
         ocr_reader = Reader(
             lang_list,
             gpu=False,
@@ -47,7 +48,7 @@ class EasyOCRDetector(BaseModel):
 
         return cls(cast(CRAFTDetector | DBNetDetector, ocr_reader.detector))
 
-    def forward(self, image: torch.Tensor):
+    def forward(self, image: torch.Tensor) -> torch.Tensor:
         """
         Run detector on `image`, and produce a ((text score map, link score map), features).
 
@@ -60,7 +61,7 @@ class EasyOCRDetector(BaseModel):
 
         Returns
         -------
-        detection_results
+        detection_results : torch.Tensor
             Detection results containing text score map and link score map.
         """
         # Run network
@@ -82,7 +83,7 @@ class EasyOCRDetector(BaseModel):
         return {"image": ((batch_size, 3, height, width), "float32")}
 
     @staticmethod
-    def get_output_names(*args, **kwargs):
+    def get_output_names() -> list[str]:
         return ["results"]
 
     @staticmethod
@@ -103,7 +104,7 @@ class EasyOCRRecognizer(BaseModel):
         lang_list: list = LANG_LIST,
         recog_network: str = "standard",
         unroll_lstm: bool = False,
-    ) -> EasyOCRRecognizer:
+    ) -> Self:
         ocr_reader = Reader(
             lang_list,
             gpu=False,
@@ -137,7 +138,7 @@ class EasyOCRRecognizer(BaseModel):
 
         Returns
         -------
-        character_predictions
+        character_predictions : torch.Tensor
             segmented mask per class: Shape [batch, T, classes]
         """
         return self.model((image - 0.5) / 0.5, None)
@@ -156,7 +157,7 @@ class EasyOCRRecognizer(BaseModel):
         }
 
     @staticmethod
-    def get_output_names(*args, **kwargs):
+    def get_output_names() -> list[str]:
         return ["output_preds"]
 
     @staticmethod
@@ -185,7 +186,7 @@ class EasyOCR(CollectionModel):
         detect_network: str = "craft",
         recog_network: str = "standard",
         unroll_lstm: bool = False,
-    ) -> EasyOCR:
+    ) -> Self:
         """
         Create an EasyOCR model.
 
@@ -205,11 +206,11 @@ class EasyOCR(CollectionModel):
 
         Returns
         -------
-        model_instance
+        model_instance : Self
             The EasyOCR model instance.
         """
         detector = EasyOCRDetector.from_pretrained(lang_list, detect_network)
         recognizer = EasyOCRRecognizer.from_pretrained(
             lang_list, recog_network, unroll_lstm
         )
-        return EasyOCR(detector, recognizer, lang_list)
+        return cls(detector, recognizer, lang_list)

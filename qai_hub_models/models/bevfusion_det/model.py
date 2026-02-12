@@ -107,7 +107,7 @@ class BEVFusionEncoder1(BaseModel):
 
         Returns
         -------
-        feature_map
+        feature_map : torch.Tensor
             Feature tensor of shape (batch_size, 6, 256, 32, 88).
         """
         B, NC, H, W = imgs.size()
@@ -165,11 +165,11 @@ class BEVFusionEncoder2(BaseModel):
 
         Returns
         -------
-        pooled_features
+        pooled_features : torch.Tensor
             Pooled features of shape (1993728, 80).
-        lengths
+        lengths : torch.Tensor
             Lengths tensor of shape (59000,).
-        geom_feats
+        geom_feats : torch.Tensor
             Geometric features of shape (2, 59000).
         """
         x, geom_feats, ranks = self.vtransform.forward(
@@ -231,7 +231,7 @@ class BEVFusionEncoder3(BaseModel):
 
         Returns
         -------
-        aggregated_features
+        aggregated_features : torch.Tensor
             Aggregated features of shape (59000, 80).
         """
         lengths = torch.cumsum(lengths, dim=0).long()
@@ -295,7 +295,7 @@ class BEVFusionEncoder4(BaseModel):
 
         Returns
         -------
-        bev_grid
+        bev_grid : torch.Tensor
             BEV grid features of shape (1, 80, 256, 256).
         """
         segment_sums = segment_sums.reshape(-1, 80)
@@ -363,7 +363,7 @@ class BEVFusionDecoder(BaseModel):
 
         Returns
         -------
-        outputs
+        outputs : torch.Tensor
             Concatenated tensor containing all task-specific outputs
             (regression, height, dimension, rotation, velocity, heatmap)
             with shape (batch_size, 70, 128, 128).

@@ -88,10 +88,10 @@ class CocoFaceDataset(CocoBodyDataset):
 
         Returns
         -------
-        image
+        image : torch.Tensor
             RGB, range [0-1] network input image.
 
-        ground_truth
+        ground_truth : tuple[int, int, torch.Tensor]
             imageId
                 The ID of the image.
             category_id

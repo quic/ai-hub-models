@@ -4,8 +4,11 @@
 # ---------------------------------------------------------------------
 
 
+from __future__ import annotations
+
 import os
 from collections.abc import Callable
+from typing import Any
 
 import torch
 from torch import nn
@@ -557,7 +560,7 @@ def get_resnet(
     model_name: str | None = None,
     pretrained: bool = False,
     root: str = os.path.join("~", ".torch", "models"),
-    **kwargs,
+    **kwargs: Any,
 ) -> ResNet:
     """
     Create ResNet model with specific parameters.

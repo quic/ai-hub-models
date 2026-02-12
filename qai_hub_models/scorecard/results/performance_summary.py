@@ -9,6 +9,8 @@ import pprint
 from collections.abc import Iterable
 from typing import Generic, TypeVar
 
+from qai_hub import CompileJob, LinkJob, QuantizeJob
+
 from qai_hub_models.configs.perf_yaml import QAIHMModelPerf, ToolVersions
 from qai_hub_models.models.common import Precision
 from qai_hub_models.scorecard import (
@@ -247,7 +249,7 @@ class ScorecardModelPrecisionSummary(
 
         Returns
         -------
-        job
+        job : ScorecardJobTypeVar
             The scorecard job matching the parameters.
         """
         if component:
@@ -370,7 +372,7 @@ class ScorecardModelSummary(
 
         Returns
         -------
-        job
+        job : ScorecardJobTypeVar
             The scorecard job matching the parameters.
         """
         if model_summary := self.summaries_per_precision.get(precision):
@@ -484,6 +486,7 @@ class ModelPrecisionPerfSummary(
         exclude_paths: Iterable[ScorecardProfilePath] = [],
         exclude_form_factors: Iterable[ScorecardDevice.FormFactor] = [],
         model_name: str | None = None,
+        include_precision: bool = False,
     ) -> QAIHMModelPerf.PrecisionDetails:
         components: dict[str, QAIHMModelPerf.ComponentDetails] = {}
         for component_id, summary_per_device in self.runs_per_component_device.items():
@@ -515,7 +518,51 @@ class ModelPrecisionPerfSummary(
             ) = self.get_target_assets(
                 exclude_paths, exclude_form_factors, component_id
             )
+
+            # Determine original precision
+            def get_precision(
+                summary_per_device: dict[ScorecardDevice, DevicePerfSummary],
+            ) -> Precision | None:
+                # Find any profile / inference job. Climb up the model producer chain until we find a quantize job or hit the end of the chain.
+                # If we hit the end of the chain, the model isn't quantized.
+                # If we find a quantize job, we can deduce the quantization type.
+                for dd in summary_per_device.values():
+                    for rd in dd.run_per_path.values():
+                        if rd.skipped:
+                            continue
+
+                        # Get profile job
+                        job = rd.job
+
+                        # Profile job -> Source Model Producer Job
+                        compile_or_link_job = job.model.producer
+
+                        if isinstance(compile_or_link_job, LinkJob):
+                            # Link Job -> Compile Job
+                            link_job = compile_or_link_job
+                            if len(link_job.models) > 1:
+                                return None  # Multi-model linking is not supported
+                            compile_or_link_job = link_job.models[0].producer
+
+                        if isinstance(compile_or_link_job, CompileJob):
+                            # Compile job -> Quantize job (or None)
+                            compile_job = compile_or_link_job
+                            quantize_job = compile_job.model.producer
+                        else:
+                            return None  # Unknown model producer job type
+
+                        if isinstance(quantize_job, QuantizeJob):
+                            # Quantize Job -> Precision
+                            return Precision.from_quantize_job(quantize_job)
+
+                        # Producer for the compile job is None; this model is not quantized
+                        return Precision.float
+                return None
+
             components[component_name] = QAIHMModelPerf.ComponentDetails(
+                precision=get_precision(summary_per_device)
+                if include_precision
+                else None,
                 universal_assets=universal_assets,
                 device_assets=device_assets,
                 performance_metrics=component_perf_card,
@@ -611,6 +658,7 @@ class ModelPerfSummary(
                 exclude_paths.get(p, []),
                 exclude_form_factors,
                 model_name,
+                p in [Precision.mixed, Precision.mixed_with_float],
             )
             for p, s in sorted(
                 self.summaries_per_precision.items(),
@@ -637,6 +685,9 @@ class ModelPerfSummary(
                         runs_by_runtime,
                     ) in component_card.performance_metrics.items():
                         for run in runs_by_runtime.values():
+                            # Skip LLM metrics - they don't have inference_time
+                            if run.llm_metrics is not None:
+                                continue
                             if run.inference_time_milliseconds is not None:
                                 supported_chipsets.update(
                                     device.extended_supported_chipsets

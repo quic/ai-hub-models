@@ -192,7 +192,7 @@ class SHAAttention(nn.Module):
 
         Returns
         -------
-        attention_output
+        attention_output : torch.Tensor
             Attention output tensor.
         """
         bsz, _hidden_size, _H, _W = hidden_states.size()
@@ -351,7 +351,7 @@ def replace_gelu_and_approx_gelu_with_conv2d(activation_module: nn.Module) -> nn
 
     Returns
     -------
-    modified_activation
+    modified_activation : nn.Module
         The activation module with Conv2D projection.
     """
     assert isinstance(activation_module, (GELU, ApproximateGELU))
@@ -454,7 +454,7 @@ def replace_geglu_with_conv2d(activation_module: nn.Module) -> nn.Module:
 
     Returns
     -------
-    qc_geglu_module
+    qc_geglu_module : nn.Module
         The QcGEGLU activation module with two Conv2D projections.
     """
     if isinstance(activation_module, GEGLU):
@@ -498,7 +498,7 @@ def replace_feedforward_with_conv2d(feedforward_module: nn.Module) -> nn.Module:
 
     Returns
     -------
-    modified_feedforward
+    modified_feedforward : nn.Module
         The FeedForward module with Conv2D layers instead of Linear layers.
     """
     if isinstance(feedforward_module, FeedForward):
@@ -652,7 +652,7 @@ def get_timestep_embedding(
 
     Returns
     -------
-    timestep_embeddings
+    timestep_embeddings : torch.Tensor
         Timestep embeddings.
     """
     embedding_dim = 320  # TODO: Extract from last unet layers

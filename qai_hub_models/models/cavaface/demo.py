@@ -30,7 +30,7 @@ def cavaface_demo(
     model_type: type[BaseModel],
     model_id: str,
     is_test: bool = False,
-):
+) -> np.ndarray | None:
     # Demo parameters
     parser = get_model_cli_parser(model_type)
     parser = get_on_device_demo_parser(parser, add_output_dir=True)
@@ -79,7 +79,7 @@ def cavaface_demo(
     return None
 
 
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     cavaface_demo(CavaFace, MODEL_ID, is_test)
 
 

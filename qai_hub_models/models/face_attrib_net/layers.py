@@ -13,7 +13,9 @@ from torch import Tensor, nn
 ##########################################
 # HeadBlock
 class HeadBlock(nn.Module):
-    def __init__(self, chan: int, group_size: int = 32, activ_type: str = "prelu"):
+    def __init__(
+        self, chan: int, group_size: int = 32, activ_type: str = "prelu"
+    ) -> None:
         """
         Initialize the HeadBlock module for feature extraction.
 
@@ -111,7 +113,9 @@ class HeadBlock(nn.Module):
 
 # DownsampleBlock
 class DownsampleBlock(nn.Module):
-    def __init__(self, chan: int, group_size: int = 32, activ_type: str = "prelu"):
+    def __init__(
+        self, chan: int, group_size: int = 32, activ_type: str = "prelu"
+    ) -> None:
         """
         Initialize the DownsampleBlock module for reducing spatial dimensions while increasing channel depth.
 
@@ -230,7 +234,9 @@ class DownsampleBlock(nn.Module):
 
 # NormalBlock
 class NormalBlock(nn.Module):
-    def __init__(self, chan: int, group_size: int = 32, activ_type: str = "prelu"):
+    def __init__(
+        self, chan: int, group_size: int = 32, activ_type: str = "prelu"
+    ) -> None:
         """
         Initialize the NormalBlock module for standard feature extraction without changing spatial dimensions.
 
@@ -317,7 +323,9 @@ class NormalBlock(nn.Module):
 
 
 class EmbedBlock(nn.Module):
-    def __init__(self, chan: int, group_size: int = 32, activ_type: str = "prelu"):
+    def __init__(
+        self, chan: int, group_size: int = 32, activ_type: str = "prelu"
+    ) -> None:
         """
         Initialize the EmbedBlock module for converting feature maps into flattened embeddings.
 
@@ -381,7 +389,7 @@ class Conv2dBlock(nn.Module):
         group: int = 1,
         norm: str = "none",
         activ: str = "none",
-    ):
+    ) -> None:
         """
         Initialize the Conv2dBlock module with convolution, normalization, and activation layers.
 

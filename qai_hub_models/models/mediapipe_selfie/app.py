@@ -26,7 +26,7 @@ class SelfieSegmentationApp:
         * Convert the raw output into segmented image.
     """
 
-    def __init__(self, model: Callable[[torch.Tensor], torch.Tensor]):
+    def __init__(self, model: Callable[[torch.Tensor], torch.Tensor]) -> None:
         self.model = model
 
     def predict(self, image: Image) -> np.ndarray:
@@ -40,7 +40,7 @@ class SelfieSegmentationApp:
 
         Returns
         -------
-        mask
+        mask : np.ndarray
             Segmented mask as np.array.
         """
         image_tensor = preprocess_PIL_image(image.resize(RESIZE_SHAPE))

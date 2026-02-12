@@ -76,5 +76,5 @@ class ControlNetCannyQuantized(StableDiffusionBase):
     hf_repo_id = HF_REPO_SD
 
     @staticmethod
-    def make_tokenizer():
+    def make_tokenizer() -> CLIPTokenizer:
         return make_tokenizer()

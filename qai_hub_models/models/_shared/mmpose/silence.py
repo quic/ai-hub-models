@@ -2,9 +2,10 @@
 # Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+from qai_hub_models.extern.mmengine import patch_mmengine_pkgresources
 from qai_hub_models.extern.mmpose import patch_mmpose_no_build_deps
 
-with patch_mmpose_no_build_deps():
+with patch_mmpose_no_build_deps(), patch_mmengine_pkgresources():
     from mmpose.apis import MMPoseInferencer
     from mmpose.apis.inferencers import Pose3DInferencer
     from mmpose.apis.inferencers.base_mmpose_inferencer import BaseMMPoseInferencer

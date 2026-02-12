@@ -75,7 +75,7 @@ class HRNetFace(BaseModel):
 
         Returns
         -------
-        heatmaps
+        heatmaps : torch.Tensor
             Heatmaps of shape [B, 29, 64, 64], where 29 is the number of keypoints,
             containing probability distributions for keypoint locations.
         """

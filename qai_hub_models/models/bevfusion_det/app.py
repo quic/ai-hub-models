@@ -106,9 +106,9 @@ class BEVFusionApp:
 
         Returns
         -------
-        intrins_list
+        intrins_list : list[np.ndarray]
             List of intrinsic matrices (3x3) for each camera.
-        sensor2keyegos_list
+        sensor2keyegos_list : list[np.ndarray]
             List of sensor-to-key-ego transformation matrices (4x4) for each camera.
         """
         intrins_list, sensor2keyegos_list = [], []
@@ -178,13 +178,11 @@ class BEVFusionApp:
 
         Returns
         -------
-        If raw_output is True, returns:
-        corners
-            Corners of 3D bounding boxes with shape (N, 8, 3).
-
-        If raw_output is False, returns:
-        output_images
-            List of PIL Images with 3D bounding boxes drawn.
+        corners_or_output_images : np.ndarray | list[Image.Image]
+            If raw_output is True:
+                Corners of 3D bounding boxes with shape (N, 8, 3).
+            If raw_output is False:
+                List of PIL Images with 3D bounding boxes drawn.
         """
         intrins_list, sensor2keyegos_list = self.prepare_camera_inputs(
             cam_paths, inputs_json
@@ -289,12 +287,12 @@ class BEVFusionApp:
 
         Returns
         -------
-        image_tensor
+        image_tensor : torch.Tensor
             Concatenated image tensor with shape [B, S*C, H, W],
             where B=1 (batch size), S=number of cameras, C=3 (RGB channels), H=height, W=width.
-        inv_post_rots
+        inv_post_rots : torch.Tensor
             Inverse post-rotation matrices with shape [1, S, 3, 3].
-        post_trans
+        post_trans : torch.Tensor
             Post-translation vectors with shape [1, S, 1, 3].
         """
         images_tensor_list = []
@@ -357,11 +355,11 @@ class BEVFusionApp:
 
         Returns
         -------
-        transformed_image
+        transformed_image : Image.Image
             Transformed PIL image.
-        adjusted_rotation
+        adjusted_rotation : torch.Tensor
             Adjusted rotation matrix of shape (3, 3).
-        adjusted_translation
+        adjusted_translation : torch.Tensor
             Adjusted translation vector of shape (3,).
         """
         # Apply scaling to rotation matrix based on resize factor
@@ -404,9 +402,9 @@ class BEVFusionApp:
 
         Returns
         -------
-        post_rot
+        post_rot : torch.Tensor
             Post rotation matrix with shape [3, 3] in camera coordinate system.
-        post_tran
+        post_tran : torch.Tensor
             Post translation tensor with shape [3,] in camera coordinate system.
         """
         post_rot = torch.eye(3)

@@ -47,7 +47,7 @@ class DeepLabV3Model(BaseModel):
 
         Returns
         -------
-        segmentation_mask
+        segmentation_mask : torch.Tensor
             BxHxW tensor of class indices per pixel
         """
         if self.normalize_input:
@@ -96,3 +96,7 @@ class DeepLabV3Model(BaseModel):
     @staticmethod
     def calibration_dataset_name() -> str:
         return "pascal_voc"
+
+    @classmethod
+    def get_labels_file_name(cls) -> str | None:
+        return "voc_labels.txt"

@@ -18,7 +18,7 @@ from qai_hub_models.utils.asset_loaders import load_image
 from qai_hub_models.utils.display import display_or_save_image
 
 
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     # Demo parameters
     parser = get_model_cli_parser(SINet)
     parser = get_on_device_demo_parser(parser, add_output_dir=True)

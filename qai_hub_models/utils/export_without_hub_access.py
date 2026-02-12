@@ -13,21 +13,18 @@ from qai_hub_models.configs.devices_and_chipsets_yaml import DevicesAndChipsetsY
 from qai_hub_models.configs.perf_yaml import QAIHMModelPerf
 from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.scorecard.device import ScorecardDevice
-from qai_hub_models.utils.asset_loaders import ASSET_CONFIG
 from qai_hub_models.utils.fetch_static_assets import fetch_static_assets
 from qai_hub_models.utils.printing import print_profile_metrics, print_with_box
 from qai_hub_models.utils.qai_hub_helpers import (
     _AIHUB_NAME,
     _AIHUB_URL,
+    can_access_qualcomm_ai_hub,
 )
 from qai_hub_models.utils.version_helpers import QAIHMVersion
-
-_WARNING_DASH = "=" * 114
 
 
 def export_without_hub_access(
     model_id: str,
-    model_display_name: str,
     device: hub.Device,
     skip_profiling: bool,
     skip_inferencing: bool,
@@ -39,11 +36,12 @@ def export_without_hub_access(
     all_options: str = "",
     components: list[str] | None = None,
     qaihm_version_tag: str | None = None,
-) -> list[str]:
+) -> Path | None:
+    qaihm_version_tag_arg = qaihm_version_tag
     if qaihm_version_tag:
         qaihm_version_tag = QAIHMVersion.tag_from_string(qaihm_version_tag)
 
-    if not qaihm_version_tag:
+    if not can_access_qualcomm_ai_hub():
         ls_msg = [
             f"Unable to find a valid API token for {_AIHUB_NAME}.",
             "Using results from a previous job run on the same device.",
@@ -78,17 +76,20 @@ def export_without_hub_access(
     if not components and parsed_perf is not None:
         components = list(parsed_perf.components.keys())
 
-    device_name, device_details = (
-        DevicesAndChipsetsYaml.load().get_device_details_without_aihub(device)
-    )
-    chipset = device_details.chipset
-    sc_device = ScorecardDevice.get(device_name)
-    printable_device_identifier = device_name or f"chipset {chipset}"
+    if qaihm_version_tag == QAIHMVersion.current_tag:
+        device_name, device_details = (
+            DevicesAndChipsetsYaml.load().get_device_details_without_aihub(device)
+        )
+        chipset = device_details.chipset
+        sc_device = ScorecardDevice.get(device_name)
+        printable_device_identifier = device_name or f"chipset {chipset}"
 
-    if not skip_profiling and not skip_summary:
-        if parsed_perf is not None and components is not None:
+        parsed_perf = QAIHMModelPerf.from_model(
+            model_id, not_exists_ok=True
+        ).precisions.get(precision)
+        if not skip_profiling and not skip_summary and parsed_perf:
             print("\n--- Profiling Results ---")
-            for component in components:
+            for component in components or parsed_perf.components.keys():
                 model_perf = parsed_perf.components[component]
 
                 device_perf = None
@@ -112,7 +113,8 @@ def export_without_hub_access(
 
                 if not runtime_perf:
                     print(
-                        f"No pre-run profiling results are available for runtime {target_runtime.name} on device {printable_device_identifier}."
+                        f"No pre-run profiling results are available for runtime {target_runtime.name} on device {printable_device_identifier}.\n"
+                        f"Please sign-up for {_AIHUB_NAME} to run this configuration on hosted devices."
                     )
                     break
 
@@ -124,19 +126,13 @@ def export_without_hub_access(
                     can_access_qualcomm_ai_hub=False,
                 )
                 print()
-        elif qaihm_version_tag:
-            print(
-                f"Cannot obtain results for device {printable_device_identifier} with runtime {target_runtime.name} without using AI Hub Workbench.\n"
-                f"Run without the --fetch-static-assets flag to target this device."
-            )
-        else:
-            print(
-                f"Cannot obtain results for device {printable_device_identifier} with runtime {target_runtime.name} without an API token.\n"
-                f"Please sign-up for {_AIHUB_NAME} to run this configuration on hosted devices."
-            )
+    else:
+        print(
+            f"Performance results are not available for older releases. Downgrade your AI Hub Models installation to fetch profiling results for QAIHM version {qaihm_version_tag}."
+        )
 
     if not skip_inferencing and not skip_summary:
-        print("\n--- Skipping on-device numerical validation. ---")
+        print("\n--- Skipping on-device numerical validation ---")
         if qaihm_version_tag:
             print("Run without the --fetch-static-assets flag to run validation.")
         else:
@@ -144,40 +140,29 @@ def export_without_hub_access(
                 f"Please sign-up for {_AIHUB_NAME} to perform numerical validation on hosted devices."
             )
 
-    paths: list[Path] = []
-    if not skip_downloading:
-        print(
-            f"\n--- Downloading model(s) from Hugging Face: {ASSET_CONFIG.get_hugging_face_url(model_display_name)} ---"
-        )
-    else:
-        print(
-            f"\n--- Model(s) can be downloaded from Hugging Face: {ASSET_CONFIG.get_hugging_face_url(model_display_name)} ---"
-        )
     try:
-        if target_runtime.is_aot_compiled and not chipset:
-            raise ValueError(  # noqa: TRY301
-                "This asset is runtime-specific, and a chipset could not be identified to match the given device. Try a device listed above in the profiling results section."
-            )
+        if not skip_downloading:
+            print("\n--- Downloading Model ---")
 
-        paths, urls = fetch_static_assets(
+        dlpath, dlurl = fetch_static_assets(
             model_id,
             target_runtime,
             precision,
-            hub.Device(device_name),
-            components,
-            qaihm_version_tag=qaihm_version_tag,
+            device,
+            qaihm_version_tag=qaihm_version_tag_arg,
             output_folder=output_path if not skip_downloading else None,
+            skip_download=skip_downloading,
         )
 
-        if urls:
-            urls_str = "\n    ".join(urls)
-            print()
-            print(f"Deployable Model URLs:\n    {urls_str}")
-        if paths:
-            paths_str = "\n    ".join([str(x) for x in paths])
-            print()
-            print(f"Deployable model(s) saved to:\n    {paths_str}")
+        if dlurl:
+            print(f"\nDeployable model URL: {dlurl}")
+        if not skip_downloading:
+            print(f"\nDeployable model saved to:\n    {dlpath}")
+        return dlpath
     except Exception as e:
-        print(f"Model fetch failure: {e}")
+        if skip_downloading:
+            print(f"Could not find a URL for this model: {e}")
+        else:
+            print(f"Failed to download the model: {e}")
 
-    return [str(x) for x in paths]
+    return None

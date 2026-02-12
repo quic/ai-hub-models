@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 import torch
@@ -31,7 +32,7 @@ class FaceAttribNetApp:
         self,
         model: Callable[[torch.Tensor], torch.Tensor],
         model_input_shape: tuple[int, int],
-    ):
+    ) -> None:
         """
         FaceAttribNetApp constructor
 
@@ -46,7 +47,7 @@ class FaceAttribNetApp:
         self.model = model
         self.model_input_shape = model_input_shape
 
-    def predict(self, *args, **kwargs) -> dict[str, float]:
+    def predict(self, *args: Any, **kwargs: Any) -> dict[str, float]:
         # See run_inference_on_image.
         return self.run_inference_on_image(*args, **kwargs)
 
@@ -68,7 +69,7 @@ class FaceAttribNetApp:
 
         Returns
         -------
-        preprocessed_tensor
+        preprocessed_tensor : torch.Tensor
             Shape (N, C, H, W), value range [0, 1].
         """
         img_tensor = app_to_net_image_inputs(pixel_values_or_image)[1]
@@ -92,7 +93,7 @@ class FaceAttribNetApp:
 
         Returns
         -------
-        attribute_probabilities
+        attribute_probabilities : dict[str, float]
             see details in run_inference_on_image
         """
         prob_list = [each.item() * 100.0 for each in prob[0]]
@@ -123,7 +124,7 @@ class FaceAttribNetApp:
 
         Returns
         -------
-        attribute_probabilities
+        attribute_probabilities : dict[str, float]
             inference output containing probability (in percentage) of 5 attributes, the value is in range [0, 100]
         """
         img_tensor = self.preprocess(pixel_values_or_image, self.model_input_shape)

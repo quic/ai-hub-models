@@ -2,9 +2,8 @@
 
 The Qwen2.5-7B-Instruct is a state-of-the-art multilingual language model with 7 billion parameters, excelling in language understanding, generation, coding, and mathematics.
 
-This is based on the implementation of Qwen2.5-7B-Instruct found [here](https://github.com/QwenLM/Qwen2.5). This repository contains scripts for optimized on-device
-export suitable to run on Qualcomm® devices. More details on model performance
-across various devices, can be found [here](https://aihub.qualcomm.com/models/qwen2_5_7b_instruct).
+This is based on the implementation of Qwen2.5-7B-Instruct found [here](https://github.com/QwenLM/Qwen2.5).
+This repository contains scripts for optimized on-device export suitable to run on Qualcomm® devices. More details on model performance across various devices, can be found [here](https://aihub.qualcomm.com/models/qwen2_5_7b_instruct).
 
 Qualcomm AI Hub Models uses [Qualcomm AI Hub Workbench](https://workbench.aihub.qualcomm.com) to compile, profile, and evaluate this model. [Sign up](https://myaccount.qualcomm.com/signup) to run these models on a hosted Qualcomm® device.
 
@@ -13,24 +12,17 @@ Qualcomm AI Hub Models uses [Qualcomm AI Hub Workbench](https://workbench.aihub.
 Please follow the [LLM on-device deployment](https://github.com/quic/ai-hub-apps/tree/main/tutorials/llm_on_genie) tutorial.
 
 
-
-
-
 ## License
 * The license for the original implementation of Qwen2.5-7B-Instruct can be found
   [here](https://huggingface.co/Qwen/Qwen2.5-7B-Instruct/blob/main/LICENSE).
-
 
 ## References
 * [Qwen2.5 Technical Report](https://arxiv.org/abs/2412.15115)
 * [Source Model Implementation](https://github.com/QwenLM/Qwen2.5)
 
-
-
 ## Community
 * Join [our AI Hub Slack community](https://aihub.qualcomm.com/community/slack) to collaborate, post questions and learn more about on-device AI.
 * For questions or feedback please [reach out to us](mailto:ai-hub-support@qti.qualcomm.com).
-
 
 ## Usage and Limitations
 

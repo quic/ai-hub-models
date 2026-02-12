@@ -45,20 +45,20 @@ from qai_hub_models.scorecard import (
     ScorecardDevice,
 )
 from qai_hub_models.scorecard.device import cs_8_elite
+from qai_hub_models.utils.asset_loaders import ASSET_CONFIG
 from qai_hub_models.utils.llm_helpers import (
     create_genie_config,
     log_evaluate_test_result,
     log_perf_on_device_result,
 )
 from qai_hub_models.utils.model_cache import CacheMode
-from qai_hub_models.utils.path_helpers import get_model_directory_for_download
 from qai_hub_models.utils.testing_export_eval import compile_via_export
 
 DEFAULT_EVAL_SEQLEN = 2048
 
 
 @pytest.mark.unmarked
-def test_create_genie_config():
+def test_create_genie_config() -> None:
     context_length = 4096
     llm_config = AutoConfig.from_pretrained(HF_REPO_NAME)
     model_list = [f"llama_v3_1_8b_instruct_part_{i}_of_5.bin" for i in range(1, 6)]
@@ -145,7 +145,7 @@ def test_cli_device_with_skips(
     skip_inferencing: bool,
     skip_profiling: bool,
     target_runtime: TargetRuntime,
-):
+) -> None:
     test.test_cli_device_with_skips(
         export_main,
         Model,
@@ -160,8 +160,8 @@ def test_cli_device_with_skips(
 
 
 def test_cli_device_with_skips_unsupported_precision_device(
-    tmp_path,
-):
+    tmp_path: Path,
+) -> None:
     test.test_cli_device_with_skips_unsupported_precision_device(
         export_main, Model, tmp_path, MODEL_ID
     )
@@ -183,7 +183,7 @@ def test_cli_chipset_with_options(
     sequence_length: int,
     chipset: str,
     target_runtime: TargetRuntime,
-):
+) -> None:
     test.test_cli_chipset_with_options(
         export_main,
         Model,
@@ -215,7 +215,7 @@ def test_cli_default_device_select_component(
     skip_download: bool,
     skip_summary: bool,
     target_runtime: TargetRuntime,
-):
+) -> None:
     test.test_cli_default_device_select_component(
         export_main,
         Model,
@@ -278,7 +278,7 @@ def test_evaluate(
 @pytest.mark.skipif(
     not torch.cuda.is_available(), reason="This test can be run on GPU only."
 )
-def test_demo_default(capsys) -> None:
+def test_demo_default(capsys: pytest.CaptureFixture[str]) -> None:
     cleanup()
     llama_3_1_chat_demo(
         fp_model_cls=FP_Model,
@@ -294,7 +294,7 @@ def test_demo_default(capsys) -> None:
 @pytest.mark.skipif(
     not torch.cuda.is_available(), reason="This test can be run on GPU only."
 )
-def test_quantize_demo_eval(tmp_path, capsys) -> None:
+def test_quantize_demo_eval(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """Quantize the DeepSeek model, verify 'Paris' response, and evaluate tiny_mmlu."""
     cleanup()
     checkpoint_path = test.setup_test_quantization(
@@ -385,12 +385,10 @@ def test_compile(
         skip_downloading=False,
     )
     assert os.path.exists(test.GENIE_BUNDLES_ROOT)
-    genie_bundle_path = get_model_directory_for_download(
-        TargetRuntime.GENIE,
-        precision,
-        device.chipset,
-        test.GENIE_BUNDLES_ROOT,
-        MODEL_ID,
+    genie_bundle_path = Path(
+        test.GENIE_BUNDLES_ROOT
+    ) / ASSET_CONFIG.get_release_asset_name(
+        MODEL_ID, TargetRuntime.GENIE, precision, device.chipset
     )
     assert (genie_bundle_path / "tokenizer.json").exists()
     assert (genie_bundle_path / "genie_config.json").exists()
@@ -415,12 +413,10 @@ def test_qdc(
     device: ScorecardDevice,
 ) -> None:
     cleanup()
-    genie_bundle_path = get_model_directory_for_download(
-        TargetRuntime.GENIE,
-        precision,
-        device.chipset,
-        test.GENIE_BUNDLES_ROOT,
-        MODEL_ID,
+    genie_bundle_path = Path(
+        test.GENIE_BUNDLES_ROOT
+    ) / ASSET_CONFIG.get_release_asset_name(
+        MODEL_ID, TargetRuntime.GENIE, precision, device.chipset
     )
     if scorecard_path.runtime == TargetRuntime.ONNXRUNTIME_GENAI:
         pytest.skip("This test is only valid for Genie runtime.")

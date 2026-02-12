@@ -6,7 +6,9 @@
 from __future__ import annotations
 
 import torch
+from qai_hub.client import Device
 from torch import nn
+from typing_extensions import Self
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.mpigaze_evaluator import MPIIGazeEvaluator
@@ -37,7 +39,7 @@ class EyeGaze(BaseModel):
         self.model = model
 
     @classmethod
-    def from_pretrained(cls, weights_name: str = DEFAULT_WEIGHTS):
+    def from_pretrained(cls, weights_name: str = DEFAULT_WEIGHTS) -> Self:
         weights_file = weights_name
         if weights_name == DEFAULT_WEIGHTS:
             weights_file = DEFAULT_WEIGHTS_FILE
@@ -52,7 +54,9 @@ class EyeGaze(BaseModel):
             eyenet.load_state_dict(checkpoint["model_state_dict"])
             return cls(eyenet)
 
-    def forward(self, image: torch.Tensor):
+    def forward(
+        self, image: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         return self.model(image)
 
     @staticmethod
@@ -64,7 +68,7 @@ class EyeGaze(BaseModel):
         target_runtime: TargetRuntime,
         precision: Precision,
         other_compile_options: str = "",
-        device=None,
+        device: Device | None = None,
     ) -> str:
         compile_options = super().get_hub_compile_options(
             target_runtime, precision, other_compile_options, device

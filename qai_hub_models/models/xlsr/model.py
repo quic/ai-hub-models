@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from typing_extensions import Self
+
 from qai_hub_models.models._shared.super_resolution.model import (
     DEFAULT_SCALE_FACTOR,
     SuperResolutionModel,
@@ -24,7 +26,7 @@ class XLSR(SuperResolutionModel):
     """Exportable XLSR super resolution model, end-to-end."""
 
     @classmethod
-    def from_pretrained(cls, scale_factor: int = DEFAULT_SCALE_FACTOR) -> XLSR:
+    def from_pretrained(cls, scale_factor: int = DEFAULT_SCALE_FACTOR) -> Self:
         validate_scale_factor(scale_factor)
         with aimet_zoo_as_root():
             from aimet_zoo_torch.common.super_resolution.models import XLSRRelease

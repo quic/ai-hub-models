@@ -9,12 +9,14 @@ import itertools
 import math
 import os
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import torch
 from qai_hub.client import DatasetEntries
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+from typing_extensions import Self
 
 from qai_hub_models.datasets import get_dataset_from_name
 from qai_hub_models.datasets.common import DatasetSplit
@@ -68,16 +70,16 @@ class Llama3_Elyza_JP_8B(Llama3Base):
     def __init__(
         self,
         checkpoint: str | os.PathLike | Path = HF_REPO_NAME,
-        *args,
-        **kwargs,
-    ):
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(
             checkpoint=checkpoint,  # type: ignore[misc, unused-ignore]
             *args,  # noqa: B026
             **kwargs,
         )
 
-    def _verify_ckpt(self):
+    def _verify_ckpt(self) -> None:
         super()._verify_ckpt()
         if not (
             self.llm_config.num_hidden_layers == NUM_LAYERS
@@ -96,7 +98,7 @@ class Llama3_Elyza_JP_8B(Llama3Base):
         host_device: torch.device | None = None,
         load_pretrained: bool = True,
         _skip_optimizations: list[str] | None = None,
-    ) -> Llama3_Elyza_JP_8B:
+    ) -> Self:
         """
         Load a pre-trained Llama 3 (8B) model from Meta via HuggingFace.
 
@@ -125,7 +127,7 @@ class Llama3_Elyza_JP_8B(Llama3Base):
         )
 
     @staticmethod
-    def get_output_names():
+    def get_output_names() -> list[str]:
         return Llama3Base._get_output_names(NUM_LAYERS)
 
     @staticmethod
@@ -147,7 +149,9 @@ class Llama3_Elyza_JP_8B(Llama3Base):
 
 
 class Llama3_Elyza_JP_8B_AIMETOnnx(Llama3Base_AIMETOnnx):
-    def __init__(self, checkpoint: str | os.PathLike | Path | None, *args, **kwargs):
+    def __init__(
+        self, checkpoint: str | os.PathLike | Path | None, *args: Any, **kwargs: Any
+    ) -> None:
         super().__init__(
             checkpoint=checkpoint,  # type: ignore[misc, unused-ignore]
             *args,  # noqa: B026
@@ -164,7 +168,7 @@ class Llama3_Elyza_JP_8B_AIMETOnnx(Llama3Base_AIMETOnnx):
         precision: Precision = DEFAULT_PRECISION,
         fp_model: LLMBase | None = None,
         _skip_quantsim_creation: bool = False,
-    ) -> Llama3_Elyza_JP_8B_AIMETOnnx:
+    ) -> Self:
         """
         Load weight from Huggingface and create Aimet-ONNX QuantSim.
         Optionally load onnx model and AIMET encodings from a checkpoint.
@@ -190,7 +194,7 @@ class Llama3_Elyza_JP_8B_AIMETOnnx(Llama3Base_AIMETOnnx):
 
         Returns
         -------
-        model
+        model : Self
             Instance of the quantized model.
         """
         if host_device is None:
@@ -240,7 +244,7 @@ class Llama3_Elyza_JP_8B_AIMETOnnx(Llama3Base_AIMETOnnx):
         )
 
     @staticmethod
-    def get_output_names():
+    def get_output_names() -> list[str]:
         return Llama3Base._get_output_names(NUM_LAYERS)
 
     @staticmethod
@@ -337,7 +341,7 @@ class Llama3_Elyza_JP_8B_QNN(Llama3Base_QNN):
     num_layers_per_split: int = NUM_LAYERS_PER_SPLIT
 
     @staticmethod
-    def get_output_names():
+    def get_output_names() -> list[str]:
         return Llama3Base._get_output_names(NUM_LAYERS)
 
     get_input_spec = staticmethod(Llama3_Elyza_JP_8B.get_input_spec)

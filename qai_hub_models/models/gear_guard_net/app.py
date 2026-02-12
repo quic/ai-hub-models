@@ -3,7 +3,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
+from __future__ import annotations
+
 from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 import torch
@@ -42,7 +45,7 @@ class BodyDetectionApp:
         nms_score_threshold: float = 0.45,
         nms_iou_threshold: float = 0.7,
         model_includes_postprocessing: bool = True,
-    ):
+    ) -> None:
         """
         Initialize a BodyDetectionApp application.
 
@@ -65,7 +68,12 @@ class BodyDetectionApp:
         self.nms_iou_threshold = nms_iou_threshold
         self.model_includes_postprocessing = model_includes_postprocessing
 
-    def predict(self, *args, **kwargs):
+    def predict(
+        self, *args: Any, **kwargs: Any
+    ) -> (
+        tuple[list[torch.Tensor], list[torch.Tensor], list[torch.Tensor]]
+        | list[np.ndarray]
+    ):
         # See predict_boxes_from_image.
         return self.predict_boxes_from_image(*args, **kwargs)
 
@@ -93,24 +101,25 @@ class BodyDetectionApp:
 
         Returns
         -------
-        If raw_output is true, returns:
-            boxes : list[torch.Tensor]
-                Bounding box coordinates (x1, y1, x2, y2) per batch.
-                List element shape (num_preds, 4)
-                List length = N
-            scores : list[torch.Tensor]
-                Class scores per batch multiplied by confidence, range [0, 1].
-                List element shape (num_preds, num_classes)
-                List length = N
-            class_idx : list[torch.tensor]
-                Indices of the most probable class of the prediction.
-                List element shape (num_preds)
-                List length = N
+        result : tuple[list[torch.Tensor], list[torch.Tensor], list[torch.Tensor]] | list[np.ndarray]
+            If raw_output is true, returns:
+                boxes : list[torch.Tensor]
+                    Bounding box coordinates (x1, y1, x2, y2) per batch.
+                    List element shape (num_preds, 4)
+                    List length = N
+                scores : list[torch.Tensor]
+                    Class scores per batch multiplied by confidence, range [0, 1].
+                    List element shape (num_preds, num_classes)
+                    List length = N
+                class_idx : list[torch.tensor]
+                    Indices of the most probable class of the prediction.
+                    List element shape (num_preds)
+                    List length = N
 
-        Otherwise, returns:
-            images: list[np.ndarray]
-                A list of predicted RGB, [H, W, C] images (one list element per batch). Each image will have bounding boxes drawn.
-                List length = N
+            Otherwise, returns:
+                images: list[np.ndarray]
+                    A list of predicted RGB, [H, W, C] images (one list element per batch). Each image will have bounding boxes drawn.
+                    List length = N
         """
         # Input Prep
         NHWC_int_numpy_frames, NCHW_fp32_torch_frames = app_to_net_image_inputs(
@@ -213,7 +222,7 @@ class BodyDetectionApp:
 
         Returns
         -------
-        boxes
+        boxes : torch.Tensor
             Bounding boxes tensors, shape (num_detections, 4).
             Each box represented by (x1, y1, x2, y2) coordinates.
         """

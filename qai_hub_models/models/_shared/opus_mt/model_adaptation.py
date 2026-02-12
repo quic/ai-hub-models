@@ -451,7 +451,10 @@ def apply_model_adaptations(
 
     Returns
     -------
-    tuple[QcMarianEncoder, QcMarianDecoder]: Modified encoder and decoder.
+    encoder : QcMarianEncoder
+        Modified encoder.
+    decoder : QcMarianDecoder
+        Modified decoder.
     """
     encoder = QcMarianEncoder(model, transpose_key=transpose_key)
     decoder = QcMarianDecoder(

@@ -159,9 +159,9 @@ class WholeBodyPoseEvaluator(BaseEvaluator):
 
         Returns
         -------
-        keypoints
+        keypoints : np.ndarray
             Decoded coordinates in shape (N, K, D).
-        scores
+        scores : np.ndarray
             The keypoint scores in shape (N, K).
             It usually represents the confidence of the keypoint prediction.
         """
@@ -179,7 +179,7 @@ class WholeBodyPoseEvaluator(BaseEvaluator):
 
         Returns
         -------
-        mAP_results
+        mAP_results : dict[str, Any]
             A dictionary with AP values (mAP, AP@0.5, etc.).
         """
         valid_image_ids = set(self.coco_gt.getImgIds())

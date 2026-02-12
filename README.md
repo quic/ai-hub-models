@@ -173,10 +173,6 @@ and many more.
 | [Sequencer2D](https://aihub.qualcomm.com/models/sequencer2d) | [qai_hub_models.models.sequencer2d](qai_hub_models/models/sequencer2d/README.md) |
 | [Shufflenet-v2](https://aihub.qualcomm.com/models/shufflenet_v2) | [qai_hub_models.models.shufflenet_v2](qai_hub_models/models/shufflenet_v2/README.md) |
 | [SqueezeNet-1.1](https://aihub.qualcomm.com/models/squeezenet1_1) | [qai_hub_models.models.squeezenet1_1](qai_hub_models/models/squeezenet1_1/README.md) |
-| [Swin-Base](https://aihub.qualcomm.com/models/swin_base) | [qai_hub_models.models.swin_base](qai_hub_models/models/swin_base/README.md) |
-| [Swin-Small](https://aihub.qualcomm.com/models/swin_small) | [qai_hub_models.models.swin_small](qai_hub_models/models/swin_small/README.md) |
-| [Swin-Tiny](https://aihub.qualcomm.com/models/swin_tiny) | [qai_hub_models.models.swin_tiny](qai_hub_models/models/swin_tiny/README.md) |
-| [SwinV2-Base](https://aihub.qualcomm.com/models/swinv2_base) | [qai_hub_models.models.swinv2_base](qai_hub_models/models/swinv2_base/README.md) |
 | [VIT](https://aihub.qualcomm.com/models/vit) | [qai_hub_models.models.vit](qai_hub_models/models/vit/README.md) |
 | [WideResNet50](https://aihub.qualcomm.com/models/wideresnet50) | [qai_hub_models.models.wideresnet50](qai_hub_models/models/wideresnet50/README.md) |
 | | |
@@ -243,14 +239,13 @@ and many more.
 | [DETR-ResNet101-DC5](https://aihub.qualcomm.com/models/detr_resnet101_dc5) | [qai_hub_models.models.detr_resnet101_dc5](qai_hub_models/models/detr_resnet101_dc5/README.md) |
 | [DETR-ResNet50](https://aihub.qualcomm.com/models/detr_resnet50) | [qai_hub_models.models.detr_resnet50](qai_hub_models/models/detr_resnet50/README.md) |
 | [DETR-ResNet50-DC5](https://aihub.qualcomm.com/models/detr_resnet50_dc5) | [qai_hub_models.models.detr_resnet50_dc5](qai_hub_models/models/detr_resnet50_dc5/README.md) |
-| [DeformableDETR](https://aihub.qualcomm.com/models/deformable_detr) | [qai_hub_models.models.deformable_detr](qai_hub_models/models/deformable_detr/README.md) |
 | [Detectron2-Detection](https://aihub.qualcomm.com/models/detectron2_detection) | [qai_hub_models.models.detectron2_detection](qai_hub_models/models/detectron2_detection/README.md) |
 | [Facial-Attribute-Detection](https://aihub.qualcomm.com/models/face_attrib_net) | [qai_hub_models.models.face_attrib_net](qai_hub_models/models/face_attrib_net/README.md) |
 | [HRNetFace](https://aihub.qualcomm.com/models/hrnet_face) | [qai_hub_models.models.hrnet_face](qai_hub_models/models/hrnet_face/README.md) |
 | [Lightweight-Face-Detection](https://aihub.qualcomm.com/models/face_det_lite) | [qai_hub_models.models.face_det_lite](qai_hub_models/models/face_det_lite/README.md) |
 | [MediaPipe-Face-Detection](https://aihub.qualcomm.com/models/mediapipe_face) | [qai_hub_models.models.mediapipe_face](qai_hub_models/models/mediapipe_face/README.md) |
 | [MediaPipe-Hand-Detection](https://aihub.qualcomm.com/models/mediapipe_hand) | [qai_hub_models.models.mediapipe_hand](qai_hub_models/models/mediapipe_hand/README.md) |
-| [MediaPipe-Hand-Gesture-Recognition](qai_hub_models/models/mediapipe_hand_gesture/README.md) | [qai_hub_models.models.mediapipe_hand_gesture](qai_hub_models/models/mediapipe_hand_gesture/README.md) |
+| [MediaPipe-Hand-Gesture-Recognition](https://aihub.qualcomm.com/models/mediapipe_hand_gesture) | [qai_hub_models.models.mediapipe_hand_gesture](qai_hub_models/models/mediapipe_hand_gesture/README.md) |
 | [PPE-Detection](https://aihub.qualcomm.com/models/gear_guard_net) | [qai_hub_models.models.gear_guard_net](qai_hub_models/models/gear_guard_net/README.md) |
 | [Person-Foot-Detection](https://aihub.qualcomm.com/models/foot_track_net) | [qai_hub_models.models.foot_track_net](qai_hub_models/models/foot_track_net/README.md) |
 | [RF-DETR](https://aihub.qualcomm.com/models/rf_detr) | [qai_hub_models.models.rf_detr](qai_hub_models/models/rf_detr/README.md) |

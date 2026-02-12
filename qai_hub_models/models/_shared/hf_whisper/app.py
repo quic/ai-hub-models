@@ -83,7 +83,7 @@ class HfWhisperApp:
 
         Returns
         -------
-        transcribed_text
+        transcribed_text : str
             Transcribed text from the audio.
         """
         tokens = self.transcribe_tokens(audio, audio_sample_rate)
@@ -102,7 +102,7 @@ class HfWhisperApp:
 
         Returns
         -------
-        token_ids
+        token_ids : list[int]
             List of token ids
         """
         # feature
@@ -302,7 +302,7 @@ class HfWhisperApp:
 
         Returns
         -------
-        transcribed_tokens
+        transcribed_tokens : list[int]
             Transcribed tokens
         """
         if isinstance(audio, str):
@@ -350,7 +350,7 @@ def chunk_and_resample_audio(
 
     Returns
     -------
-    audio_chunks
+    audio_chunks : list[np.ndarray]
         List of audio arrays, chunked into N arrays of model_chunk_seconds seconds.
     """
     if audio_sample_rate != model_sample_rate:

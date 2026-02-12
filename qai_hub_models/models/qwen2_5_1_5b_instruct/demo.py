@@ -32,7 +32,7 @@ def qwen2_5_1_5b_chat_demo(
     hf_repo_url: str = HF_REPO_URL,
     default_prompt: str | None = None,
     test_checkpoint: CheckpointSpec | None = None,
-):
+) -> None:
     llm_chat_demo(
         model_cls=model_cls,
         fp_model_cls=fp_model_cls,

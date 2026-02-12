@@ -58,7 +58,7 @@ class SuperResolutionApp:
 
         Returns
         -------
-        upscaled_images
+        upscaled_images : list[Image]
             A list of upscaled images (one for each input image).
         """
         _, NCHW_fp32_torch_frames = app_to_net_image_inputs(pixel_values_or_image)

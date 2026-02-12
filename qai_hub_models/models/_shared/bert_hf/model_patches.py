@@ -30,7 +30,7 @@ def patch_get_extended_attention_mask(
 
     Returns
     -------
-    extended_attention_mask
+    extended_attention_mask : torch.Tensor
         Extended attention mask with shape [batch_size, 1, 1, seq_len]
         where 0.0 = attend and -10.0 = mask.
     """

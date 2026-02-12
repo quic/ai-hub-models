@@ -75,13 +75,14 @@ class SegmentationApp:
 
         Returns
         -------
-        If raw_output is False, returns:
-        segmented_images
-            Images with segmentation map overlaid with an alpha of 0.5.
+        output : list[Image.Image] | np.ndarray
+            If raw_output is False, returns:
+                segmented_images : list[Image.Image]
+                    Images with segmentation map overlaid with an alpha of 0.5.
 
-        If raw_output is True, returns:
-        masks
-            A list of predicted masks.
+            If raw_output is True, returns:
+                masks : np.ndarray
+                    A list of predicted masks.
         """
         NHWC_int_numpy_frames, NCHW_fp32_torch_frames = app_to_net_image_inputs(
             pixel_values_or_image

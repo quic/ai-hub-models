@@ -88,7 +88,7 @@ class OpusMTApp:
 
         Returns
         -------
-        str or List[str]
+        translated : str | list[str]
             Translated text(s)
         """
         if isinstance(text, str):
@@ -292,7 +292,7 @@ class OpusMTApp:
 
         Returns
         -------
-        List[str]
+        translated_texts : list[str]
             List of translated texts
         """
         results = []
@@ -344,7 +344,7 @@ class OpusMTApp:
 
         Returns
         -------
-        dict
+        model_info : dict[str, Any]
             Model information including tokenizer details
         """
         return {

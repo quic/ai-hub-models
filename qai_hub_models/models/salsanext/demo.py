@@ -13,7 +13,7 @@ def SalsaNext_demo(
     model_type: type[SalsaNext],
     deafault_input: str,
     is_test: bool = False,
-):
+) -> None:
     # Demo parameters
     parser = get_model_cli_parser(model_type)
     parser = get_on_device_demo_parser(parser, add_output_dir=True)

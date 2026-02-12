@@ -8,9 +8,11 @@ from __future__ import annotations
 from typing import cast
 
 import torch
+from typing_extensions import Self
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.wholebody_pose_evaluator import WholeBodyPoseEvaluator
+from qai_hub_models.extern.mmengine import patch_mmengine_pkgresources
 from qai_hub_models.extern.mmpose import patch_mmpose_no_build_deps
 from qai_hub_models.models._shared.mmpose.silence import (
     set_mmpose_inferencer_show_progress,
@@ -20,7 +22,7 @@ from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_numpy
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec
 
-with patch_mmpose_no_build_deps():
+with patch_mmpose_no_build_deps(), patch_mmengine_pkgresources():
     from mmpose.apis import MMPoseInferencer
     from mmpose.apis.inferencers.pose2d_inferencer import Pose2DInferencer
     from mmpose.models.data_preprocessors.data_preprocessor import PoseDataPreprocessor
@@ -55,7 +57,7 @@ class RTMPosebody2d(BaseModel):
         self.inferencer = inferencer
 
     @classmethod
-    def from_pretrained(cls) -> RTMPosebody2d:
+    def from_pretrained(cls) -> Self:
         """RTMPose comes from the MMPose library, so we load using an internal config
         rather than a public weights file
         """
@@ -77,10 +79,10 @@ class RTMPosebody2d(BaseModel):
 
         Returns
         -------
-        simcc_x
+        simcc_x : torch.Tensor
             SimCC x-axis predictions with shape (N, 17, 384), where N = batch size,
             17 = number of keypoints, and 384 = SimCC X-axis resolution.
-        simcc_y
+        simcc_y : torch.Tensor
             SimCC Y-axis predictions with shape (N, 17, 512), where N = batch size,
             17 = number of keypoints, and 512 = SimCC Y-axis resolution.
         """

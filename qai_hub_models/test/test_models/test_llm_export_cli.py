@@ -75,7 +75,7 @@ class DummyMockModel(LLM_AIMETOnnx):
 
         Returns
         -------
-        model
+        model : mock.Mock
             A mocked instance of the LLM_AIMETOnnx class.
         """
         model = mock.Mock(DummyMockModel)

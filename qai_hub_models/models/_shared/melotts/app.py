@@ -2,16 +2,15 @@
 # Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-import os
 from typing import TYPE_CHECKING, Any
 
 import soundfile as sf
 import torch
-import unidic
 from torch import Tensor
 from torch.nn import functional as F
 
 from qai_hub_models.models._shared.melotts.model import Decoder, Encoder, Flow
+from qai_hub_models.models._shared.melotts.utils import download_unidic
 
 if TYPE_CHECKING:
     from melo.api import TTS
@@ -39,7 +38,7 @@ def generate_path(duration: Tensor, mask: Tensor) -> Tensor:
 
     Returns
     -------
-    attention
+    attention : Tensor
         the generated self attention
     """
     b, _, t_y, t_x = mask.shape
@@ -61,8 +60,7 @@ def generate_path(duration: Tensor, mask: Tensor) -> Tensor:
 def get_text_for_tts_infer(
     *args: Any, **kwargs: Any
 ) -> tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
-    if not os.path.exists(unidic.DICDIR):
-        os.system("python -m unidic download")
+    download_unidic()
     from melo.utils import get_text_for_tts_infer
 
     return get_text_for_tts_infer(*args, **kwargs)
@@ -92,7 +90,7 @@ class MeloTTSApp:
 
         Returns
         -------
-        output_path
+        output_path : str
             Synthesized audio path.
         """
         output_path = f"synthesized-audio_{self.language}.wav"
@@ -116,17 +114,17 @@ class MeloTTSApp:
 
         Returns
         -------
-        phones
+        phones : Tensor
             the phones of input text, shape of (1, MAX_SEQ_LEN)
-        tones
+        tones : Tensor
             the tone of input text, shape of (1, MAX_SEQ_LEN)
-        lang_ids
+        lang_ids : Tensor
             shape of (1, MAX_SEQ_LEN)
-        bert
+        bert : Tensor
             shape of (1, BERT_FEATURE_DIM, MAX_SEQ_LEN)
-        ja_bert
+        ja_bert : Tensor
             shape of (1, JA_BERT_FEATURE_DIM, MAX_SEQ_LEN)
-        phone_len
+        phone_len : int
             the actual length of phones
         """
         bert, ja_bert, phones, tones, lang_ids = get_text_for_tts_infer(

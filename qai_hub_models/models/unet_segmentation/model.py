@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import torch
+from typing_extensions import Self
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.segmentation_evaluator import SegmentationOutputEvaluator
@@ -32,7 +33,7 @@ IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 
 class UNet(BaseModel):
     @classmethod
-    def from_pretrained(cls, weights: str | None = DEFAULT_WEIGHTS):
+    def from_pretrained(cls, weights: str | None = DEFAULT_WEIGHTS) -> Self:
         net = torch.hub.load(
             MODEL_REPO, MODEL_TYPE, pretrained=False, scale=1.0, trust_repo=True
         )
@@ -44,7 +45,7 @@ class UNet(BaseModel):
             net.load_state_dict(state_dict)
         return cls(net)
 
-    def forward(self, image: torch.Tensor):
+    def forward(self, image: torch.Tensor) -> torch.Tensor:
         """
         Run UNet on `image`, and produce a segmentation mask over the image.
 
@@ -58,7 +59,7 @@ class UNet(BaseModel):
 
         Returns
         -------
-        mask
+        mask : torch.Tensor
             Segmentation mask of shape [1, n_classes, H, W] where H, W are the same as the input image.
             n_classes is 2 for the default model.
             Each channel represents the raw logit predictions for a given class.

@@ -32,7 +32,7 @@ def face_attrib_net_demo(
     model_type: type[FaceAttribNet],
     model_id: str,
     is_test: bool = False,
-):
+) -> None:
     """
     Runs a demo using the FaceAttribNet model and application class.
 
@@ -83,7 +83,7 @@ def face_attrib_net_demo(
         print(f"Model outputs are saved at: {output_path}")
 
 
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     """
     Parameters
     ----------

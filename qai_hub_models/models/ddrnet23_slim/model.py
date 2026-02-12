@@ -8,6 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import torch
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.cityscapes_segmentation.model import (
     CityscapesSegmentor,
@@ -38,7 +39,7 @@ class DDRNet(CityscapesSegmentor):
     """Exportable DDRNet image segmenter, end-to-end."""
 
     @classmethod
-    def from_pretrained(cls, checkpoint_path: str | None = None):
+    def from_pretrained(cls, checkpoint_path: str | None = None) -> Self:
         """Load DDRNetSlim from a weightfile created by the source DDRNetSlim repository."""
         with SourceAsRoot(
             DDRNET_SOURCE_REPOSITORY,

@@ -12,6 +12,7 @@ from collections.abc import Callable
 import numpy as np
 import torch
 from torch import nn
+from typing_extensions import Self
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.centernet_detection_evaluator import (
@@ -67,7 +68,7 @@ class CenterNet2D(CenterNet):
         self.decode = ctdet_decode
 
     @classmethod
-    def from_pretrained(cls, ckpt_path: str = "default") -> CenterNet2D:
+    def from_pretrained(cls, ckpt_path: str = "default") -> Self:
         heads = {"hm": 80, "wh": 2, "reg": 2}
         if ckpt_path == "default":
             ckpt_path = str(DEFAULT_WEIGHTS.fetch())
@@ -96,11 +97,11 @@ class CenterNet2D(CenterNet):
 
         Returns
         -------
-        hm
+        hm : torch.Tensor
             Heatmap with the shape of [B, num_classes, H//4, W//4] where num_classes = 80.
-        wh
+        wh : torch.Tensor
             Width/Height value with the shape of [B, 2, H//4, W//4].
-        reg
+        reg : torch.Tensor
             2D regression value with the shape of [B, 2, H//4, W//4].
         """
         image = image[:, [2, 1, 0]]

@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import cv2
 import numpy as np
@@ -37,10 +37,10 @@ class FaceMap_3DMMApp:
         * Display the output lanrmarks on the image
     """
 
-    def __init__(self, model: Callable[[torch.Tensor], torch.Tensor]):
+    def __init__(self, model: Callable[[torch.Tensor], torch.Tensor]) -> None:
         self.model = model
 
-    def predict(self, *args, **kwargs):
+    def predict(self, *args: Any, **kwargs: Any) -> tuple[torch.Tensor, np.ndarray]:
         return self.landmark_prediction(*args, **kwargs)
 
     def landmark_prediction(
@@ -50,7 +50,7 @@ class FaceMap_3DMMApp:
         x1: np.int32,
         y0: np.int32,
         y1: np.int32,
-    ) -> tuple:
+    ) -> tuple[torch.Tensor, np.ndarray]:
         """
         Return the input image with the predicted lmk overlayed on it.
 
@@ -73,10 +73,9 @@ class FaceMap_3DMMApp:
 
         Returns
         -------
-        predicted_landmarks
-            Predicted landmarks.
-        annotated_image
-            Images with predicted landmarks displayed.
+        result : tuple[torch.Tensor, np.ndarray]
+            predicted_landmarks: Predicted landmarks.
+            annotated_image: Images with predicted landmarks displayed.
         """
         [image], _ = app_to_net_image_inputs(pixel_values_or_image)
 

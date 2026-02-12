@@ -74,10 +74,10 @@ class COFWDataset(BaseDataset):
 
         Returns
         -------
-        image
+        image : torch.Tensor
             Input image resized for the network. RGB, floating point range [0-1].
 
-        ground_truth
+        ground_truth : tuple[NDArray[np.float32], NDArray[np.float32], NDArray[np.float32]]
             center
                 Bounding box center (x, y).
             scale

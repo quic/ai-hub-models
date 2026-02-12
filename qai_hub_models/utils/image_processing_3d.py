@@ -23,7 +23,7 @@ def project_to_image(pts_3d: np.ndarray, P: np.ndarray) -> np.ndarray:
 
     Returns
     -------
-    projected_points
+    projected_points : np.ndarray
         A NumPy array of shape (N, 2) representing the projected
         2D points (u, v) on the image plane.
     """
@@ -65,9 +65,9 @@ def ddd2locrot(
 
     Returns
     -------
-    locations
+    locations : np.ndarray
         3D location (x, y, z) of the object's bottom-center. Shape (N, 3).
-    rotation_y
+    rotation_y : np.ndarray
         Rotation around the Y-axis in camera coordinates. Shape (N, 1).
     """
     locations = unproject_2d_to_3d(center, depth, calib)
@@ -95,7 +95,7 @@ def unproject_2d_to_3d(
 
     Returns
     -------
-    point_3d
+    point_3d : np.ndarray
         The 3D point (X, Y, Z) in camera coordinates. Shape (N, 3).
     """
     z = depth[:, 0] - P[2, 3]
@@ -124,7 +124,7 @@ def alpha2rot_y(alpha: np.ndarray, x: np.ndarray, cx: float, fx: float) -> np.nd
 
     Returns
     -------
-    rotation_y
+    rotation_y : np.ndarray
         Rotation `rotation_y` around the Y-axis in camera coordinates,
         ranging [-pi,pi]. Shape (N, 1).
     """

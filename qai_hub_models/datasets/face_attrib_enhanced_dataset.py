@@ -61,14 +61,14 @@ class FaceAttribEnhancedDataset(FaceAttribDataset):
 
         Returns
         -------
-        image_tensor
+        image_tensor : torch.Tensor
             A face image with shape (C, H, W), where:
                 - C: Number of channels (3 for RGB)
                 - H: Height (128 pixels)
                 - W: Width (128 pixels)
             The image is scaled and center-padded to match the model's expected input dimensions.
             Pixel values should be in the range [0, 1].
-        label
+        label : tuple[int, int]
             Label data with the following entries:
                 person_id
                     The ID of the individual.
@@ -87,7 +87,7 @@ class FaceAttribEnhancedDataset(FaceAttribDataset):
 
         Returns
         -------
-        is_valid
+        is_valid : bool
             True: data is valid and loaded successfully
             False: otherwise
         """
@@ -146,9 +146,9 @@ class FaceAttribEnhancedDataset(FaceAttribDataset):
 
         Returns
         -------
-        images
+        images : torch.Tensor
             A batch of image tensors stacked along dimension 0.
-        gt
+        gt : tuple[list[str], torch.Tensor]
             Tuples of containing person_name in list[str] and image_id in torch.Tensor.
         """
         image_list = [item[0] for item in batch]
@@ -168,7 +168,7 @@ class FaceAttribEnhancedDataset(FaceAttribDataset):
 
         Returns
         -------
-        samples_per_job
+        samples_per_job : int
             samples to run in each inference job.
         """
         return 100

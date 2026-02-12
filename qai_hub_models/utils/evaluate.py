@@ -149,7 +149,7 @@ def get_deterministic_sample(
 
     Returns
     -------
-    dataloader
+    dataloader : DataLoader
         Dataloader with sampled data.
     """
     samples_per_job = samples_per_job or num_samples
@@ -182,7 +182,7 @@ def get_torch_val_dataloader(
 
     Returns
     -------
-    dataloader
+    dataloader : DataLoader
         Dataloader with validation data.
     """
     torch_val_dataset = get_dataset_from_name(
@@ -205,7 +205,7 @@ def get_qdq_onnx(model: hub.Model) -> hub.Model | None:
 
     Returns
     -------
-    qdq_model
+    qdq_model : hub.Model | None
         QDQ model, or None if not from a quantize job.
     """
     if isinstance(model.producer, hub.QuantizeJob):
@@ -234,7 +234,7 @@ def _load_quant_cpu_onnx(model: hub.Model) -> OnnxModelTorchWrapper:
 
     Returns
     -------
-    wrapper
+    wrapper : OnnxModelTorchWrapper
         ONNX model wrapper for CPU inference.
     """
     qdq_model = get_qdq_onnx(model)
@@ -406,7 +406,7 @@ def sample_dataset(dataset: Dataset, num_samples: int, seed: int = 42) -> Datase
 
     Returns
     -------
-    sampled_dataset
+    sampled_dataset : Dataset
         Sampled dataset.
     """
     assert isinstance(dataset, Sized), "Dataset must implement __len__."
@@ -543,7 +543,7 @@ class HubDataset(Dataset):
 
         Returns
         -------
-        dataset
+        dataset : DatasetFromIOTuples
             Dataset containing the input batch and ground truth batch for this index.
         """
         h5_idx = math.floor(sample_index / self.samples_per_hub_dataset)
@@ -631,7 +631,7 @@ def evaluate(
 
     Returns
     -------
-    evaluators
+    evaluators : dict[str, BaseEvaluator]
         Evaluator results, keyed by model identifier.
     """
     ai_hub_inference_models = {
@@ -816,7 +816,7 @@ def evaluate_on_dataset(
 
     Returns
     -------
-    result
+    result : EvaluateResult
         Contains torch accuracy, quant cpu accuracy, and on device accuracy.
         Quant cpu accuracy is the accuracy from running the quantized ONNX on the CPU.
         If any accuracy was not computed, its value will be None.
@@ -985,9 +985,9 @@ def evaluate_session_on_dataset(
 
     Returns
     -------
-    accuracy
+    accuracy : float
         Accuracy score as a float.
-    formatted_accuracy
+    formatted_accuracy : str
         Formatted accuracy as a string.
     """
     assert isinstance(torch_model, BaseModel), (

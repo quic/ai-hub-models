@@ -3,9 +3,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-import argparse
-import os
-from pathlib import Path
 
 import cv2
 import numpy as np
@@ -22,41 +19,16 @@ from qai_hub_models.models.track_anything.app import TrackAnythingApp
 from qai_hub_models.models.track_anything.model import (
     MODEL_ASSET_VERSION,
     MODEL_ID,
+    TrackAnything,
     TrackAnythingWrapper,
 )
+from qai_hub_models.utils.args import get_model_cli_parser, get_on_device_demo_parser
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
+from qai_hub_models.utils.display import generate_video_from_frames
 
 VIDEO_ADDRESS = CachedWebModelAsset.from_asset_store(
     MODEL_ID, MODEL_ASSET_VERSION, "demo.mp4"
 )
-
-
-def generate_video_from_frames(
-    frames: list[np.ndarray], output_path: str, fps: int = 30
-) -> None:
-    """
-    Generates a video from a list of frames.
-
-    Parameters
-    ----------
-    frames
-        The frames to include in the video.
-    output_path
-        The path to save the generated video.
-    fps
-        The frame rate of the output video. Defaults to 30.
-    """
-    height, width, _layers = frames[0].shape
-    fourcc = 0x39307076  # hex code for "vp09" format
-    output_path = os.path.join(Path.cwd(), "build", output_path)
-    print("Saving image to ", output_path)
-    video = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
-
-    for frame in frames:
-        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-        video.write(frame)
-
-    video.release()
 
 
 def generate_frames_from_video(video_path: str) -> list[np.ndarray]:
@@ -90,9 +62,11 @@ def generate_frames_from_video(video_path: str) -> list[np.ndarray]:
     return frames
 
 
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     # Demo parameters
-    parser = argparse.ArgumentParser()
+    parser = get_model_cli_parser(TrackAnything)
+    parser = get_on_device_demo_parser(parser, add_output_dir=True)
+
     parser.add_argument(
         "--video",
         type=str,
@@ -178,7 +152,10 @@ def main(is_test: bool = False):
 
     if not is_test:
         generate_video_from_frames(
-            painted_images, output_path="out_painted_image.mp4", fps=30
+            painted_images,
+            output_dir=args.output_dir,
+            output_filename="out_painted_image.mp4",
+            fps=30,
         )
 
 

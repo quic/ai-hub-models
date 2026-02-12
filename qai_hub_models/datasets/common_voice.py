@@ -53,9 +53,9 @@ class CommonVoiceDataset(BaseDataset):
 
         Returns
         -------
-        wav_file:
+        wav_file: str
             the path of a single wav file
-        ground_truth:
+        ground_truth: list[None]
             Empty list, no ground truth data.
         """
         return self.wav_list[index], []

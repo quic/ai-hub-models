@@ -7,7 +7,7 @@ from qai_hub_models.models._shared.hf_whisper.demo import hf_whisper_demo
 from qai_hub_models.models.whisper_small.model import WhisperSmall
 
 
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     hf_whisper_demo(WhisperSmall, is_test)
 
 

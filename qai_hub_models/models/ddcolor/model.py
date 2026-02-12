@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import torch
+from typing_extensions import Self
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.colorization_evaluator import ColorizationEvaluator
@@ -23,7 +24,7 @@ DEFAULT_WEIGHT = "piddnad/ddcolor_paper_tiny"
 
 class DDColor(BaseModel):
     @classmethod
-    def from_pretrained(cls, weights: str = DEFAULT_WEIGHT) -> DDColor:
+    def from_pretrained(cls, weights: str = DEFAULT_WEIGHT) -> Self:
         with SourceAsRoot(
             DDCOLOR_SOURCE_REPOSITORY,
             DDCOLOR_SOURCE_REPO_COMMIT,
@@ -110,7 +111,7 @@ class DDColor(BaseModel):
         return "imagenette_colorization"
 
     @staticmethod
-    def get_hub_litemp_percentage(_) -> float:
+    def get_hub_litemp_percentage(_: Precision) -> float:
         """
         Returns the Lite-MP percentage value for the specified mixed precision quantization.
 
@@ -118,3 +119,7 @@ class DDColor(BaseModel):
 
         """
         return 10
+
+    @classmethod
+    def get_labels_file_name(cls) -> str | None:
+        return "imagenet_labels.txt"

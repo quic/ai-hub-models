@@ -197,10 +197,11 @@ class HfWhisperDecoder(BaseModel):
 
         Returns
         -------
-        logits
-            Output logits of shape [1, 51865, 1, 1].
-        kv_cache_self_new
-            Updated key value cache for self attention.
+        output : tuple[torch.Tensor, ...]
+            logits
+                Output logits of shape [1, 51865, 1, 1].
+            kv_cache_self_new
+                Updated key value cache for self attention.
         """
         assert self.decoder is not None, "model is None"
         input_ids = args[0]

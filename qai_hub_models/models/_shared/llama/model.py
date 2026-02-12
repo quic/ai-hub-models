@@ -279,9 +279,9 @@ class RopeEmbedding:
 
         Returns
         -------
-        cos
+        cos : torch.Tensor
             Cosine embeddings of shape [batch_size, 1, sequence_length, head_dim//2].
-        sin
+        sin : torch.Tensor
             Sine embeddings of shape [batch_size, 1, sequence_length, head_dim//2].
         """
         cos = self.cos[0, 0, :, :]  # [seq_len, dim]
@@ -333,9 +333,7 @@ class LlamaMixin(AimetEncodingLoaderMixin, BaseModel):
             device,
             context_graph_name or self.get_qnn_graph_name(),
         )
-        compile_options += (
-            " --quantize_full_type w8a16 --qnn_bin_conversion_via_model_library"
-        )
+        compile_options += " --quantize_full_type w8a16"
         return compile_options
 
     def get_hub_profile_options(

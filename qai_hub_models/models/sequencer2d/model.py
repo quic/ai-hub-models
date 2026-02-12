@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from timm.models import create_model
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.imagenet_classifier.model import ImagenetClassifier
 
@@ -16,7 +17,7 @@ MODEL_ASSET_VERSION = 1
 
 class Sequencer2D(ImagenetClassifier):
     @classmethod
-    def from_pretrained(cls):
+    def from_pretrained(cls) -> Self:
         model = create_model(
             "sequencer2d_s",
             pretrained=True,

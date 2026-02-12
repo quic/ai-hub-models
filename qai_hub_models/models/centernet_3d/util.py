@@ -42,7 +42,7 @@ def ddd_post_process(
 
     Returns
     -------
-    detections
+    detections : list[np.ndarray]
         A list (batch_size) of NumPy array. Each NumPy has the shape (max_dets, 14)
         in the format: (alpha, bbox_x1, bbox_y1, bbox_x2, bbox_y2,
         dim_x, dim_y, dim_z, loc_x, loc_y, loc_z, rotation_y, score, label).
@@ -110,7 +110,7 @@ def get_alpha(rot: np.ndarray) -> np.ndarray:
 
     Returns
     -------
-    alpha
+    alpha : np.ndarray
         The decoded observation angle `alpha` for each detection. Shape: (N, 1).
     """
     # Calculate alpha for bin 1 and bin 2 separately

@@ -35,7 +35,7 @@ INTERIMAGE_SOURCE_PATCHES = [
 class InternImageClassifier(ImagenetClassifier):
     """Exportable InternImage classifier."""
 
-    def __init__(self, model: torch.nn.Module):
+    def __init__(self, model: torch.nn.Module) -> None:
         super().__init__(net=model, transform_input=False, normalize_input=True)
 
     @classmethod
@@ -55,7 +55,7 @@ class InternImageClassifier(ImagenetClassifier):
 
         Returns
         -------
-        InternImageClassifier
+        model : Self
             An instance of the classifier with the model loaded and ready for inference.
         """
         with SourceAsRoot(

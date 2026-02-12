@@ -188,6 +188,7 @@ class MODEL_TAG(Enum):
     BU_IOT = "bu-iot"
     BU_AUTO = "bu-auto"
     BU_COMPUTE = "bu-compute"
+    MOE = "moe"
 
 
 @unique
@@ -214,6 +215,7 @@ class MODEL_USE_CASE(Enum):
     OBJECT_DETECTION = "Object Detection"
     POSE_ESTIMATION = "Pose Estimation"
     DRIVER_ASSISTANCE = "Driver Assistance"
+    ROBOTICS = "Robotics"
 
     # Audio: 200 - 299
     SPEECH_RECOGNITION = "Speech Recognition"

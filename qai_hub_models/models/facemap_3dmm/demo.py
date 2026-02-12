@@ -42,7 +42,7 @@ def facemap_3dmm_demo(
     model_cls: type[FaceMap_3DMM] = FaceMap_3DMM,
     model_id: str = MODEL_ID,
     is_test: bool = False,
-):
+) -> None:
     # Demo parameters
     parser = get_model_cli_parser(model_cls)
     parser = get_on_device_demo_parser(parser, add_output_dir=True)

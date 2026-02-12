@@ -98,8 +98,9 @@ def prepare_compile_zoo_model_to_hub(
 
     Returns
     -------
-    Path to source model that can be used directly with hub.upload_model or
-    hub.submit_compile_job.
+    model_path : str | None
+        Path to source model that can be used directly with hub.upload_model or
+        hub.submit_compile_job.
     """
     model_name = model.__class__.__name__
 
@@ -185,7 +186,8 @@ def compile_model_from_args(
 
     Returns
     -------
-    The compiled hub.Model object.
+    model : hub.Model
+        The compiled hub.Model object.
     """
     model_kwargs_dict = dict(model_kwargs)
     cli_str = ""
@@ -267,9 +269,9 @@ def dataset_entries_from_batch(
 
     Returns
     -------
-    input_entries
+    input_entries : DatasetEntries
         Dataset entries for inputs that can be uploaded to hub.
-    gt_entries
+    gt_entries : DatasetEntries
         Dataset entries for ground truth that can be uploaded to hub.
     """
     model_inputs: torch.Tensor | list[torch.Tensor] | tuple[torch.Tensor]

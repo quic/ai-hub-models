@@ -275,7 +275,7 @@ class QAIRTVersionEnvvar(QAIHMStringEnvvar):
 
         Returns
         -------
-        qairt_version
+        qairt_version : QAIRTVersion
             The QAIRT version object.
         """
         value = value or cls.get()

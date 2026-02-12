@@ -35,7 +35,7 @@ def hf_whisper_demo(
     print("Transcription:", transcription)
 
 
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     hf_whisper_demo(WhisperSmallQuantized, is_test)
 
 

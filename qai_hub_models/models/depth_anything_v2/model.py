@@ -7,10 +7,12 @@ from __future__ import annotations
 
 import torch
 from transformers import AutoModelForDepthEstimation
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.depth_estimation.model import DepthEstimationModel
 from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.image_processing import normalize_image_torchvision
+from qai_hub_models.utils.input_spec import InputSpec
 
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 1
@@ -21,12 +23,12 @@ class DepthAnythingV2(DepthEstimationModel):
     """Exportable DepthAnythingV2 Depth Estimation, end-to-end."""
 
     @classmethod
-    def from_pretrained(cls, ckpt: str = DEFAULT_WEIGHTS) -> DepthAnythingV2:
+    def from_pretrained(cls, ckpt: str = DEFAULT_WEIGHTS) -> Self:
         """Load DepthAnythingV2 from a weightfile from Huggingface/Transfomers."""
         net = AutoModelForDepthEstimation.from_pretrained(ckpt)
         return cls(net)
 
-    def forward(self, image: torch.Tensor):
+    def forward(self, image: torch.Tensor) -> torch.Tensor:
         """
         Run DepthAnythingV2 on `image`, and produce a predicted depth.
 
@@ -39,7 +41,7 @@ class DepthAnythingV2(DepthEstimationModel):
 
         Returns
         -------
-        depth_map
+        depth_map : torch.Tensor
             Depth map with shape [batch, 1, 518, 518].
         """
         image = normalize_image_torchvision(image)
@@ -51,7 +53,7 @@ class DepthAnythingV2(DepthEstimationModel):
         batch_size: int = 1,
         height: int = 518,
         width: int = 518,
-    ):
+    ) -> InputSpec:
         """
         Returns the input specification (name -> (shape, type). This can be
         used to submit profiling job on Qualcomm AI Hub Workbench.

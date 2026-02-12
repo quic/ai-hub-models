@@ -50,7 +50,7 @@ def bev_pool_v2(
 
     Returns
     -------
-    bev_feature
+    bev_feature : torch.Tensor
         BEV feature with shape of bev_feat_shape with shape (D, C, bev_H, bev_W)
     """
     _, H, W, c = feat.shape
@@ -183,7 +183,7 @@ class LSSViewTransformerOptimized(BaseModule):
 
         Returns
         -------
-        frustum
+        frustum : torch.Tensor
             Frustum template with shape (D, H, W, 3).
         """
         H_in, W_in = input_size
@@ -240,7 +240,7 @@ class LSSViewTransformerOptimized(BaseModule):
 
         Returns
         -------
-        point_coordinates
+        point_coordinates : list[torch.Tensor]
             List of Point coordinates in shape for N_cams (1, 3, D, H*W).
         """
         B, N, _, _ = sensor2keyegos.shape
@@ -288,13 +288,13 @@ class LSSViewTransformerOptimized(BaseModule):
 
         Returns
         -------
-        ranks_bev
+        ranks_bev : torch.Tensor
             Rank of the voxel that a point belongs to in shape (N_Points).
-        ranks_depth
+        ranks_depth : torch.Tensor
             Reserved index of points in the depth space in shape (N_Points).
-        ranks_feat
+        ranks_feat : torch.Tensor
             Reserved index of points in the feature space in shape (N_Points).
-        interval_starts
+        interval_starts : torch.Tensor
             Interval starts.
         """
         B, _, D, HW = coor[0].shape
@@ -411,7 +411,7 @@ class LSSViewTransformerOptimized(BaseModule):
 
         Returns
         -------
-        bev_feature
+        bev_feature : torch.Tensor
             Bird-eye-view feature in shape (B, C, H_BEV, W_BEV).
         """
         x = xlist[0]
@@ -549,7 +549,7 @@ class SeparateHead(BaseModule):
 
         Returns
         -------
-        output_dict
+        output_dict : dict[str, torch.Tensor]
             Contains the following keys:
 
             -reg: 2D regression value with the shape of [B, 2, H, W].
@@ -668,7 +668,7 @@ class CenterHead(BaseModule):
 
         Returns
         -------
-        task_outputs
+        task_outputs : list[dict[str, torch.Tensor]]
             Output results for tasks contains the following keys:
             -reg: 2D regression value with the shape of [B, 2, H, W].
             -height: Height value with the shape of [B, 1, H, W].

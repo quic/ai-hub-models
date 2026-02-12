@@ -24,8 +24,14 @@ class SegmentationOutputEvaluator(BaseEvaluator):
         output = output.cpu()
         if self.resize_to_gt:
             output = F.interpolate(output, gt.shape[-2:], mode="bilinear")
-            if len(output.shape) == 4:
+
+        if len(output.shape) == 4:
+            if output.shape[1] > 1:
                 output = output.argmax(1)
+            else:
+                # Binary mask from sigmoid
+                output = (output > 0.5).int().squeeze(1)
+
         assert gt.shape == output.shape
         self.confusion_matrix += self._generate_matrix(gt, output)
 

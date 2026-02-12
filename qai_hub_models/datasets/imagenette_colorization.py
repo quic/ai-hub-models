@@ -32,10 +32,10 @@ class ImagenetteColorizationDataset(ImagenetteDataset):
 
         Returns
         -------
-        tensor_gray_rgb
+        tensor_gray_rgb : torch.Tensor
             torch.tensor of shape (3, 256, 256)
             Grayscale image in RGB format
-        img_l
+        img_l : torch.Tensor
             np.ndarray of shape (1, 256, 256)
             lightness of the image
         """

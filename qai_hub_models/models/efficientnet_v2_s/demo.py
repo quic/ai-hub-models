@@ -7,7 +7,7 @@ from qai_hub_models.models._shared.imagenet_classifier.demo import imagenet_demo
 from qai_hub_models.models.efficientnet_v2_s.model import MODEL_ID, EfficientNetV2s
 
 
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     imagenet_demo(EfficientNetV2s, MODEL_ID, is_test)
 
 

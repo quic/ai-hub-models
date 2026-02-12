@@ -69,7 +69,7 @@ class BaseQAIHMConfig(BaseModel):
 
         Returns
         -------
-        written
+        written : bool
             True if the file was written, False if it was empty and not written/deleted.
 
         Notes

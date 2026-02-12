@@ -5,13 +5,14 @@
 
 from __future__ import annotations
 
-from typing import cast
+from typing import Any, cast
 
 import torch
 from typing_extensions import Self
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.litehrnet_evaluator import LiteHRNetPoseEvaluator
+from qai_hub_models.extern.mmengine import patch_mmengine_pkgresources
 from qai_hub_models.extern.mmpose import patch_mmpose_no_build_deps
 from qai_hub_models.models._shared.mmpose.silence import (
     set_mmpose_inferencer_show_progress,
@@ -21,7 +22,7 @@ from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_numpy
 from qai_hub_models.utils.base_model import BaseModel, Precision, TargetRuntime
 from qai_hub_models.utils.input_spec import InputSpec
 
-with patch_mmpose_no_build_deps():
+with patch_mmpose_no_build_deps(), patch_mmengine_pkgresources():
     from mmpose.apis import MMPoseInferencer
     from mmpose.codecs.msra_heatmap import MSRAHeatmap
     from mmpose.models.heads.heatmap_heads.heatmap_head import HeatmapHead
@@ -60,7 +61,7 @@ class LiteHRNet(BaseModel):
         self.B = 1
 
     @classmethod
-    def from_pretrained(cls, inferencer_arch=DEFAULT_INFERENCER_ARCH) -> Self:
+    def from_pretrained(cls, inferencer_arch: str = DEFAULT_INFERENCER_ARCH) -> Self:
         """LiteHRNet comes from the MMPose library, so we load using an internal config
         rather than a public weights file
         """
@@ -83,11 +84,11 @@ class LiteHRNet(BaseModel):
 
         Returns
         -------
-        keypoints
+        keypoints : torch.Tensor
             1x17x2 array of coordinate pairs (in x,y format) denoting joint keypoints in the original image.
-        scores
+        scores : torch.Tensor
             1x17 array of float[0,1] denoting the score of each corresponding keypoint.
-        heatmaps
+        heatmaps : torch.Tensor
             1x17 array of 64x48 heatmaps. These hold the raw confidence values of the locations
             of each joint in the image. The keypoints and scores are derived from this.
         """
@@ -138,7 +139,7 @@ class LiteHRNet(BaseModel):
         target_runtime: TargetRuntime,
         precision: Precision,
         other_compile_options: str = "",
-        device=None,
+        device: Any = None,
     ) -> str:
         compile_options = super().get_hub_compile_options(
             target_runtime, precision, other_compile_options, device

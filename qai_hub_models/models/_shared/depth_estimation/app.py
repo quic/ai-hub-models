@@ -64,7 +64,7 @@ class DepthEstimationApp:
 
         Returns
         -------
-        depth_output
+        depth_output : Image.Image | npt.NDArray[np.float32]
             A heatmap PIL Image or an np array of depth estimates.
             np array will be shape (h, w) where h, w are the dimensions of the input.
             np array will contain raw depth estimates, while PIL image will normalize

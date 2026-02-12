@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import torch
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.deeplab.model import NUM_CLASSES, DeepLabV3Model
 from qai_hub_models.utils.asset_loaders import (
@@ -28,7 +29,7 @@ class DeepLabV3PlusMobilenet(DeepLabV3Model):
     """Exportable DeepLabV3_Plus_MobileNet image segmentation applications, end-to-end."""
 
     @classmethod
-    def from_pretrained(cls, normalize_input: bool = True) -> DeepLabV3PlusMobilenet:
+    def from_pretrained(cls, normalize_input: bool = True) -> Self:
         model = _load_deeplabv3_source_model()
         dst = CachedWebModelAsset.from_asset_store(
             MODEL_ID, MODEL_ASSET_VERSION, DEEPLABV3_WEIGHTS

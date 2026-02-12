@@ -11,6 +11,7 @@ from typing import Any
 
 import torch
 import torch.nn.functional as F
+from typing_extensions import Self
 
 from qai_hub_models.models.statetransformer.model_patch import custom_one_hot
 
@@ -39,7 +40,7 @@ MODEL_PATH = CachedWebModelAsset.from_asset_store(
 )
 
 
-def fixup_repo(repo_path):
+def fixup_repo(repo_path: str) -> None:
     find_replace_in_repo(
         repo_path,
         "nuplan_simulation/str_trajectory_generator.py",
@@ -73,7 +74,7 @@ class StateTransformer(BaseModel):
     @classmethod
     def from_pretrained(
         cls, weights_path: str | CachedWebModelAsset | Path = MODEL_PATH
-    ) -> StateTransformer:
+    ) -> Self:
         """
         Load a pretrained StateTransformer model from the specified weights path.
 
@@ -84,7 +85,7 @@ class StateTransformer(BaseModel):
 
         Returns
         -------
-        StateTransformer
+        model : Self
             An instance of the StateTransformer class with the loaded model.
         """
         with SourceAsRoot(
@@ -147,13 +148,13 @@ class StateTransformer(BaseModel):
 
         Returns
         -------
-        traj_logits
+        traj_logits : torch.Tensor
             Predicted trajectory tensor representing the model's future motion plan.
             Shape: (batch_size, 80, 4)
             Dtype: float32
             Each sample corresponds to an 8-second predicted trajectory consisting of
             80 timesteps and 4 features per step (e.g., x, y, yaw, speed).
-        traj_scores
+        traj_scores : torch.Tensor
             Confidence scores for the predicted trajectories.
             Shape: (batch_size, 1)
             Dtype: float32
@@ -197,7 +198,7 @@ class StateTransformer(BaseModel):
 
         Returns
         -------
-        input_spec
+        input_spec : InputSpec
             A dictionary mapping input names to a tuple of (shape, dtype).
         """
         return {
@@ -217,7 +218,7 @@ class StateTransformer(BaseModel):
 
         Returns
         -------
-        list of str
+        output_names : list[str]
             A list containing the names of the outputs produced by the model.
         """
         return ["traj_logits", "traj_scores"]

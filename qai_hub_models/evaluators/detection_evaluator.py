@@ -104,15 +104,15 @@ class mAPEvaluator(BaseEvaluator):
 
         Returns
         -------
-        mAP
+        mAP : float
             mAP averaged over the given iOU range with the given increment.
-        mAP_by_iOU
+        mAP_by_iOU : list[tuple[float, float]]
             mAP calculated for each increment iOU in the range.
-        low_iOU
+        low_iOU : float
             Bottom of iOU range (inclusive).
-        high_iOU
+        high_iOU : float
             Top of iOU range (inclusive).
-        increment_iOU
+        increment_iOU : float
             iOU increments at which to calculate mAP.
         """
         low_iOU = low_iOU if low_iOU is not None else self.mAP_default_low_iOU
@@ -158,7 +158,7 @@ class mAPEvaluator(BaseEvaluator):
 
         Returns
         -------
-        mAP
+        mAP : float
             mAP averaged over the given iOU range.
         """
         return self.get_mAP(low_iOU, high_iOU, increment_iOU)[0]
@@ -183,7 +183,7 @@ class mAPEvaluator(BaseEvaluator):
 
         Returns
         -------
-        formatted_mAP
+        formatted_mAP : str
             Formatted mAP string.
         """
         mAP, _, low_iOU, high_iOU, increment_iOU = self.get_mAP(
@@ -282,8 +282,8 @@ class DetectionEvaluator(mAPEvaluator):
             ) = batched_nms(
                 self.nms_iou_threshold,
                 self.score_threshold,
-                pred_boxes,
-                pred_scores,
+                pred_boxes.float(),
+                pred_scores.float(),
                 pred_class_idx,
             )
         else:

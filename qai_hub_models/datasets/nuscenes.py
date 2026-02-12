@@ -18,7 +18,7 @@ from qai_hub_models.datasets.common import (
     DatasetSplit,
     UnfetchableDatasetError,
 )
-from qai_hub_models.utils.asset_loaders import ASSET_CONFIG
+from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, load_json
 from qai_hub_models.utils.image_processing import (
     app_to_net_image_inputs,
     get_post_rot_and_tran,
@@ -87,6 +87,12 @@ class NuscenesDataset(BaseDataset):
                 "nuscenes-devkit must be installed to create the nuscenes dataset."
             ) from e
 
+        sample_json_path = os.path.join(self.data_path, "v1.0-mini", "sample.json")
+        samples = load_json(sample_json_path)
+
+        self.token_to_id = {sample["token"]: idx for idx, sample in enumerate(samples)}
+        self.id_to_token = {idx: sample["token"] for idx, sample in enumerate(samples)}
+
         self.nusc = NuScenes(
             version="v1.0-mini", dataroot=self.data_path, verbose=False
         )
@@ -116,7 +122,7 @@ class NuscenesDataset(BaseDataset):
 
         Returns
         -------
-        input_data
+        input_data : tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
             S = number of cameras, C = 3, H = img height, W = img width
             imgs
                 torch.Tensor of shape [S*C, H, W] as float32
@@ -136,7 +142,7 @@ class NuscenesDataset(BaseDataset):
                 torch.tensor with shape [N, 1, 3] as float32
                 post translation tensor in camera coordinate system
 
-        gt_data
+        gt_data : tuple[int, torch.Tensor, torch.Tensor]
             samplet_token
                 Unique identifier for the sample.
             trans
@@ -242,7 +248,7 @@ class NuscenesDataset(BaseDataset):
         # used to project 2D image coordinates to 3D points
         inv_intrins = torch.inverse(torch.tensor(intrins))
         return (imgs, sensor2keyegos, inv_intrins, inv_post_rots, post_trans), (
-            index,
+            self.token_to_id[info.token],
             torch.tensor(info.cams["CAM_FRONT_LEFT"]["ego2global_translation"]),
             torch.tensor(info.cams["CAM_FRONT_LEFT"]["ego2global_rotation"]),
         )
@@ -258,7 +264,7 @@ class NuscenesDataset(BaseDataset):
 
         Returns
         -------
-        sample_infos
+        sample_infos : list[NuScenesSampleInfo]
             Information of training set or validation set
             that will be saved to the info file.
         """
@@ -348,7 +354,7 @@ class NuscenesDataset(BaseDataset):
 
         Returns
         -------
-        sweep_info
+        sweep_info : dict
             Transformed sweep information containing calibrated point data.
         """
         from pyquaternion import Quaternion

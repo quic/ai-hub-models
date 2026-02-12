@@ -64,7 +64,7 @@ class HuggingFaceWavLMBasePlus(BaseModel):
 
         Returns
         -------
-        logits
+        logits : torch.Tensor
             Logits tensor of shape (1, sequence_length, vocab_size).
             Where sequence_length = 499, vocab_size = 31, representing the predicted token probabilities.
         """
@@ -102,7 +102,7 @@ class HuggingFaceWavLMBasePlus(BaseModel):
 
 # Modules used to override Huggingface WavLM to be NPU friendly
 class SliceConv1d(torch.nn.Module):
-    def __init__(self, orig_module: torch.nn.Conv1d, slice_size: int = 16000):
+    def __init__(self, orig_module: torch.nn.Conv1d, slice_size: int = 16000) -> None:
         """Slice inputs to conv1d to limit the input size to any conv"""
         super().__init__()
         assert isinstance(orig_module, torch.nn.Conv1d)
@@ -113,7 +113,7 @@ class SliceConv1d(torch.nn.Module):
         self.half_kernel_size = kernel_size_1d // 2
         self.stride = orig_module.stride[0]
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         num_slices = math.ceil(x.shape[-1] / self.slice_size)
 
         xs = []
@@ -128,7 +128,7 @@ class SliceConv1d(torch.nn.Module):
 
 
 class WavLMGroupNormConvLayerNPU(torch.nn.Module):
-    def __init__(self, orig_module: WavLMGroupNormConvLayer):
+    def __init__(self, orig_module: WavLMGroupNormConvLayer) -> None:
         """
         Apple NPU prefer spatial dim not much higher than 16000. We
         wrap WavLMGroupNormConvLayer to adhere to that as much as
@@ -158,7 +158,7 @@ class WavLMGroupNormConvLayerNPU(torch.nn.Module):
             self.conv2d.bias.data = conv1d.bias.data
         self.half_kernel_size = kernel_size_2d[1] // 2
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x: [1, 1, seq_len] (e.g. seq_len = 160000 for 10s audio)
         seq_len = x.shape[-1]
         assert seq_len % self.stride_1d == 0
@@ -193,7 +193,7 @@ class WavLMGroupNormConvLayerNPU(torch.nn.Module):
         return x[:, :, :-1]
 
 
-def convert_to_wavlm_npu(model: WavLMForCTC):
+def convert_to_wavlm_npu(model: WavLMForCTC) -> WavLMForCTC:
     """Apply changes to make model NPU friendly"""
     assert isinstance(model, WavLMForCTC)
     conv_layer = model.wavlm.feature_extractor.conv_layers[0]

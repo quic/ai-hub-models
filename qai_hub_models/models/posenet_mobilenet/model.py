@@ -7,15 +7,18 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Any
 
+import torch
 import torch.nn.functional as F
 from torch import nn
+from typing_extensions import Self
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.posenet_mobilenet_evaluator import (
     PosenetMobilenetEvaluator,
 )
-from qai_hub_models.models.common import SampleInputsType
+from qai_hub_models.models.common import Precision, SampleInputsType
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
     SourceAsRoot,
@@ -46,7 +49,7 @@ class PosenetMobilenet(BaseModel):
     def from_pretrained(
         cls,
         model_id: int = 101,
-    ) -> PosenetMobilenet:
+    ) -> Self:
         with SourceAsRoot(
             SOURCE_REPOSITORY,
             COMMIT_HASH,
@@ -70,7 +73,9 @@ class PosenetMobilenet(BaseModel):
     # Caution: adding typehints to this method's parameter or return will trigger a
     # bug in torch that leads to the following exception:
     # AttributeError: 'str' object has no attribute '__name__'. Did you mean: '__ne__'?
-    def forward(self, image):
+    def forward(
+        self, image: Any
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """Image inputs are expected to be in RGB format in the range [0, 1]."""
         raw_output = self.model(image * 2.0 - 1.0)
         max_vals = F.max_pool2d(raw_output[0], 3, stride=1, padding=1)
@@ -116,7 +121,7 @@ class PosenetMobilenet(BaseModel):
         return "cocobody"
 
     @staticmethod
-    def get_hub_litemp_percentage(_) -> float:
+    def get_hub_litemp_percentage(precision: Precision) -> float:
         """
         Returns the Lite-MP percentage value for the specified mixed precision quantization.
 

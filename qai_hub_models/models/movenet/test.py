@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
+from typing import cast
+
 import numpy as np
 
 from qai_hub_models.models.movenet.app import MovenetApp
@@ -22,17 +24,17 @@ KEYPOINT_SCORES_GT = CachedWebModelAsset.from_asset_store(
 
 
 @skip_clone_repo_check
-def test_task():
+def test_task() -> None:
     image = load_image(IMAGE_ADDRESS)
     model = Movenet.from_pretrained()
     h, w = Movenet.get_input_spec()["image"][0][2:4]
     app = MovenetApp(model, h, w)
-    kpt_with_conf = app.predict(image, raw_output=True)
+    kpt_with_conf = cast(np.ndarray, app.predict(image, raw_output=True))
     np.testing.assert_allclose(
         kpt_with_conf, load_numpy(KEYPOINT_SCORES_GT), rtol=0.3, atol=0.3
     )
 
 
 @skip_clone_repo_check
-def test_demo():
+def test_demo() -> None:
     demo_main(is_test=True)

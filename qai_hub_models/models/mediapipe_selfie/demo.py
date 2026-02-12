@@ -29,7 +29,7 @@ from qai_hub_models.utils.image_processing import pil_resize_pad, pil_undo_resiz
 # The demo will display the predicted mask in a window.
 def main(
     is_test: bool = False,
-):
+) -> None:
     # Demo parameters
     parser = get_model_cli_parser(SelfieSegmentation)
     parser = get_on_device_demo_parser(

@@ -19,7 +19,7 @@ IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 
 # Run Real-ESRGAN end-to-end on a sample image.
 # The demo will display a image with the predicted bounding boxes.
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     super_resolution_demo(
         model_cls=Real_ESRGAN_General_x4v3,
         model_id=MODEL_ID,

@@ -82,9 +82,11 @@ class CVTApp(CVT_GKTApp):
 
         Returns
         -------
-        result
-            If raw_output is False, list of PIL Images (RGB) with heatmap and ego polygon.
-            If raw_output is True, BEV heatmap tensor with shape [1, 1, 200, 200].
+        result : list[Image.Image] | torch.Tensor
+            If raw_output is False:
+                list of PIL Images (RGB) with heatmap and ego polygon.
+            If raw_output is True:
+                BEV heatmap tensor with shape [1, 1, 200, 200].
         """
         images_tensor, _, _, inv_intrinsics_tensor, inv_extrinsics_tensor = (
             self.preprocess_images(images, cam_metadata)

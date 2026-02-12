@@ -9,6 +9,7 @@ from typing import Any
 
 import torch
 from transformers import VideoMAEForVideoClassification
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.video_classifier.model import (
     INPUT_VIDEO_PATH,
@@ -32,12 +33,12 @@ class VideoMAE(KineticsClassifier):
     def from_pretrained(
         cls,
         weights: Any = DEFAULT_WEIGHTS,
-    ) -> VideoMAE:
+    ) -> Self:
         net = VideoMAEForVideoClassification.from_pretrained(weights)
         assert isinstance(net, torch.nn.Module)
         return cls(net)
 
-    def forward(self, video: torch.Tensor):
+    def forward(self, video: torch.Tensor) -> torch.Tensor:
         """
         Predict class probabilities for an input `video`.
 
@@ -50,7 +51,7 @@ class VideoMAE(KineticsClassifier):
 
         Returns
         -------
-        class_logits
+        class_logits : torch.Tensor
             A [1, 400] tensor where each value is the log-likelihood of
             the video belonging to the corresponding Kinetics class.
         """

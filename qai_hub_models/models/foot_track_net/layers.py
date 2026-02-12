@@ -16,7 +16,7 @@ from torch.nn import init
 class SeModule(nn.Module):
     """cutomized squeeze exitationm module"""
 
-    def __init__(self, in_size: int, reduction: int = 4):
+    def __init__(self, in_size: int, reduction: int = 4) -> None:
         super().__init__()
         self.pool = nn.AdaptiveAvgPool2d(1)
         self.se = nn.Sequential(
@@ -42,7 +42,7 @@ class SeModule(nn.Module):
             nn.Sigmoid(),
         )
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         x:   N,C,H,W  tensor
         return: N,C,H,W tensor
@@ -63,7 +63,7 @@ class Block3x3(nn.Module):
         nolinear: nn.Module,
         semodule: nn.Module | None,
         stride: int,
-    ):
+    ) -> None:
         super().__init__()
         self.kernel_size = kernel_size
         self.stride = stride
@@ -102,7 +102,7 @@ class Block3x3(nn.Module):
                 nn.BatchNorm2d(out_size),
             )
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         x: N,C,H,W input feature
         return: N,C,H,W torch.tensor
@@ -123,7 +123,7 @@ class Mbv3SmallFast(nn.Module):
     for details of each layer funcitonality please check:  https://arxiv.org/abs/1905.02244
     """
 
-    def __init__(self, act: str = "relu", RGB: bool = True):
+    def __init__(self, act: str = "relu", RGB: bool = True) -> None:
         super().__init__()
         self.keep = [2, 5, 12]
         self.uplayer_shape = [16, 32, 64]
@@ -164,7 +164,7 @@ class Mbv3SmallFast(nn.Module):
             Block3x3(5, 96, 480, 96, self.hs1, SeModule(96), 1),  # 14
         )
 
-    def initialize_weights(self):
+    def initialize_weights(self) -> None:
         print("random init...")
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -180,7 +180,7 @@ class Mbv3SmallFast(nn.Module):
                 m.weight.data.normal_(0, 0.01)
                 m.bias.data.zero_()
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor) -> list[torch.Tensor]:
         """
         x: N,C,480,640 image tensor
         return: List of tensors as N,C,H,W for each stage, for specific
@@ -212,7 +212,7 @@ class CBAModule(nn.Module):
         padding: int = 0,
         bias: bool = False,
         act: str = "relu",
-    ):
+    ) -> None:
         super().__init__()
         self.conv = nn.Conv2d(
             in_channels, out_channels, kernel_size, stride, padding=padding, bias=bias
@@ -230,7 +230,7 @@ class CBAModule(nn.Module):
         if self.conv.bias is not None:
             self.conv.bias.data.zero_()
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         x: N,C,H,W tensor
         return:  N,C,H,W tensor
@@ -252,7 +252,7 @@ class UpModule(nn.Module):
         bias: bool = False,
         mode: str = "UCBA",
         act: str = "relu",
-    ):
+    ) -> None:
         super().__init__()
         self.mode = mode
 
@@ -274,7 +274,7 @@ class UpModule(nn.Module):
         else:
             raise RuntimeError(f"Unsupport mode: {mode}")
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         x: N,C,H,W tensor
         return: N,C,H,W tesnor.
@@ -285,13 +285,13 @@ class UpModule(nn.Module):
             return F.relu(self.bn(self.dconv(x)))
         if self.mode == "DeCBA":
             return self.conv(self.dconv(x))
-        return None
+        raise NotImplementedError()
 
 
 class ContextModule(nn.Module):
     """single stage headless face detector context module"""
 
-    def __init__(self, in_channels: int, act: str = "relu"):
+    def __init__(self, in_channels: int, act: str = "relu") -> None:
         super().__init__()
 
         block_wide = in_channels // 4
@@ -300,7 +300,7 @@ class ContextModule(nn.Module):
         self.downconv = CBAModule(block_wide, block_wide, 3, 1, padding=1, act="relu")
         self.downconv2 = CBAModule(block_wide, block_wide, 3, 1, padding=1, act=act)
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         x: N,C,H,W tensor
         return:  N,C,H,W tensor
@@ -313,13 +313,13 @@ class ContextModule(nn.Module):
 
 
 class DetectModule(nn.Module):
-    def __init__(self, in_channels: int, act: str = "relu"):
+    def __init__(self, in_channels: int, act: str = "relu") -> None:
         super().__init__()
 
         self.upconv = CBAModule(in_channels, in_channels // 2, 3, 1, padding=1, act=act)
         self.context = ContextModule(in_channels, act=act)
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         x:  N,C,H,W tensor
         return:  N,C,H,W tensor
@@ -335,14 +335,14 @@ class CropLayer(nn.Module):
      E.g., (-1, 0) means this layer should crop the first and last rows of the feature map. And (0, -1) crops the first and last columns
     """
 
-    def __init__(self, crop_set: list):
+    def __init__(self, crop_set: list) -> None:
         super().__init__()
         self.rows_to_crop = -crop_set[0]
         self.cols_to_crop = -crop_set[1]
         assert self.rows_to_crop >= 0
         assert self.cols_to_crop >= 0
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         x: N,C,H,W tensor
         return: N,C,H,W tensor
@@ -370,7 +370,7 @@ class HeadModule(nn.Module):
         out_channels: int,
         has_ext: bool = False,
         act: str = "relu",
-    ):
+    ) -> None:
         super().__init__()
         self.head = nn.Conv2d(in_channels, out_channels, kernel_size=1)
         self.has_ext = has_ext
@@ -385,12 +385,12 @@ class HeadModule(nn.Module):
                 act=act,
             )
 
-    def init_normal(self, std: float, bias: float):
+    def init_normal(self, std: float, bias: float) -> None:
         nn.init.normal_(self.head.weight, std=std)
         assert self.head.bias is not None
         nn.init.constant_(self.head.bias, bias)
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         x: N,C,H,W tensor
         return: N,C,H,W tensor

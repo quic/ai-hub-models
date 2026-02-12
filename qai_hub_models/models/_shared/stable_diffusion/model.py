@@ -427,7 +427,7 @@ def make_scheduler(
 
     Returns
     -------
-    scheduler
+    scheduler : diffusers.SchedulerMixin
         A scheduler instance (subclass of SchedulerMixin).
     """
     if hf_repo_exists(str(checkpoint)):

@@ -31,7 +31,7 @@ def centerpoint_demo(
     model_id: str,
     default_input: str,
     is_test: bool = False,
-):
+) -> None:
     parser = get_model_cli_parser(model_type)
     parser = get_on_device_demo_parser(parser, add_output_dir=True)
     parser.add_argument(

@@ -6,8 +6,10 @@
 from __future__ import annotations
 
 import torch
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.imagenet_classifier.model import ImagenetClassifier
+from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, SourceAsRoot
 
 EFFICIENTVIT_SOURCE_REPOSITORY = "https://github.com/CVHub520/efficientvit"
@@ -22,7 +24,7 @@ class EfficientViT(ImagenetClassifier):
     """Exportable EfficientViT Image classifier, end-to-end."""
 
     @classmethod
-    def from_pretrained(cls, weights: str | None = None):
+    def from_pretrained(cls, weights: str | None = None) -> Self:
         """Load EfficientViT from a weightfile created by the source repository."""
         with SourceAsRoot(
             EFFICIENTVIT_SOURCE_REPOSITORY,
@@ -49,6 +51,6 @@ class EfficientViT(ImagenetClassifier):
             return cls(efficientvit_model)
 
     @staticmethod
-    def get_hub_litemp_percentage(_) -> float:
+    def get_hub_litemp_percentage(precision: Precision) -> float:
         """Returns the Lite-MP percentage value for the specified mixed precision quantization."""
         return 10

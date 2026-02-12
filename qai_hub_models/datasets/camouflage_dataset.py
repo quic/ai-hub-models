@@ -50,9 +50,9 @@ class CamouflageDataset(BaseDataset):
 
         Returns
         -------
-        image
+        image : torch.Tensor
             Input image of shape [3, height, width]. RGB, range [0-1]
-        gt
+        gt : torch.Tensor
             Ground truth masks with shape [1, height, width]. uint8, range [0, 255]
         """
         orig_image = Image.open(self.images[index]).convert("RGB")

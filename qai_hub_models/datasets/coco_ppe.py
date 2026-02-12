@@ -117,9 +117,9 @@ class CocoPPEDataset(BaseDataset):
 
         Returns
         -------
-        scaled_padded_torch_image
+        scaled_padded_torch_image : torch.Tensor
             Preprocessed image tensor of shape (C, H, W), range [0, 1].
-        metadata
+        metadata : tuple[str, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
             image_id
                 Image identifier.
             scale_factor
@@ -166,7 +166,7 @@ class CocoPPEDataset(BaseDataset):
 
         Returns
         -------
-        num_samples
+        num_samples : int
             Number of samples in the dataset.
         """
         return len(self.dataset)
@@ -177,7 +177,7 @@ class CocoPPEDataset(BaseDataset):
 
         Returns
         -------
-        is_valid
+        is_valid : bool
             True if the dataset attribute exists, False otherwise.
         """
         return hasattr(self, "dataset")
@@ -222,7 +222,7 @@ class CocoPPEDataset(BaseDataset):
 
         Returns
         -------
-        samples_per_job
+        samples_per_job : int
             Default number of samples per job (300).
         """
         return 300
@@ -277,7 +277,7 @@ class CocoPPEDataset(BaseDataset):
 
         Returns
         -------
-        allowed_image_ids
+        allowed_image_ids : set[str]
             Set of image IDs (basenames without leading zeros and .jpg extension)
             that belong to the requested split.
         """
@@ -325,7 +325,7 @@ class CocoPPEDataset(BaseDataset):
 
         Returns
         -------
-        image_id
+        image_id : str
             The image ID with .jpg extension and leading zeros removed.
             Returns the original filepath if it doesn't end with .jpg.
         """

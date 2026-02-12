@@ -9,14 +9,19 @@ from typing import cast
 
 import torch
 import torch.nn.functional as F
+from typing_extensions import Self
 
 from qai_hub_models.extern.mmdet import patch_mmdet_no_build_deps
+from qai_hub_models.models.common import Precision
 
 with patch_mmdet_no_build_deps():
     from mmdet.apis import init_detector
     from mmdet.models.detectors.rtmdet import RTMDet as mmdet_RTMDET
 
-from qai_hub_models.extern.mmengine import patch_mmengine_torch_load_no_weights_only
+from qai_hub_models.extern.mmengine import (
+    patch_mmengine_pkgresources,
+    patch_mmengine_torch_load_no_weights_only,
+)
 from qai_hub_models.models._shared.yolo.model import Yolo
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 
@@ -47,7 +52,7 @@ class RTMDet(Yolo):
         self.include_postprocessing = include_postprocessing
 
     @classmethod
-    def from_pretrained(cls, include_postprocessing: bool = True) -> RTMDet:
+    def from_pretrained(cls, include_postprocessing: bool = True) -> Self:
         """RTMDet comes from the MMDet library, so we load using an internal config
         rather than a public weights file
         """
@@ -56,7 +61,9 @@ class RTMDet(Yolo):
         )
         return cls(model, include_postprocessing)
 
-    def forward(self, image: torch.Tensor):
+    def forward(
+        self, image: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor] | torch.Tensor:
         """
         Run RTMDet on `image`, and produce a predicted set of bounding boxes and associated class probabilities.
         Forward pass for processing the inout image ad obtaining the model outputs.
@@ -70,17 +77,18 @@ class RTMDet(Yolo):
 
         Returns
         -------
-        If self.include_postprocessing is True, returns:
-        boxes
-            Bounding box locations. Shape [batch, num preds, 4] where 4 == (left_x, top_y, right_x, bottom_y).
-        scores
-            Class scores multiplied by confidence. Shape is [batch, num_preds].
-        class_idx
-            Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
+        tuple[torch.Tensor, torch.Tensor, torch.Tensor] | torch.Tensor
+            If self.include_postprocessing is True, returns:
+            boxes
+                Bounding box locations. Shape [batch, num preds, 4] where 4 == (left_x, top_y, right_x, bottom_y).
+            scores
+                Class scores multiplied by confidence. Shape is [batch, num_preds].
+            class_idx
+                Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
 
-        If self.include_postprocessing is False, returns:
-        result_box
-            Shape [batch, num_preds, 6] containing box coordinates, class predictions, and confidence scores.
+            If self.include_postprocessing is False, returns:
+            result_box
+                Shape [batch, num_preds, 6] containing box coordinates, class predictions, and confidence scores.
         """
         # Add a cast. model._forward is not typed correctly.
         output = cast(
@@ -135,11 +143,16 @@ class RTMDet(Yolo):
     def _get_output_names_for_instance(self) -> list[str]:
         return self.__class__.get_output_names(self.include_postprocessing)
 
+    @staticmethod
+    def get_hub_litemp_percentage(_: Precision) -> float:
+        """Returns the Lite-MP percentage value for the specified mixed precision quantization."""
+        return 8
+
 
 def _load_rtmdet_source_model_from_weights(
     model_config_path: str, model_weights_path: str
 ) -> mmdet_RTMDET:
-    with patch_mmengine_torch_load_no_weights_only():
+    with patch_mmengine_torch_load_no_weights_only(), patch_mmengine_pkgresources():
         model = init_detector(
             str(model_config_path), str(model_weights_path), device="cpu"
         )

@@ -48,7 +48,7 @@ def KernelAttention_forward(
 
     Returns
     -------
-    output
+    output : torch.Tensor
         Output tensor with shape (b, HW, d).
     """
     b, n, HW, d = q.shape
@@ -142,9 +142,9 @@ def bev2image_sampling(
 
     Returns
     -------
-    sample_points
+    sample_points : torch.Tensor
         Normalized 2D image coordinates with shape (b*n, k, 1, 2).
-    mask
+    mask : torch.Tensor
         Visibility mask with shape (b, n, k, 1) indicating which points
         are visible in each camera view.
     """
@@ -220,9 +220,9 @@ def IndexBEVProjector_forward(
 
     Returns
     -------
-    sample_feats
+    sample_feats : torch.Tensor
         Sampled features with shape (b*n, k, num_grid_points, c).
-    sample_mask
+    sample_mask : torch.Tensor
         Visibility mask with shape (b, n, k, 1).
     """
     b, n = I.shape[:2]
@@ -313,7 +313,7 @@ def GeometryKernelAttention_forward(
 
     Returns
     -------
-    bev_features
+    bev_features : torch.Tensor
         Output BEV features with shape (b, d, H, W).
     """
     b, n = I_.shape[:2]

@@ -38,7 +38,7 @@ def state_transformer_demo(
     data_path: str,
     map_path: str,
     is_test: bool = False,
-):
+) -> None:
     """
     Runs a demo pipeline for the StateTransformer model.
 

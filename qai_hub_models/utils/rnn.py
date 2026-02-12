@@ -97,12 +97,12 @@ class UnrolledLSTM(nn.Module):
 
         Returns
         -------
-        output
+        output : torch.Tensor
             Output tensor of shape:
             - [batch_size, seq_len, hidden_size] for unidirectional LSTM
             - [batch_size, seq_len, 2 * hidden_size] for bidirectional LSTM
               (forward and backward outputs concatenated along the last dimension)
-        hidden
+        hidden : tuple[torch.Tensor, torch.Tensor]
             Tuple of (h_n, c_n) final hidden states.
         """
         forward_output, h_fwd, c_fwd = self._run_sequence(

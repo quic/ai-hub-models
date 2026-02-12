@@ -12,12 +12,12 @@ from qai_hub_models.utils.testing import skip_clone_repo_check
 
 # Verify that the output from Torch is as expected.
 @skip_clone_repo_check
-def test_task():
+def test_task() -> None:
     yamnet_app = YamNetApp(model=YamNet.from_pretrained())
     dst_path = INPUT_AUDIO_ADDRESS.fetch()
     prediction = yamnet_app.predict(path=dst_path)
     assert "Whistling" in prediction
 
 
-def test_demo():
+def test_demo() -> None:
     demo_main(is_test=True)

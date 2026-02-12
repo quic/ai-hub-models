@@ -3,8 +3,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
+from __future__ import annotations
+
 import torch
 from torch import nn
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.yolo.model import Yolo
 from qai_hub_models.models._shared.yolo.utils import detect_postprocess
@@ -36,7 +39,7 @@ class YoloR(Yolo):
         cls,
         ckpt: str | CachedWebModelAsset = DEFAULT_WEIGHTS,
         include_postprocessing: bool = True,
-    ):
+    ) -> Self:
         with SourceAsRoot(
             YOLOVR_SOURCE_REPOSITORY,
             YOLOVR_SOURCE_REPO_COMMIT,
@@ -69,21 +72,22 @@ class YoloR(Yolo):
 
         Returns
         -------
-        If self.include_postprocessing is True, returns:
-        boxes
-            Shape [batch, num preds, 4] where 4 == (x1, y1, x2, y2).
-        scores
-            Class scores multiplied by confidence. Shape [batch, num_preds, # of classes (typically 80)].
-        class_idx
-            Predicted class for each bounding box. Shape [batch, num_preds, 1].
+        result : tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+            If self.include_postprocessing is True, returns:
+            boxes
+                Shape [batch, num preds, 4] where 4 == (x1, y1, x2, y2).
+            scores
+                Class scores multiplied by confidence. Shape [batch, num_preds, # of classes (typically 80)].
+            class_idx
+                Predicted class for each bounding box. Shape [batch, num_preds, 1].
 
-        If self.include_postprocessing is False, returns:
-        boxes
-            Shape is [batch, num_preds, k] where, k = # of classes + 5. k is structured as follows [box_coordinates (4), conf (1), # of classes] and box_coordinates are [x_center, y_center, w, h].
-        scores
-            Dummy tensor with shape [1].
-        class_idx
-            Dummy tensor with shape [1].
+            If self.include_postprocessing is False, returns:
+            boxes
+                Shape is [batch, num_preds, k] where, k = # of classes + 5. k is structured as follows [box_coordinates (4), conf (1), # of classes] and box_coordinates are [x_center, y_center, w, h].
+            scores
+                Dummy tensor with shape [1].
+            class_idx
+                Dummy tensor with shape [1].
         """
         predictions = self.model(image)
         if self.include_postprocessing:

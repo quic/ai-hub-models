@@ -62,11 +62,11 @@ class T5AttentionMod(nn.Module):
 
         Returns
         -------
-        attn_output
+        attn_output : Tensor
             shape of (batch_size, seq_length, dim)
-        present_key_value_state
+        present_key_value_state : tuple[Tensor | None, Tensor | None] | None
             shape of (batch_size, n_heads, q_len)
-        position_bias
+        position_bias : Tensor | None
             shape of (1, 1, 1, key_length)
         """
         batch_size, seq_length = hidden_states.shape[:2]

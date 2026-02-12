@@ -5,12 +5,19 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import torch
 import torch.nn.functional as F
 from torch import nn
+from typing_extensions import Self
 
 from qai_hub_models.models.common import Precision, SampleInputsType
-from qai_hub_models.models.mediapipe_hand.model import HandDetector
+from qai_hub_models.models.mediapipe_hand.model import (
+    DETECT_MIN_SCORE_THRESH,
+    DETECT_SCORE_SLIPPING_THRESHOLD,
+    HandDetector,
+)
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_numpy
 from qai_hub_models.utils.base_model import (
     BaseModel,
@@ -28,6 +35,7 @@ SAMPLE_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
     MODEL_ID, MODEL_ASSET_VERSION, "thumbs_up.jpg"
 )
 
+DETECT_DEFAULT_INCLUDE_POSTPROCESSING = True
 GESTURE_LABELS = [
     "None",
     "Closed_Fist",
@@ -48,6 +56,17 @@ class PalmDetector(HandDetector):
     [bounding boxes & keypoints, box & keypoint scores]
     """
 
+    def __init__(
+        self,
+        detector: nn.Module,
+        anchors: torch.Tensor,
+        score_clipping_threshold: float = DETECT_SCORE_SLIPPING_THRESHOLD,
+        include_postprocessing: bool = DETECT_DEFAULT_INCLUDE_POSTPROCESSING,
+    ) -> None:
+        super().__init__(
+            detector, anchors, score_clipping_threshold, include_postprocessing
+        )
+
     def get_hub_quantize_options(
         self, precision: Precision, other_options: str | None = None
     ) -> str:
@@ -60,6 +79,24 @@ class PalmDetector(HandDetector):
     def calibration_dataset_name() -> str:
         return "hagrid_palmdetector"
 
+    @classmethod
+    def from_pretrained(
+        cls,
+        detector_weights: str = "blazepalm.pth",
+        detector_anchors: str = "anchors_palm.npy",
+        min_score_thresh: float = 0.75,
+        score_clipping_threshold: float = DETECT_SCORE_SLIPPING_THRESHOLD,
+        # The only difference between this and the base class is the default value of include_postprocessing.
+        include_postprocessing: bool = DETECT_DEFAULT_INCLUDE_POSTPROCESSING,
+    ) -> Self:
+        return super().from_pretrained(
+            detector_weights,
+            detector_anchors,
+            min_score_thresh,
+            score_clipping_threshold,
+            include_postprocessing,
+        )
+
 
 class HandLandmarkDetector(BaseModel):
     """Hand landmark regression network.
@@ -71,7 +108,7 @@ class HandLandmarkDetector(BaseModel):
       - world_landmarks (63-d world coords)
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         # ---- Layers ----
         self.conv_0 = nn.Conv2d(
@@ -563,10 +600,14 @@ class HandLandmarkDetector(BaseModel):
 
         Returns
         -------
-        landmarks (t_93): (1, 63)       21 * (x,y,z) local coords
-        scores    (t_96): (1, 1)        confidence score in [0,1]
-        lr        (t_95): (1, 1)        left/right handedness score in [0,1]
-        world_landmarks (t_94): (1, 63) 21 * (x,y,z) world coords
+        landmarks : torch.Tensor
+            Shape (1, 63), 21 * (x,y,z) local coords.
+        confidence : torch.Tensor
+            Shape (1, 1), confidence score in [0,1].
+        handedness : torch.Tensor
+            Shape (1, 1), left/right handedness score in [0,1].
+        world_coords : torch.Tensor
+            Shape (1, 63), 21 * (x,y,z) world coords.
 
         """
         _x = F.pad(x, (0, 1, 0, 1))
@@ -686,10 +727,8 @@ class HandLandmarkDetector(BaseModel):
         return (t_93, t_96, t_95, t_94)
 
     @classmethod
-    def from_pretrained(
-        cls, landmark_detector_weights_path: str | None = None
-    ) -> HandLandmarkDetector:
-        hand_regressor = HandLandmarkDetector()
+    def from_pretrained(cls, landmark_detector_weights_path: str | None = None) -> Self:
+        hand_regressor = cls()
         if landmark_detector_weights_path is None:
             landmark_detector_weights_path = CachedWebModelAsset.from_asset_store(
                 MODEL_ID, MODEL_ASSET_VERSION, "hand_landmark_full_weights.pth"
@@ -748,7 +787,7 @@ class _InnerGestureMLP(nn.Module):
     and processes it through the 7-block residual MLP.
     """
 
-    def __init__(self, dropout_p: float = 0.1, bn_eps: float = 1e-3):
+    def __init__(self, dropout_p: float = 0.1, bn_eps: float = 1e-3) -> None:
         super().__init__()
         self.fc0 = nn.Linear(64, 128, bias=True)
         self.bn0 = nn.BatchNorm1d(128, eps=bn_eps)
@@ -760,7 +799,7 @@ class _InnerGestureMLP(nn.Module):
         )
         self._init_weights()
 
-    def _init_weights(self):
+    def _init_weights(self) -> None:
         for m in self.modules():
             if isinstance(m, nn.Linear):
                 nn.init.xavier_uniform_(m.weight)
@@ -803,7 +842,7 @@ class CannedGestureClassifier(BaseModel):
         dropout_p: float = 0.1,
         bn_eps: float = 1e-3,
         num_classes: int = 8,
-    ):
+    ) -> None:
         super().__init__()
         self.inner_mlp = _InnerGestureMLP(dropout_p=dropout_p, bn_eps=bn_eps)
         self.bn_out = nn.BatchNorm1d(128, eps=bn_eps, momentum=0.01)
@@ -815,7 +854,7 @@ class CannedGestureClassifier(BaseModel):
         self.fc = nn.Linear(128, num_classes, bias=True)
         self._init_weights()
 
-    def _init_weights(self):
+    def _init_weights(self) -> None:
         for m in self.modules():
             if isinstance(m, nn.Linear):
                 nn.init.xavier_uniform_(m.weight)
@@ -841,7 +880,7 @@ class CannedGestureClassifier(BaseModel):
 
         Returns
         -------
-        logits
+        logits : torch.Tensor
             Probabilities (softmax over classes) of shape (1, 8).
         """
         # Branch A (already preprocessed)
@@ -863,8 +902,8 @@ class CannedGestureClassifier(BaseModel):
         cls,
         embedder_weights_path: str | None = None,
         classifier_weights_path: str | None = None,
-        **kwargs,
-    ) -> CannedGestureClassifier:
+        **kwargs: Any,
+    ) -> Self:
         model = cls(**kwargs)
 
         if embedder_weights_path is None:
@@ -956,9 +995,18 @@ class MediaPipeHandGesture(PretrainedCollectionModel):
         cls,
         detector_weights: str = "blazepalm.pth",
         detector_anchors: str = "anchors_palm.npy",
-    ) -> MediaPipeHandGesture:
+        detector_min_score_thresh: float = DETECT_MIN_SCORE_THRESH,
+        detector_score_clipping_threshold: float = DETECT_SCORE_SLIPPING_THRESHOLD,
+        include_detector_postprocessing: bool = DETECT_DEFAULT_INCLUDE_POSTPROCESSING,
+    ) -> Self:
         return cls(
-            PalmDetector.from_pretrained(detector_weights, detector_anchors),
+            PalmDetector.from_pretrained(
+                detector_weights,
+                detector_anchors,
+                detector_min_score_thresh,
+                detector_score_clipping_threshold,
+                include_postprocessing=include_detector_postprocessing,
+            ),
             HandLandmarkDetector.from_pretrained(),
             CannedGestureClassifier.from_pretrained(),
         )

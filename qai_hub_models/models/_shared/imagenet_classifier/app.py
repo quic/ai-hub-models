@@ -30,7 +30,7 @@ def preprocess_image(image: Image, normalize: bool = False) -> torch.Tensor:
 
     Returns
     -------
-    preprocessed_tensor
+    preprocessed_tensor : torch.Tensor
         Torch tensor to be directly passed to the model.
     """
     out_tensor = IMAGENET_TRANSFORM(image)
@@ -81,7 +81,7 @@ class ImagenetClassifierApp:
 
         Returns
         -------
-        class_probabilities
+        class_probabilities : torch.Tensor
             A (1000,) size torch tensor of probabilities, each one corresponding
             to a different Imagenet1K class.
         """

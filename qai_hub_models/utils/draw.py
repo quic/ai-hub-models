@@ -255,7 +255,7 @@ def create_color_map(num_classes: Number) -> np.ndarray:
 
     Returns
     -------
-    color_map
+    color_map : np.ndarray
         Array of shape (num_classes, 3) containing RGB colors for each class.
     """
     # Use seed for reproducible results

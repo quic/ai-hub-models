@@ -11,6 +11,10 @@ from packaging.version import Version
 
 from qai_hub_models._version import __version__ as qaihm_version
 
+# Torch version requirements for PT2 export
+PT2_MIN_TORCH_VERSION = "2.8"
+PT2_LESS_THAN_TORCH_VERSION = "2.9"
+
 
 def ensure_supported_version(
     package: str,
@@ -64,6 +68,9 @@ class classproperty:
 
 
 class QAIHMVersion:
+    LATEST_TAG_ALIAS = "latest"
+    CURRENT_TAG_ALIAS = "current"
+
     @classproperty
     @functools.cache
     def all(cls) -> list[str]:
@@ -93,11 +100,13 @@ class QAIHMVersion:
         """Get the version string for the latest released version of AI Hub Models."""
         return f"v{qaihm_version}"
 
-    @staticmethod
-    def tag_from_string(version_str: str) -> str:
+    @classmethod
+    def tag_from_string(cls, version_str: str) -> str:
         """Gets the version tag from the given version string."""
         if not version_str.startswith("v"):
-            if version_str.lower() == "latest":
+            if version_str.lower() == cls.LATEST_TAG_ALIAS:
                 return QAIHMVersion.latest_tag
+            if version_str.lower() == cls.CURRENT_TAG_ALIAS:
+                return QAIHMVersion.current_tag
             return f"v{version_str}"
         return version_str

@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import torch
-from transformers import DetrForObjectDetection
+from transformers import DetrForObjectDetection, PreTrainedModel
 from typing_extensions import Self
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
@@ -26,7 +26,8 @@ MODEL_ASSET_VERSION = 1
 
 
 class DETR(BaseModel):
-    """Exportable DETR model, end-to-end."""
+    DEFAULT_WEIGHTS: str | None = None
+    HF_DETR_CLS: type[PreTrainedModel] = DetrForObjectDetection
 
     def get_evaluator(self) -> BaseEvaluator:
         """
@@ -36,7 +37,7 @@ class DETR(BaseModel):
 
         Returns
         -------
-        BaseEvaluator
+        evaluator : BaseEvaluator
             An instance of the DetectionEvaluator class
         """
         image_height, image_width = self.get_input_spec()["image"][0][2:]
@@ -59,11 +60,11 @@ class DETR(BaseModel):
 
         Returns
         -------
-        boxes
+        boxes : torch.Tensor
             Shape (B, 100, 4) representing the bounding box coordinates (x1, y1, x2, y2).
-        scores
+        scores : torch.Tensor
             Shape (B, 100) representing the confidence scores.
-        labels
+        labels : torch.Tensor
             Shape (B, 100) representing the class labels.
         """
         _, _, h, w = image_shape
@@ -76,7 +77,7 @@ class DETR(BaseModel):
         scores, labels = probabilities[..., :-1].max(-1)
 
         # Convert to [x0, y0, x1, y1] format
-        boxes = box_xywh_to_xyxy(boxes, flat_boxes=True)
+        boxes = box_xywh_to_xyxy(boxes)
 
         # Convert to pixel space
         boxes *= torch.Tensor([w, h, w, h])
@@ -89,8 +90,12 @@ class DETR(BaseModel):
         return boxes, scores, labels
 
     @classmethod
-    def from_pretrained(cls, ckpt_name: str) -> Self:
-        model = DetrForObjectDetection.from_pretrained(ckpt_name)
+    def from_pretrained(cls, ckpt_name: str = "") -> Self:
+        if not cls.DEFAULT_WEIGHTS:
+            raise NotImplementedError(
+                f"DEFAULT_WEIGHTS is not set for this DETR subclass ({cls.__name__}). The default from_pretrained implementation cannot be used."
+            )
+        model = cls.HF_DETR_CLS.from_pretrained(ckpt_name or cls.DEFAULT_WEIGHTS)
         return cls(model)
 
     def forward(
@@ -106,11 +111,11 @@ class DETR(BaseModel):
 
         Returns
         -------
-        boxes
+        boxes : torch.Tensor
             Shape (B, 100, 4) representing the bounding box coordinates (x1, y1, x2, y2).
-        scores
+        scores : torch.Tensor
             Shape (B, 100) representing the confidence scores.
-        labels
+        labels : torch.Tensor
             Shape (B, 100) representing the class labels.
         """
         image_array = normalize_image_torchvision(image)

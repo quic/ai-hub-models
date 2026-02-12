@@ -26,15 +26,13 @@ from qai_hub_models.utils.args import (
     get_export_model_name,
     get_model_kwargs,
 )
+from qai_hub_models.utils.asset_loaders import ASSET_CONFIG
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel
 from qai_hub_models.utils.compare import torch_inference
 from qai_hub_models.utils.export_result import CollectionExportResult, ExportResult
 from qai_hub_models.utils.export_without_hub_access import export_without_hub_access
 from qai_hub_models.utils.onnx.helpers import download_and_unzip_workbench_onnx_model
-from qai_hub_models.utils.path_helpers import (
-    get_model_directory_for_download,
-    get_next_free_path,
-)
+from qai_hub_models.utils.path_helpers import get_next_free_path
 from qai_hub_models.utils.printing import (
     print_inference_metrics,
     print_profile_metrics_from_job,
@@ -129,6 +127,9 @@ def inference_model(
 
 def download_model(
     output_dir: os.PathLike | str,
+    model: CollectionModel,
+    runtime: TargetRuntime,
+    precision: Precision,
     tool_versions: ToolVersions,
     compile_jobs: dict[str, hub.client.CompileJob],
     zip_assets: bool,
@@ -165,11 +166,14 @@ def download_model(
                 target_model
             )
 
-        tool_versions.to_yaml(os.path.join(dst_path, "tool-versions.yaml"))
+        # Dump supplementary files into the model folder
+        model.write_supplementary_files(dst_path, runtime, precision)
 
         # Extract and save metadata alongside downloaded model
         metadata_path = dst_path / "metadata.yaml"
-        model_metadata = ModelMetadata(model_files=model_file_metadata)
+        model_metadata = ModelMetadata(
+            model_files=model_file_metadata, tool_versions=tool_versions
+        )
         model_metadata.to_yaml(metadata_path)
 
         if zip_assets:
@@ -277,9 +281,8 @@ def export_model(
         if component_name not in Model.component_class_names:
             raise ValueError(f"Invalid component {component_name}.")
     if fetch_static_assets or not can_access_qualcomm_ai_hub():
-        export_without_hub_access(
+        static_model_path = export_without_hub_access(
             MODEL_ID,
-            "Whisper-Small-Quantized",
             device,
             skip_profiling,
             skip_inferencing,
@@ -293,7 +296,10 @@ def export_model(
             qaihm_version_tag=fetch_static_assets,
         )
         return CollectionExportResult(
-            components={component_name: ExportResult() for component_name in components}
+            components={
+                component_name: ExportResult() for component_name in components
+            },
+            download_path=static_model_path,
         )
 
     hub_device = hub.get_devices(
@@ -364,11 +370,17 @@ def export_model(
     # 6. Downloads the model asset to the local directory
     downloaded_model_path: Path | None = None
     if not skip_downloading and tool_versions is not None:
-        model_directory = get_model_directory_for_download(
-            target_runtime, precision, chipset, output_path, MODEL_ID
+        model_directory = output_path / ASSET_CONFIG.get_release_asset_name(
+            MODEL_ID, target_runtime, precision, chipset
         )
         downloaded_model_path = download_model(
-            model_directory, tool_versions, compile_jobs, zip_assets
+            model_directory,
+            model,
+            target_runtime,
+            precision,
+            tool_versions,
+            compile_jobs,
+            zip_assets,
         )
 
     # 7. Summarizes the results from profiling and inference

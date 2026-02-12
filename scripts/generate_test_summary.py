@@ -39,9 +39,9 @@ def extract_file_and_line(
 
     Returns
     -------
-    file_path
+    file_path : str | None
         The file path from the stack trace, or None.
-    line_number
+    line_number : str | None
         The line number from the stack trace, or None.
     """
     # No stack trace to analyze
@@ -93,7 +93,7 @@ def extract_relevant_stack_trace(stack_trace: str | None, message: str) -> str |
 
     Returns
     -------
-    relevant_trace
+    relevant_trace : str | None
         The most relevant part of the stack trace.
     """
     if not stack_trace:
@@ -136,7 +136,7 @@ def collect_test_statistics(root: ET.Element) -> dict[str, int | float]:
 
     Returns
     -------
-    stats
+    stats : dict[str, int | float]
         Dictionary of test statistics.
     """
     stats: dict[str, int | float] = {
@@ -178,9 +178,9 @@ def parse_junit_xml(
 
     Returns
     -------
-    failures
+    failures : list[dict[str, Any]]
         List of dictionaries containing failure information.
-    stats
+    stats : dict[str, int | float]
         Dictionary of test statistics.
     """
     if not os.path.exists(xml_path):
@@ -279,9 +279,9 @@ def generate_markdown_table(failures: list[dict[str, Any]]) -> tuple[str, str]:
 
     Returns
     -------
-    markdown_table
+    markdown_table : str
         Markdown formatted table of test failures.
-    stack_traces_section
+    stack_traces_section : str
         Section containing detailed stack traces.
     """
     if not failures:
@@ -334,7 +334,7 @@ def generate_stats_summary(stats: dict[str, int | float]) -> str:
 
     Returns
     -------
-    summary
+    summary : str
         Markdown formatted test statistics.
     """
     # Convert time from seconds to minutes
@@ -396,7 +396,7 @@ def find_junit_xml_files(directory: str, pattern: str) -> list[str]:
 
     Returns
     -------
-    file_paths
+    file_paths : list[str]
         List of file paths.
     """
     if not directory or not os.path.exists(directory):
@@ -423,9 +423,9 @@ def combine_junit_results(
 
     Returns
     -------
-    failures
+    failures : list[dict[str, Any]]
         Combined list of failures from all test files.
-    stats
+    stats : dict[str, int | float]
         Combined test statistics.
     """
     all_failures = []
@@ -515,9 +515,9 @@ def get_test_results(
 
     Returns
     -------
-    failures
+    failures : list[dict[str, Any]]
         List of test failures.
-    stats
+    stats : dict[str, int | float]
         Test statistics.
     """
     if os.path.isdir(xml_path_or_dir) and file_pattern:

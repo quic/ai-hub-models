@@ -33,7 +33,25 @@ def test_pose_app() -> None:
     expected_output = load_image(
         OUTPUT_IMAGE_ADDRESS,
     ).convert("RGB")
-    app = MediaPipePoseApp.from_pretrained(MediaPipePose.from_pretrained())
+    app = MediaPipePoseApp.from_pretrained(
+        MediaPipePose.from_pretrained(include_detector_postprocessing=False)
+    )
+    actual_output = app.predict_landmarks_from_image(image)[0]
+    assert isinstance(actual_output, np.ndarray)
+    np.testing.assert_allclose(actual_output, np.asarray(expected_output))
+
+
+@skip_clone_repo_check
+def test_pose_app_with_detect_postprocessing() -> None:
+    image = load_image(
+        INPUT_IMAGE_ADDRESS,
+    )
+    expected_output = load_image(
+        OUTPUT_IMAGE_ADDRESS,
+    ).convert("RGB")
+    app = MediaPipePoseApp.from_pretrained(
+        MediaPipePose.from_pretrained(include_detector_postprocessing=True)
+    )
     actual_output = app.predict_landmarks_from_image(image)[0]
     assert isinstance(actual_output, np.ndarray)
     np.testing.assert_allclose(actual_output, np.asarray(expected_output))

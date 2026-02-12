@@ -7,7 +7,7 @@ from qai_hub_models.models._shared.imagenet_classifier.demo import imagenet_demo
 from qai_hub_models.models.efficientformer.model import MODEL_ID, EfficientFormer
 
 
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     imagenet_demo(EfficientFormer, MODEL_ID, is_test)
 
 

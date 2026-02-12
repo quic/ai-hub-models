@@ -121,11 +121,11 @@ class RTMPosebody2dApp:
         self,
         model: Callable[[torch.Tensor], tuple[torch.Tensor, torch.Tensor]],
         inferencer: Any,
-    ):
+    ) -> None:
         self.model = model
         self.inferencer = inferencer
 
-    def predict(self, *args, **kwargs):
+    def predict(self, *args: Any, **kwargs: Any) -> np.ndarray | list[Image]:
         # See predict_pose_keypoints.
         return self.predict_pose_keypoints(*args, **kwargs)
 
@@ -144,9 +144,9 @@ class RTMPosebody2dApp:
 
         Returns
         -------
-        keypoints
+        keypoints : np.ndarray
             Decoded coordinates in shape (N, K, D).
-        scores
+        scores : np.ndarray
             The keypoint scores in shape (N, K).
             It usually represents the confidence of the keypoint prediction.
         """
@@ -179,15 +179,16 @@ class RTMPosebody2dApp:
 
         Returns
         -------
-        If raw_output is True, returns:
-        keypoints
-            np.ndarray, shape [B, N, 2].
-            Numpy array of keypoints within the images. Each keypoint is an (x, y) pair of coordinates within the image.
+        np.ndarray | list[Image]
+            If raw_output is True, returns:
+            keypoints
+                np.ndarray, shape [B, N, 2].
+                Numpy array of keypoints within the images. Each keypoint is an (x, y) pair of coordinates within the image.
 
-        If raw_output is False, returns:
-        predicted_images
-            list[PIL.Image].
-            Images with keypoints drawn.
+            If raw_output is False, returns:
+            predicted_images
+                list[PIL.Image].
+                Images with keypoints drawn.
         """
         # Preprocess image to get data required for post processing
         NHWC_int_numpy_frames, _ = app_to_net_image_inputs(pixel_values_or_image)

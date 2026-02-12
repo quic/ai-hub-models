@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
@@ -41,7 +42,9 @@ def id_to_classname(class_id: int) -> str:
     raise RuntimeError(f"Class for id {class_id} not found.")
 
 
-def restructure_topk(scores: torch.Tensor, K: int = 20) -> tuple[torch.Tensor, ...]:
+def restructure_topk(
+    scores: torch.Tensor, K: int = 20
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Cutomized function for top_k specific for this the FootTrackNet. Wil restructure the original coordinates, class id from the floored index.
     After top k operation. this will specifically decoding the coordinates, class from the topk result.
@@ -55,15 +58,15 @@ def restructure_topk(scores: torch.Tensor, K: int = 20) -> tuple[torch.Tensor, .
 
     Returns
     -------
-    topk_scores
-        The scorse list for the top k.
-    topk_inds
+    topk_scores : torch.Tensor
+        The scores list for the top k.
+    topk_inds : torch.Tensor
         The index list for the top k.
-    topk_clses
+    topk_clses : torch.Tensor
         The class list for the top k.
-    topk_ys
+    topk_ys : torch.Tensor
         The y coordinate list for the top k.
-    topk_xs
+    topk_xs : torch.Tensor
         The x coordinate list for the top k.
     """
     batch, cat, height, width = scores.size()
@@ -80,10 +83,10 @@ def restructure_topk(scores: torch.Tensor, K: int = 20) -> tuple[torch.Tensor, .
 
 
 class BBox_landmarks:
-    x: float | np.float64
-    y: float | np.float64
-    r: float | np.float64
-    b: float | np.float64
+    x: float
+    y: float
+    r: float
+    b: float
 
     def __init__(
         self,
@@ -92,7 +95,7 @@ class BBox_landmarks:
         score: float = 0,
         landmark: list | np.ndarray | None = None,
         vis: list | np.ndarray | None = None,
-    ):
+    ) -> None:
         """
         A bounding box plus landmarks structure to hold the hierarchical result.
 
@@ -125,7 +128,7 @@ class BBox_landmarks:
         return self.label
 
     @label_prop.setter
-    def label_prop(self, newvalue: str):
+    def label_prop(self, newvalue: str) -> None:
         self.label = newvalue
 
     @property
@@ -133,14 +136,19 @@ class BBox_landmarks:
         return self.landmark is not None
 
     @property
-    def box(self):
+    def box(self) -> list[int | float]:
         return [self.x, self.y, self.r, self.b]
 
     @box.setter
-    def box(self, newvalue):
+    def box(self, newvalue: list[int] | npt.NDArray[np.int32]) -> None:
         self.x, self.y, self.r, self.b = newvalue
 
-    def draw_box(self, frame: np.ndarray, box_text: bool = True, color=GREEN_COLOR):
+    def draw_box(
+        self,
+        frame: np.ndarray,
+        box_text: bool = True,
+        color: tuple[int, int, int] = GREEN_COLOR,
+    ) -> None:
         """
         Draw the given bbox on the frame.
         Frame should be an RGB, integer [0:255], numpy array of shape [H, W, 3].
@@ -170,8 +178,8 @@ class BBox_landmarks:
         frame: np.ndarray,
         landmark_idx: int | list[int] | np.ndarray | None = None,
         score_thr: float | list[float] | np.ndarray = 0.05,
-        color=GREEN_COLOR,
-    ):
+        color: tuple[int, int, int] = GREEN_COLOR,
+    ) -> None:
         """
         Draw the given landmarks on the frame.
         Frame should be an RGB, integer [0:255], numpy array of shape [H, W, 3].
@@ -206,7 +214,7 @@ def nms_bbox_landmark(
 
     Returns
     -------
-    nms_result
+    nms_result : list[BBox_landmarks]
         The rest of the BBox_landmarks after nms operation.
     """
     if objs is None or len(objs) <= 1:
@@ -260,7 +268,7 @@ def detect_images_multiclass_fb(
 
     Returns
     -------
-    detection_result
+    detection_result : list
         Detection result.
     """
     if threshold is None:
@@ -373,10 +381,10 @@ def postprocess(
 
     Returns
     -------
-    objs_face
-        Face result list[BBox_landmarks]
-    objs_person
-        Person result list[BBox_landmarks]
+    objs_face : list[BBox_landmarks]
+        Face result.
+    objs_person : list[BBox_landmarks]
+        Person result.
     """
     stride = 4
     num_landmarks = 17
@@ -406,7 +414,9 @@ def postprocess(
     return objs_face, objs_person
 
 
-def undo_resize_pad_bbox(bbox: BBox_landmarks, scale: float, padding: tuple[int, int]):
+def undo_resize_pad_bbox(
+    bbox: BBox_landmarks, scale: float, padding: tuple[int, int]
+) -> None:
     """
     Undo the resize and pad in place of the BBox_landmarks object.
     operation in place to replace the inner coordinates
@@ -451,7 +461,7 @@ class FootTrackNet_App:
         ],
         compiled_image_input_size: tuple[int, int] | None = None,
         if_norm: bool = True,
-    ):
+    ) -> None:
         """
         Parameters
         ----------
@@ -468,7 +478,9 @@ class FootTrackNet_App:
         self.if_norm = if_norm
         self.compiled_image_input_size = compiled_image_input_size
 
-    def predict(self, *args, **kwargs):
+    def predict(
+        self, *args: Any, **kwargs: Any
+    ) -> tuple[list[BBox_landmarks], list[BBox_landmarks]]:
         return self.predict_bbox_landmarks(*args, **kwargs)
 
     def _predict_bbox_landmarks(
@@ -523,10 +535,10 @@ class FootTrackNet_App:
 
         Returns
         -------
-        objs_face
-            A list of BBox_landmarks for face
-        objs_person
-            A list of BBox_landmarks for person
+        objs_face : list[BBox_landmarks]
+            A list of BBox_landmarks for face.
+        objs_person : list[BBox_landmarks]
+            A list of BBox_landmarks for person.
         """
         _, objs_face, objs_person = self._predict_bbox_landmarks(pixel_values_or_image)
         return objs_face, objs_person
@@ -548,7 +560,7 @@ class FootTrackNet_App:
 
         Returns
         -------
-        annotated_image
+        annotated_image : Image
             PIL Image with boxes & landmarks drawn.
         """
         NHWC_int_numpy_frames, objs_face, objs_person = self._predict_bbox_landmarks(

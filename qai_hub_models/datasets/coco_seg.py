@@ -59,10 +59,10 @@ class CocoSegDataset(CocoDataset):
 
         Returns
         -------
-        image
+        image : torch.Tensor
             RGB, range [0-1] network input image.
 
-        ground_truth
+        ground_truth : tuple[torch.Tensor, torch.Tensor, int]
             mask_data
                 mask data with shape (self.max_boxes, self.target_h, self.target_w)
             labels

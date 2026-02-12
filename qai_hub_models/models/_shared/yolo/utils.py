@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import torch
 
+from qai_hub_models.utils.bounding_box_processing import box_xywh_to_xyxy
+
 
 def box_transform_xywh2xyxy_split_input(
     xy: torch.Tensor, wh: torch.Tensor
@@ -23,36 +25,12 @@ def box_transform_xywh2xyxy_split_input(
 
     Returns
     -------
-    converted_boxes
+    converted_boxes : torch.Tensor
         Output box with layout (xyxy)
         i.e. [top_left_x | top_left_y | bot_right_x | bot_right_y]
     """
-    cx, cy = xy.unbind(dim=-1)
-    wh = wh * 0.5
-    w, h = wh.unbind(dim=-1)
-    return torch.stack((cx - w, cy - h, cx + w, cy + h), -1)
-
-
-def transform_box_layout_xywh2xyxy(boxes: torch.Tensor) -> torch.Tensor:
-    """
-    Convert boxes with (xywh) layout to (xyxy)
-
-    Parameters
-    ----------
-    boxes
-        Input boxes with layout (xywh).
-
-    Returns
-    -------
-    converted_boxes
-        Output box with layout (xyxy)
-        i.e. [top_left_x | top_left_y | bot_right_x | bot_right_y]
-    """
-    # Convert to (x1, y1, x2, y2)
-    cx, cy, w, h = boxes.unbind(dim=-1)
-    w = w * 0.5
-    h = h * 0.5
-    return torch.stack((cx - w, cy - h, cx + w, cy + h), -1)
+    wh_half = wh * 0.5
+    return torch.cat((xy - wh_half, xy + wh_half), -1)
 
 
 def detect_postprocess(
@@ -73,11 +51,11 @@ def detect_postprocess(
 
     Returns
     -------
-    boxes
+    boxes : torch.Tensor
         Bounding box locations. Shape is [batch, num preds, 4] where 4 == (x1, y1, x2, y2).
-    scores
+    scores : torch.Tensor
         Class scores multiplied by confidence. Shape is [batch, num_preds].
-    class_idx
+    class_idx : torch.Tensor
         Predicted class for each bounding box. Shape [batch, num_preds, 1].
     """
     # Break output into parts
@@ -86,7 +64,7 @@ def detect_postprocess(
     scores = detector_output[:, :, 5:]
 
     # Convert boxes to (x1, y1, x2, y2)
-    boxes = transform_box_layout_xywh2xyxy(boxes)
+    boxes = box_xywh_to_xyxy(boxes)
 
     # Combine confidence and scores.
     scores *= conf
@@ -116,11 +94,11 @@ def detect_postprocess_split_input(
 
     Returns
     -------
-    boxes
+    boxes : torch.Tensor
         Bounding box locations. Shape is [batch, num preds, 4] where 4 == (x1, y1, x2, y2).
-    class_idx_scores
+    class_idx_scores : torch.Tensor
         Class scores multiplied by confidence. Shape is [batch, num_preds].
-    class_idx
+    class_idx : torch.Tensor
         Predicted class for each bounding box. Shape [batch, num_preds].
     """
     boxes = box_transform_xywh2xyxy_split_input(xy, wh)
@@ -153,9 +131,9 @@ def get_most_likely_score(scores: torch.Tensor) -> tuple[torch.Tensor, torch.Ten
 
     Returns
     -------
-    scores
+    scores : torch.Tensor
         Class scores reduced to keep max score per prediction. Shape is [batch, num_preds].
-    class_idx
+    class_idx : torch.Tensor
         Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
     """
     # TODO(#8595): QNN crashes when running max on a large tensor

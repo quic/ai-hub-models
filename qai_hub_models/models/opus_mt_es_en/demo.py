@@ -7,7 +7,7 @@ from qai_hub_models.models._shared.opus_mt.demo import opus_mt_demo
 from qai_hub_models.models.opus_mt_es_en.model import OpusMTEsEn
 
 
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     opus_mt_demo(OpusMTEsEn, "Spanish", "English", is_test)
 
 

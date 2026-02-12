@@ -33,7 +33,7 @@ class TrOCRApp:
         * map the output tokens to a string via `io_processor`.
     """
 
-    def __init__(self, model: TrOCR):
+    def __init__(self, model: TrOCR) -> None:
         self.model = model
         self.encoder = model.encoder
         self.decoder = model.decoder
@@ -57,7 +57,7 @@ class TrOCRApp:
             image.convert("RGB"), return_tensors="pt"
         ).pixel_values.numpy()
 
-    def predict(self, *args, **kwargs):
+    def predict(self, *args: Any, **kwargs: Any) -> np.ndarray | list[str]:
         # See predict_text_from_image.
         return self.predict_text_from_image(*args, **kwargs)
 
@@ -76,7 +76,7 @@ class TrOCRApp:
 
         Returns
         -------
-        predicted_text
+        predicted_text : np.ndarray | list[str]
             The output word / token sequence (representative of the text contained in the input image).
             The prediction will be a list of strings (one string per batch) if self.io_processor != None and raw_output=False.
             Otherwise, a `np.ndarray` of shape [batch_size, predicted_sequence_length] is returned. It contains predicted token IDs.
@@ -217,7 +217,7 @@ def combine_kv_caches(
 
     Returns
     -------
-    combined_kv_cache
+    combined_kv_cache : KVCacheNp
         tuple[kv_cache_attn_0_key, kv_cache_attn_0_val, kv_cache_cross_attn_0_key, kv_cache_cross_attn_0_val, kv_cache_attn_1_key, ...].
         Combined KV Cache. len(tuple) == 4 * number of source model decoder layers.
     """
@@ -261,7 +261,7 @@ def get_empty_attn_cache(
 
     Returns
     -------
-    empty_kv_cache
+    empty_kv_cache : KVCacheNp
         tuple[kv_cache_attn_0_key, kv_cache_attn_0_val, kv_cache_attn_1_key, ...].
         len(tuple) == 2 * number of source model decoder layers.
     """

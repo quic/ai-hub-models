@@ -10,10 +10,10 @@ from qai_hub_models.utils.testing import skip_clone_repo_check
 
 
 @skip_clone_repo_check
-def test_off_target_numerical():
+def test_off_target_numerical() -> None:
     run_test_off_target_numerical(FFNet54S, "segmentation_ffnet54S_dBBB_mobile")
 
 
 @skip_clone_repo_check
-def test_demo():
+def test_demo() -> None:
     demo_main(is_test=True)

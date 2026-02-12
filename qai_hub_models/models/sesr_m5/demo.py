@@ -9,7 +9,7 @@ from qai_hub_models.models.sesr_m5.model import MODEL_ID, SESR_M5
 
 # Run QuickSRNet end-to-end on a sample image.
 # The demo will display an upscaled image
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     super_resolution_demo(
         model_cls=SESR_M5,
         model_id=MODEL_ID,

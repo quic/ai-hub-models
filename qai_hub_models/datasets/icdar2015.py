@@ -81,13 +81,13 @@ class ICDAR2015Dataset(BaseDataset):
 
         Returns
         -------
-        image_input
+        image_input : torch.Tensor
             input_image:
                 Raw floating point pixel values for encoder consumption.
                 3-channel Color Space: RGB, range [0, 1]
 
-        ground_truth:
-            Empty list; no ground truth data.
+        ground_truth : tuple
+            Empty tuple; no ground truth data.
         """
         image_path = self.images[index]
         orig_image = Image.open(image_path).convert("RGB")

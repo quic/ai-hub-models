@@ -34,7 +34,7 @@ INPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 
 # Run Mediapipe Face landmark detection end-to-end on a sample image or camera stream.
 # The demo will display output with the predicted landmarks & bounding boxes drawn.
-def mediapipe_face_demo(model_cls: type[MediaPipeFace], is_test: bool = False):
+def mediapipe_face_demo(model_cls: type[MediaPipeFace], is_test: bool = False) -> None:
     # Demo parameters
     parser = get_model_cli_parser(model_cls)
     parser.add_argument(
@@ -88,6 +88,7 @@ def mediapipe_face_demo(model_cls: type[MediaPipeFace], is_test: bool = False):
     app = MediaPipeFaceApp(
         detector,  # type: ignore[arg-type]
         landmark_detector,  # type: ignore[arg-type]
+        torch_model.face_detector.include_postprocessing,
         torch_model.face_detector.anchors,
         torch_model.face_detector.get_input_spec(),
         torch_model.face_landmark_detector.get_input_spec(),
@@ -111,8 +112,8 @@ def mediapipe_face_demo(model_cls: type[MediaPipeFace], is_test: bool = False):
         )
 
 
-def main(is_test: bool = False):
-    return mediapipe_face_demo(MediaPipeFace, is_test)
+def main(is_test: bool = False) -> None:
+    mediapipe_face_demo(MediaPipeFace, is_test)
 
 
 if __name__ == "__main__":

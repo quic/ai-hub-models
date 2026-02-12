@@ -74,14 +74,14 @@ class WikiTextMasked(BaseDataset):
 
         Returns
         -------
-        inputs
+        inputs : tuple[torch.Tensor, torch.Tensor, torch.Tensor]
             input_ids
                 Tokenized input with one [MASK] token.
             attention_mask
                 Binary mask where 1 indicates real tokens.
             mask_position
                 Scalar index of the [MASK] token.
-        label
+        label : torch.Tensor
             Ground-truth token ID that was replaced by [MASK].
         """
         start = idx * self.block_size

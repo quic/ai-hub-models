@@ -11,7 +11,7 @@ from qai_hub_models.models.ddrnet23_slim.model import (
 )
 
 
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     segmentation_demo(DDRNet, MODEL_ID, INPUT_IMAGE_ADDRESS, is_test)
 
 

@@ -108,7 +108,7 @@ class CocoBodyPoseEvaluator(BaseEvaluator):
 
         Returns
         -------
-        metrics
+        metrics : dict[str, Any]
             A dictionary with AP values (mAP, AP@0.5, etc.).
         """
         pred_image_ids = [p["image_id"] for p in self.predictions]

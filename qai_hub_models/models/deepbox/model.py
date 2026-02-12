@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import torch
+from typing_extensions import Self
 
 from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.models.yolov3.model import YoloV3
@@ -48,7 +49,7 @@ class Yolo2DDetection(YoloV3):
         batch_size: int = 1,
         height: int = 224,
         width: int = 640,
-    ):
+    ) -> InputSpec:
         """
         Returns the input specification (name -> (shape, type). This can be
         used to submit profiling job on Qualcomm AI Hub Workbench.
@@ -61,8 +62,8 @@ class Yolo2DDetection(YoloV3):
         return super()._sample_inputs_impl(input_spec or self.get_input_spec())
 
     @staticmethod
-    def calibration_dataset_name() -> str | None:
-        return None
+    def calibration_dataset_name() -> str:
+        return "kitti"
 
 
 class VGG3DDetection(BaseModel):
@@ -72,7 +73,7 @@ class VGG3DDetection(BaseModel):
     """
 
     @classmethod
-    def from_pretrained(cls, ckpt_path: str = "DEFAULT") -> VGG3DDetection:
+    def from_pretrained(cls, ckpt_path: str = "DEFAULT") -> Self:
         with SourceAsRoot(
             DEEPBOX_SOURCE_REPOSITORY,
             DEEPBOX_SOURCE_REPO_COMMIT,
@@ -98,10 +99,27 @@ class VGG3DDetection(BaseModel):
             vgg_model.load_state_dict(checkpoint["model_state_dict"])
         return cls(vgg_model)
 
-    def forward(self, image: torch.Tensor):
+    def forward(
+        self, image: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
-        Inputs:
-            image: RGB image of range[0, 1] and shape [1, 3, H, W]
+        Run forward pass on the VGG 3D detection model.
+
+        Parameters
+        ----------
+        image
+            RGB image of range [0, 1] and shape [1, 3, H, W].
+
+        Returns
+        -------
+        orient : torch.Tensor
+            Orientation prediction. Shape is [1, bins, 2], where bins=2 and
+            2 represents (cos, sin) of the local orientation angle.
+        conf : torch.Tensor
+            Confidence prediction for each orientation bin. Shape is [1, bins],
+            where bins=2.
+        dim : torch.Tensor
+            Dimension prediction (height, width, length offsets). Shape is [1, 3].
         """
         # The original implementation of DeepBox applies RGB torchvision constants to BGR input images.
         image_bgr = torch.flip(image, dims=[1])
@@ -114,7 +132,7 @@ class VGG3DDetection(BaseModel):
         batch_size: int = 1,
         height: int = 224,
         width: int = 224,
-    ):
+    ) -> InputSpec:
         """
         Returns the input specification (name -> (shape, type). This can be
         used to submit profiling job on Qualcomm AI Hub Workbench.
@@ -129,11 +147,17 @@ class VGG3DDetection(BaseModel):
     def get_channel_last_inputs() -> list[str]:
         return ["image"]
 
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "kitti"
+
 
 @CollectionModel.add_component(Yolo2DDetection)
 @CollectionModel.add_component(VGG3DDetection)
 class DeepBox(PretrainedCollectionModel):
-    def __init__(self, yolo_2d_det: Yolo2DDetection, vgg_3d_det: VGG3DDetection):
+    def __init__(
+        self, yolo_2d_det: Yolo2DDetection, vgg_3d_det: VGG3DDetection
+    ) -> None:
         super().__init__(yolo_2d_det, vgg_3d_det)
         self.yolo_2d_det = yolo_2d_det
         self.vgg_3d_det = vgg_3d_det
@@ -143,7 +167,7 @@ class DeepBox(PretrainedCollectionModel):
         cls,
         yolo_ckpt: str = DEFAULT_YOLO_WEIGHTS,
         vgg_ckpt_path: str = "DEFAULT",
-    ) -> DeepBox:
+    ) -> Self:
         yolo = Yolo2DDetection.from_pretrained(yolo_ckpt)
         vgg_net = VGG3DDetection.from_pretrained(vgg_ckpt_path)
         return cls(yolo, vgg_net)

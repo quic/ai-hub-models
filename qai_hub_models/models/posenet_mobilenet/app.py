@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Any
 
 import cv2
 import numpy as np
@@ -115,9 +116,9 @@ def traverse_to_targ_keypoint(
 
     Returns
     -------
-    score
+    score : float
         Target keypoint score.
-    image_coord
+    image_coord : np.ndarray
         Target keypoint coordinates.
     """
     height = scores.shape[1]
@@ -185,9 +186,9 @@ def decode_pose(
 
     Returns
     -------
-    instance_keypoint_scores
+    instance_keypoint_scores : np.ndarray
         List of keypoint scores.
-    instance_keypoint_coords
+    instance_keypoint_coords : np.ndarray
         List of keypoint coordinates.
     """
     num_parts = scores.shape[0]
@@ -252,7 +253,7 @@ def within_nms_radius_fast(
 
     Returns
     -------
-    within_radius
+    within_radius : bool
         Whether the point is within the NMS radius of any existing pose coords.
     """
     if not pose_coords.shape[0]:
@@ -286,7 +287,7 @@ def get_instance_score_fast(
 
     Returns
     -------
-    confidence_score
+    confidence_score : float
         Confidence score for the pose.
     """
     if exist_pose_coords.shape[0]:
@@ -316,9 +317,9 @@ def build_part_with_score_torch(
 
     Returns
     -------
-    scores_vec
+    scores_vec : torch.Tensor
         Torch scores for each keypoint to be considered.
-    max_loc_idx
+    max_loc_idx : torch.Tensor
         Indices of the considered keypoints. Shape (N, 3) where the 3 indices
         map to the dimensions of the scores tensor with shape (17, h, w).
     """
@@ -377,11 +378,11 @@ def decode_multiple_poses(
 
     Returns
     -------
-    pose_scores
+    pose_scores : np.ndarray
         Numpy array of pose confidence scores.
-    pose_keypoint_scores
+    pose_keypoint_scores : np.ndarray
         Numpy array of keypoint confidence scores.
-    pose_keypoint_coords
+    pose_keypoint_coords : np.ndarray
         Numpy array of keypoint coordinates.
     """
     part_scores_pt, part_idx_pt = build_part_with_score_torch(
@@ -480,7 +481,7 @@ def get_adjacent_keypoints(
 
     Returns
     -------
-    results
+    results : list[np.ndarray]
         List of (2, 2) numpy arrays containing coordinates of edge endpoints.
     """
     results = []
@@ -572,12 +573,14 @@ class PosenetApp:
         ],
         input_height: int,
         input_width: int,
-    ):
+    ) -> None:
         self.model = model
         self.input_height = input_height
         self.input_width = input_width
 
-    def predict(self, *args, **kwargs):
+    def predict(
+        self, *args: Any, **kwargs: Any
+    ) -> Image.Image | tuple[np.ndarray, np.ndarray, np.ndarray]:
         # See predict_pose_keypoints.
         return self.predict_pose_keypoints(*args, **kwargs)
 
@@ -598,18 +601,19 @@ class PosenetApp:
 
         Returns
         -------
-        If raw_output is true, returns a tuple of:
-            pose_scores: np.ndarray
-                Confidence score that a given pose is real for up to 10 poses. Shape (10,).
-            keypoint_scores: np.ndarray
-                Confidence score that a given keypoint is real.
-                There can be up to 10 poses and up to 17 keypoints per pose. Shape (10, 17).
-            keypoint_coords: np.ndarray
-                Coordinates of predicted keypoints in (y, x) format. Shape (10, 17, 2).
+        Image.Image | tuple[np.ndarray, np.ndarray, np.ndarray]
+            If raw_output is true, returns a tuple of:
+                pose_scores: np.ndarray
+                    Confidence score that a given pose is real for up to 10 poses. Shape (10,).
+                keypoint_scores: np.ndarray
+                    Confidence score that a given keypoint is real.
+                    There can be up to 10 poses and up to 17 keypoints per pose. Shape (10, 17).
+                keypoint_coords: np.ndarray
+                    Coordinates of predicted keypoints in (y, x) format. Shape (10, 17, 2).
 
-        Otherwise, returns:
-            predicted_images: PIL.Image.Image
-                Image with keypoints drawn.
+            Otherwise, returns:
+                predicted_images: PIL.Image.Image
+                    Image with keypoints drawn.
         """
         original_size = (image.size[-2], image.size[-1])
         image, scale, padding = pil_resize_pad(

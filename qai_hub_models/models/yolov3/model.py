@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import cast
 
 import torch
+from typing_extensions import Self
 from ultralytics.models import YOLO as ultralytics_YOLO
 from ultralytics.nn.tasks import DetectionModel
 
@@ -38,14 +39,16 @@ class YoloV3(Yolo):
         cls,
         weights_name: str = DEFAULT_WEIGHTS,
         include_postprocessing: bool = True,
-    ):
+    ) -> Self:
         model = cast(DetectionModel, ultralytics_YOLO(weights_name).model)
         return cls(
             model,
             include_postprocessing,
         )
 
-    def forward(self, image: torch.Tensor):
+    def forward(
+        self, image: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor] | torch.Tensor:
         """
         Run YoloV3 on `image`, and produce a predicted set of bounding boxes and associated class probabilities.
 
@@ -58,17 +61,18 @@ class YoloV3(Yolo):
 
         Returns
         -------
-        If self.include_postprocessing is True, returns:
-        boxes
-            Bounding box locations. Shape [batch, num preds, 4] where 4 == (left_x, top_y, right_x, bottom_y).
-        scores
-            Class scores multiplied by confidence. Shape is [batch, num_preds].
-        classes
-            Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
+        result : tuple[torch.Tensor, torch.Tensor, torch.Tensor] | torch.Tensor
+            If self.include_postprocessing is True, returns:
+            boxes
+                Bounding box locations. Shape [batch, num preds, 4] where 4 == (left_x, top_y, right_x, bottom_y).
+            scores
+                Class scores multiplied by confidence. Shape is [batch, num_preds].
+            classes
+                Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
 
-        If self.include_postprocessing is False, returns:
-        detector_output
-            Shape is [batch, num_preds, k] where, k = # of classes + 5. k is structured as follows [box_coordinates (4), conf (1), # of classes] and box_coordinates are [x_center, y_center, w, h].
+            If self.include_postprocessing is False, returns:
+            detector_output
+                Shape is [batch, num_preds, k] where, k = # of classes + 5. k is structured as follows [box_coordinates (4), conf (1), # of classes] and box_coordinates are [x_center, y_center, w, h].
         """
         boxes, scores = self.model(image)
         if not self.include_postprocessing:

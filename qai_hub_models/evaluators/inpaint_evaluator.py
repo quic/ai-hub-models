@@ -36,7 +36,11 @@ class InpaintEvaluator(BaseEvaluator):
         image = image * 255.0
         return image.permute(0, 2, 3, 1).cpu().numpy().astype(np.uint8)
 
-    def add_batch(self, fake_images: torch.Tensor, real_images: torch.Tensor) -> None:
+    def add_batch(
+        self,
+        fake_images: torch.Tensor,
+        gt: tuple[torch.Tensor, torch.Tensor] | list[torch.Tensor],
+    ) -> None:
         """
         Compute accuracy for the real and fake images
 
@@ -44,41 +48,67 @@ class InpaintEvaluator(BaseEvaluator):
         ----------
         fake_images
             Model output with shape (B, 3, 512, 512) and range [0, 1].
-        real_images
-            Ground truth with shape (B, 3, 512, 512) and range [0, 1].
+        gt
+            real_images
+                Ground truth with shape (B, 3, 512, 512) and range [0, 1].
+            masks
+                Binary mask tensor with shape (B, 1, 512, 512) and range [0, 1].
         """
+        if isinstance(gt, list):
+            real_images, masks = gt
+
         fake_np = self.postprocess(fake_images)
         real_np = self.postprocess(real_images)
 
-        for real, fake in zip(real_np, fake_np, strict=False):
-            self._update_metrics(real, fake)
+        masks_np = masks.permute(0, 2, 3, 1).cpu().numpy()
+
+        for i, (real, fake) in enumerate(zip(real_np, fake_np, strict=False)):
+            # Apply mask: Keep hole (where mask=1), zero background.
+            m = masks_np[i]
+            real = (real * m).astype(np.uint8)
+            fake = (fake * m).astype(np.uint8)
+            self._update_metrics(real, fake, mask=masks_np[i])
 
         if "fid" in self.metrics:
             self.fake_images.append(fake_np)
             self.real_images.append(real_np)
 
-    def _update_metrics(self, real: np.ndarray, fake: np.ndarray) -> None:
+    def _update_metrics(
+        self, real: np.ndarray, fake: np.ndarray, mask: np.ndarray
+    ) -> None:
         """
         Calculate and store all metrics for one image pair.
 
         Parameters
         ----------
         real
-            Ground truth image with shape (512, 512, 3), type of uint8, and range [0, 255].
+            Ground truth image with shape (512, 512, 3), type of uint8, and range [0, 255]
         fake
-            Model output image with shape (512, 512, 3), type of uint8, and range [0, 255].
+            Model output image with shape (512, 512, 3), type of uint8, and range [0, 255]
+        mask
+            Binary mask with shape (512, 512, 1), 1 for hole, 0 for background.
         """
+        real_fp, fake_fp = real.astype(np.float32), fake.astype(np.float32)
+        diff = real_fp - fake_fp
+
+        mask = np.repeat(mask, 3, axis=2)
+        # Use only the hole area for MAE and PSNR
+        diff = diff[mask > 0.1]
+
         if "mae" in self.metrics:
-            real_fp, fake_fp = real.astype(np.float32), fake.astype(np.float32)
-            mae = np.mean(np.abs(real_fp - fake_fp)) / 255.0
+            mae = np.mean(np.abs(diff)) / 255.0
             self.results["mae"].append(mae)
 
         if "psnr" in self.metrics:
+            real_hole = real_fp[mask > 0.1]
+            fake_hole = fake_fp[mask > 0.1]
             self.results["psnr"].append(
-                peak_signal_noise_ratio(real, fake, data_range=255)
+                peak_signal_noise_ratio(real_hole, fake_hole, data_range=255)
             )
 
         if "ssim" in self.metrics:
+            # SSIM still needs the full image or a windowed approach.
+            # Calculating SSIM only on a hole is non-standard as it needs spatial context.
             self.results["ssim"].append(
                 structural_similarity(real, fake, channel_axis=-1, data_range=255)
             )
@@ -113,17 +143,17 @@ class InpaintEvaluator(BaseEvaluator):
         return self.ssim()
 
     def formatted_accuracy(self) -> str:
-        """Return formatted string with all available metrics."""
-        parts = []
+        """Return a string of formatted metrics."""
+        result = []
         if "mae" in self.metrics:
-            parts.append(f"mae: {self.mae():.4f}")
+            result.append(f"mae: {self.mae():.4f}")
         if "psnr" in self.metrics:
-            parts.append(f"psnr: {self.psnr():.2f}")
+            result.append(f"psnr: {self.psnr():.2f}")
         if "ssim" in self.metrics:
-            parts.append(f"ssim: {self.ssim():.4f}")
+            result.append(f"ssim: {self.ssim():.4f}")
         if "fid" in self.metrics:
-            parts.append(f"fid: {self.fid():.2f}")
-        return ", ".join(parts)
+            result.append(f"fid: {self.fid():.2f}")
+        return ", ".join(result)
 
     def _compute_fid(
         self,

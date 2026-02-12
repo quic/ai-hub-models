@@ -9,6 +9,7 @@ import os
 import sys
 
 import torch
+from typing_extensions import Self
 
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
@@ -54,12 +55,12 @@ with SourceAsRoot(
 
 
 class TrackAnything(BaseModel):
-    def __init__(self, model: XMem):
+    def __init__(self, model: XMem) -> None:
         super().__init__(model)
         self.model: XMem
 
     @classmethod
-    def from_pretrained(cls) -> TrackAnything:
+    def from_pretrained(cls) -> Self:
         config = load_yaml(repo_path + "/tracker/config/config.yaml")
         model = XMem(config, XMEM_MODEL.fetch()).eval()
         return cls(model)
@@ -79,13 +80,13 @@ class TrackAnythingEncodeKeyWithShrinkage(TrackAnything):
 
         Returns
         -------
-        key
+        key : torch.Tensor
             torch.Tensor of shape [1, 64, height//16, width//16], encoded key
-        shrinkage
+        shrinkage : torch.Tensor
             torch.Tensor of shape [1, 1, height//16, width//16], shrinkage key
-        selection
+        selection : torch.Tensor
             torch.Tensor of shape [1, 64, height//16, width//16], selection mask
-        f16
+        f16 : torch.Tensor
             torch.Tensor of shape [1, 1024, height//16, width//16], image features
         """
         image = normalize_image_torchvision(image)
@@ -141,11 +142,11 @@ class TrackAnythingEncodeValue(TrackAnything):
 
         Returns
         -------
-        prob
+        prob : torch.Tensor
             torch.Tensor of shape [2, height, width], predicted probabilities
-        value
+        value : torch.Tensor
             torch.Tensor of shape [1, num_label, 512, height//16, width//16], encoded value
-        hidden
+        hidden : torch.Tensor
             torch.Tensor of shape [1, num_label, 64, height//16, width//16]
         """
         image = normalize_image_torchvision(image)
@@ -199,15 +200,15 @@ class TrackAnythingEncodeKeyWithoutShrinkage(TrackAnything):
 
         Returns
         -------
-        key
+        key : torch.Tensor
             torch.Tensor of shape [1, 64, height//16, width//16], encoded key
-        selection
+        selection : torch.Tensor
             torch.Tensor of shape [1, 64, height//16, width//16], selection mask
-        f16
+        f16 : torch.Tensor
             torch.Tensor of shape [1, 1024, height//16, width//16], image features
-        f8
+        f8 : torch.Tensor
             torch.Tensor of shape [1, 512, height//8, width//8], image features
-        f4
+        f4 : torch.Tensor
             torch.Tensor of shape [1, 256, height//4, width//4], image features
         """
         image = normalize_image_torchvision(image)
@@ -265,9 +266,9 @@ class TrackAnythingSegment(TrackAnything):
 
         Returns
         -------
-        prob
+        prob : torch.Tensor
             torch.Tensor of shape [2, height, width], predicted probabilities
-        hidden
+        hidden : torch.Tensor
             torch.Tensor of shape [1, num_label, 64, height//16, width//16]
         """
         multi_scale_features = (f16, f8, f4)
@@ -330,7 +331,7 @@ class TrackAnythingWrapper(CollectionModel):
         self.config = config
 
     @classmethod
-    def from_pretrained(cls) -> TrackAnythingWrapper:
+    def from_pretrained(cls) -> Self:
         config = load_yaml(repo_path + "/tracker/config/config.yaml")
         model = XMem(config, XMEM_MODEL.fetch()).eval()
         EncodeKeyWithShrinkage = TrackAnythingEncodeKeyWithShrinkage(model)

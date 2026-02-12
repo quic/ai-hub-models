@@ -119,20 +119,21 @@ class YoloObjectDetectionApp:
 
         Returns
         -------
-        If raw_output is False, returns:
-        images
-            A list of predicted RGB, [H, W, C] images (one list element per batch).
-            Each image will have bounding boxes drawn.
+        output : tuple[list[torch.Tensor], list[torch.Tensor], list[torch.Tensor]] | list[np.ndarray]
+            If raw_output is True, returns:
+                boxes : list[torch.Tensor]
+                    Bounding box locations per batch.
+                    List element shape is [num preds, 4] where 4 == (x1, y1, x2, y2).
+                scores : list[torch.Tensor]
+                    Class scores per batch multiplied by confidence.
+                    List element shape is [num_preds, # of classes (typically 80)].
+                class_idx : list[torch.Tensor]
+                    Shape is [num_preds] where the values are the indices of the most probable class of the prediction.
 
-        If raw_output is True, returns:
-        boxes
-            Bounding box locations per batch.
-            List element shape is [num preds, 4] where 4 == (x1, y1, x2, y2).
-        scores
-            Class scores per batch multiplied by confidence.
-            List element shape is [num_preds, # of classes (typically 80)].
-        class_idx
-            Shape is [num_preds] where the values are the indices of the most probable class of the prediction.
+            If raw_output is False, returns:
+                images : list[np.ndarray]
+                    A list of predicted RGB, [H, W, C] images (one list element per batch).
+                    Each image will have bounding boxes drawn.
         """
         # Input Prep
         NHWC_int_numpy_frames, NCHW_fp32_torch_frames = app_to_net_image_inputs(
@@ -195,11 +196,11 @@ class YoloObjectDetectionApp:
 
         Returns
         -------
-        boxes
+        boxes : torch.Tensor
             Bounding box locations. Shape is [batch, num preds, 4] where 4 == (x1, y1, x2, y2).
-        scores
+        scores : torch.Tensor
             Class scores multiplied by confidence. Shape is [batch, num_preds].
-        class_idx
+        class_idx : torch.Tensor
             Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
         """
         return detect_postprocess(predictions[0])
@@ -335,20 +336,24 @@ class YoloSegmentationApp:
 
         Returns
         -------
-        pred_boxes
-            If raw_output is true, list of predicted boxes for all the batches.
-            Each pred_box is of shape [num_boxes, 4].
-        pred_scores
-            If raw_output is true, list of scores for each predicted box for all the batches.
-            Each pred_score is of shape [num_boxes].
-        pred_masks
-            If raw_output is true, list of predicted masks for all the batches.
-            Each pred_mask is of shape [num_boxes, 32].
-        pred_classes
-            If raw_output is true, list of predicted class for all the batches.
-            Each pred_class is of shape [num_boxes].
-        image_with_masks
-            If raw_output is false, input image with predicted masks applied.
+        output : tuple[list[torch.Tensor], list[torch.Tensor], list[torch.Tensor], list[torch.Tensor]] | list[Image.Image]
+            If raw_output is True, returns:
+                pred_boxes : list[torch.Tensor]
+                    List of predicted boxes for all the batches.
+                    Each pred_box is of shape [num_boxes, 4].
+                pred_scores : list[torch.Tensor]
+                    List of scores for each predicted box for all the batches.
+                    Each pred_score is of shape [num_boxes].
+                pred_masks : list[torch.Tensor]
+                    List of predicted masks for all the batches.
+                    Each pred_mask is of shape [num_boxes, 32].
+                pred_classes : list[torch.Tensor]
+                    List of predicted class for all the batches.
+                    Each pred_class is of shape [num_boxes].
+
+            If raw_output is False, returns:
+                image_with_masks : list[Image.Image]
+                    Input image with predicted masks applied.
         """
         # Input Prep
         NHWC_int_numpy_frames, NCHW_fp32_torch_frames = app_to_net_image_inputs(

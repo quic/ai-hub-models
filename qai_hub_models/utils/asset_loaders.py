@@ -424,7 +424,6 @@ class ModelZooAssetConfig:
         dataset_asset_folder: str,
         local_store_path: str,
         qaihm_repo: str,
-        labels_path: str,
         example_use: str,
         huggingface_path: str,
         repo_url: str,
@@ -443,7 +442,6 @@ class ModelZooAssetConfig:
         self.model_asset_folder = model_asset_folder
         self.dataset_asset_folder = dataset_asset_folder
         self.qaihm_repo = qaihm_repo
-        self.labels_path = labels_path
         self.example_use = example_use
         self.huggingface_path = huggingface_path
         self.repo_url = repo_url
@@ -528,9 +526,6 @@ class ModelZooAssetConfig:
             self.get_relative_dataset_asset_path(dataset_id, version, file_name)
         )
 
-    def get_labels_file_path(self, labels_file: str) -> str:
-        return self.labels_path.lstrip("/").format(labels_file=labels_file)
-
     def get_qaihm_repo(
         self,
         model_id: str | None,
@@ -572,18 +567,31 @@ class ModelZooAssetConfig:
         model_id: str,
         runtime: TargetRuntime,
         precision: Precision,
-        chipset_with_underscores: str | None,
+        chipset: str | None,
     ) -> str:
-        if chipset_with_underscores is not None:
+        if runtime.is_aot_compiled:
+            if chipset is None:
+                raise ValueError("Chipset must be provided for AOT compiled runtimes")
             return self.released_asset_with_chipset_filename.format(
                 model_id=model_id,
-                runtime=runtime,
-                precision=precision,
-                chipset_with_underscores=chipset_with_underscores,
+                runtime=runtime.value,
+                precision=str(precision),
+                chipset_with_underscores=chipset.replace("-", "_"),
             )
         return self.released_asset_filename.format(
             model_id=model_id, runtime=runtime.value, precision=str(precision)
         )
+
+    def get_release_asset_name(
+        self,
+        model_id: str,
+        runtime: TargetRuntime,
+        precision: Precision,
+        chipset: str | None,
+    ) -> str:
+        return os.path.splitext(
+            self.get_release_asset_filename(model_id, runtime, precision, chipset)
+        )[0]
 
     def get_release_asset_s3_key(
         self,
@@ -591,13 +599,11 @@ class ModelZooAssetConfig:
         version: str,
         runtime: TargetRuntime,
         precision: Precision,
-        chipset_with_underscores: str | None,
+        chipset: str | None,
     ) -> str:
         return self.released_asset_folder.format(
             model_id=model_id, version=QAIHMVersion.tag_from_string(version)[1:]
-        ) + self.get_release_asset_filename(
-            model_id, runtime, precision, chipset_with_underscores
-        )
+        ) + self.get_release_asset_filename(model_id, runtime, precision, chipset)
 
     def get_release_asset_url(
         self,
@@ -605,11 +611,11 @@ class ModelZooAssetConfig:
         version: str,
         runtime: TargetRuntime,
         precision: Precision,
-        chipset_with_underscores: str | None,
+        chipset: str | None,
     ) -> str:
         return self.get_asset_url(
             self.get_release_asset_s3_key(
-                model_id, version, runtime, precision, chipset_with_underscores
+                model_id, version, runtime, precision, chipset
             )
         )
 
@@ -636,7 +642,6 @@ class ModelZooAssetConfig:
             asset_cfg["dataset_asset_folder"],
             local_store_path,
             asset_cfg["qaihm_repo"],
-            asset_cfg["labels_path"],
             asset_cfg["example_use"],
             asset_cfg["huggingface_path"],
             asset_cfg["repo_url"],
@@ -768,7 +773,7 @@ class CachedWebAsset:
 
         Returns
         -------
-        asset
+        asset : CachedWebAsset
             CachedWebAsset instance for the file.
         """
         return CachedWebAsset(
@@ -803,7 +808,7 @@ class CachedWebAsset:
 
         Returns
         -------
-        asset
+        asset : CachedWebAsset
             CachedWebAsset instance for the file.
         """
         return CachedWebAsset(
@@ -829,7 +834,7 @@ class CachedWebAsset:
 
         Returns
         -------
-        path
+        path : Path
             Path to the asset on disk.
         """
         file: str | Path
@@ -853,7 +858,7 @@ class CachedWebAsset:
 
         Returns
         -------
-        path
+        path : Any
             Path to the fetched asset on disk.
         """
         path = self.path()
@@ -964,7 +969,7 @@ class CachedWebModelAsset(CachedWebAsset):
 
         Returns
         -------
-        asset
+        asset : Any
             CachedWebModelAsset instance for the file.
         """
         web_store_path = asset_config.get_model_asset_url(
@@ -1010,7 +1015,7 @@ class CachedWebModelAsset(CachedWebAsset):
 
         Returns
         -------
-        asset
+        asset : CachedWebModelAsset
             CachedWebModelAsset instance for the file.
         """
         return CachedWebModelAsset(
@@ -1080,7 +1085,7 @@ class CachedWebDatasetAsset(CachedWebAsset):
 
         Returns
         -------
-        asset
+        asset : CachedWebDatasetAsset
             CachedWebDatasetAsset instance for the file.
         """
         web_store_path = asset_config.get_dataset_asset_url(
@@ -1126,7 +1131,7 @@ class CachedWebDatasetAsset(CachedWebAsset):
 
         Returns
         -------
-        asset
+        asset : CachedWebDatasetAsset
             CachedWebDatasetAsset instance for the file.
         """
         return CachedWebDatasetAsset(
@@ -1195,7 +1200,7 @@ def download_and_cache_google_drive(
 
     Returns
     -------
-    dst_path
+    dst_path : str
         Filepath within the local filesystem.
     """
     for i in range(num_retries):
@@ -1237,7 +1242,7 @@ def extract_zip_file(
 
     Returns
     -------
-    out_path
+    out_path : Path
         Path to the extracted directory.
     """
     filepath = Path(filepath_str)

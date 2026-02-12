@@ -9,7 +9,7 @@ from qai_hub_models.models.unet_segmentation.app import UNetSegmentationApp
 from qai_hub_models.models.unet_segmentation.model import IMAGE_ADDRESS, MODEL_ID, UNet
 
 
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     # This model is sensitive to constant-value padding
     pad_mode = "reflect"
     segmentation_demo(

@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import torch
+from typing_extensions import Self
 
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 from qai_hub_models.utils.base_model import BaseModel
@@ -23,7 +24,7 @@ DEFAULT_WEIGHTS_FILE = CachedWebModelAsset.from_asset_store(
 
 class CavaFace(BaseModel):
     @classmethod
-    def from_pretrained(cls, weights_name: str = DEFAULT_WEIGHTS):
+    def from_pretrained(cls, weights_name: str = DEFAULT_WEIGHTS) -> Self:
         if weights_name == DEFAULT_WEIGHTS:
             weights_file = DEFAULT_WEIGHTS_FILE
         else:
@@ -44,7 +45,7 @@ class CavaFace(BaseModel):
 
         Returns
         -------
-        embeddings
+        embeddings : torch.Tensor
             Normalized face embeddings tensor of shape [batch_size, 512].
         """
         # Normalize input [-1, 1]

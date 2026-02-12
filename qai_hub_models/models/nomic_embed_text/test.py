@@ -24,7 +24,7 @@ SAMPLE_TEXT = "Hello world!"
 
 
 @skip_clone_repo_check
-def test_task():
+def test_task() -> None:
     model = NomicEmbedText.from_pretrained()
     app = NomicEmbedTextApp(model, model.seq_length)
     embeddings = app.predict(SAMPLE_TEXT)
@@ -35,7 +35,7 @@ def test_task():
 
 @pytest.mark.trace
 @skip_clone_repo_check
-def test_trace():
+def test_trace() -> None:
     model = NomicEmbedText.from_pretrained()
     app = NomicEmbedTextApp(model.convert_to_torchscript(), model.seq_length)
     embeddings = app.predict(SAMPLE_TEXT)
@@ -45,5 +45,5 @@ def test_trace():
 
 
 @skip_clone_repo_check
-def test_demo():
+def test_demo() -> None:
     demo_main(is_test=True, default_text=SAMPLE_TEXT)

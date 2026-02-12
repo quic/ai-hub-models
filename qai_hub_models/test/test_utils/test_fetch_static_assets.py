@@ -4,367 +4,313 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-import os
-from collections.abc import Iterable
+from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Any, NoReturn
+from typing import Any
 from unittest import mock
 
 import pytest
 import qai_hub as hub
-from qai_hub.client import APIException
 
-from qai_hub_models._version import __version__
 from qai_hub_models.configs.devices_and_chipsets_yaml import DevicesAndChipsetsYaml
-from qai_hub_models.configs.info_yaml import QAIHMModelInfo
 from qai_hub_models.models.common import Precision, TargetRuntime
-from qai_hub_models.utils.base_config import BaseQAIHMConfig
 from qai_hub_models.utils.fetch_static_assets import fetch_static_assets
 from qai_hub_models.utils.version_helpers import QAIHMVersion
 
-MOBILENET_NAME = "MobileNet-v2"
+
+def requests_head_patch(status_code: int = 200) -> mock._patch[object]:
+    """Patches requests.head to return a response with the given status code."""
+
+    def _head(url: str, *args: Any, **kwargs: Any) -> mock.MagicMock:
+        response = mock.MagicMock()
+        response.status_code = status_code
+        return response
+
+    return mock.patch("qai_hub_models.utils.fetch_static_assets.requests.head", _head)
 
 
-def fetch_static_assets_internal_unavailable_patch() -> mock._patch[None]:
-    """Patches fetch_static_assets_internal so that it is not available (like in the public version of QAIHM)."""
-    return mock.patch(
-        "qai_hub_models.utils.fetch_static_assets.fetch_static_assets_internal", None
-    )
+def download_file_patch(success: bool = True) -> mock._patch[object]:
+    """Patches download_file to return the destination path without downloading."""
 
-
-def hf_glob_patch(
-    file_exists: bool = True, component_glob_result: list[str] | None = None
-) -> mock._patch[object]:
-    """
-    Patches Hugging Face glob search to either return the set of file names passed to it if the file exists,
-    or return None if the file does not exist.
-
-    Parameters
-    ----------
-    file_exists
-        Whether the model should exist on Hugging Face.
-    component_glob_result
-        When getting all components, glob will search for all component names via .*.
-        This is the list of component names. The glob will return 1 file path per component.
-
-    Returns
-    -------
-    patch
-        Test patch for Hugging Face glob search.
-    """
-    if component_glob_result is None:
-        component_glob_result = [""]
-
-    def hf_glob(self: object, path: str, revision: str | None = None) -> list[str]:
-        if revision is not None:
-            org, repo, file = path.split("/", maxsplit=2)
-            path = "/".join([org, repo + f"@{revision}", file])
-
-        if file_exists and component_glob_result:
-            # Act like the .* in the glob returns each component
-            return [
-                path.replace("*", f"_{component}" if component else "")
-                for component in component_glob_result
-            ]
-
-        return [path] if file_exists else []
-
-    return mock.patch("qai_hub_models.utils.huggingface.HfFileSystem.glob", hf_glob)
-
-
-def hf_hub_download_patch() -> mock._patch[object]:
-    """Patches hf_hub_download to return the path the given args would be downloaded to, without actually downloading anything."""
-
-    def hf_hub_download(
-        repo_id: str, filename: str, local_dir: str, revision: str
-    ) -> str:
-        return os.path.join(local_dir, filename)
-
-    return mock.patch(
-        "qai_hub_models.utils.huggingface.hf_hub_download", hf_hub_download
-    )
-
-
-def ai_hub_no_access_patch() -> mock._patch[object]:
-    """Patches the AI Hub Workbench client to act like the user does not have AI Hub Workbench access."""
-
-    def get_frameworks() -> NoReturn:
-        raise APIException("QAIHM API Access Failure Test")
-
-    return mock.patch(
-        "qai_hub_models.utils.qai_hub_helpers.hub.get_frameworks", get_frameworks
-    )
-
-
-def download_file_patch(
-    file_contents: Iterable[str | BaseQAIHMConfig | None],
-) -> mock._patch:
-    """
-    Patches AI Hub Models' download file API to return set file contents, rather than actually fetching from the internet.
-
-    Parameters
-    ----------
-    file_contents
-        A list of file contents to save. Call idx i of download_file() will return a path to a file with the contents of this list at index i.
-        If the file contents are 'None', raises a ValueError to simulate a download failure.
-
-    Returns
-    -------
-    patch
-        Test Patch
-    """
-    files_iter = iter(file_contents)
-
-    def download_file(web_url: str, dst_path: str, *args: Any, **kwargs: Any) -> str:
-        if not files_iter:
-            raise ValueError(
-                "TESTING: Ran out of simulated file contents for download_file to return."
-            )
-
-        file = next(files_iter)
-        if file is None:
-            raise ValueError("TESTING: Simulated download error.")
-        if isinstance(file, BaseQAIHMConfig):
-            file.to_yaml(dst_path)
-        if isinstance(file, str):
-            with open(dst_path, "w") as dstf:
-                dstf.write(dst_path)
-
+    def _download_file(url: str, dst_path: str, *args: Any, **kwargs: Any) -> str:
+        if not success:
+            raise ValueError("TESTING: Download failed")
         return dst_path
 
     return mock.patch(
-        "qai_hub_models.utils.fetch_static_assets.download_file", download_file
+        "qai_hub_models.utils.fetch_static_assets.download_file", _download_file
     )
 
 
-def test_model_with_no_hf_assets() -> None:
-    with (
-        hf_glob_patch(False),
-        fetch_static_assets_internal_unavailable_patch(),
-        pytest.raises(FileNotFoundError),
-        TemporaryDirectory() as tmpdir,
-    ):
-        fetch_static_assets("mobilenet_v2", TargetRuntime.ONNX, output_folder=tmpdir)
+def fetch_prerelease_assets_patch(
+    success: bool = True, return_path: str | None = None
+) -> mock._patch[object]:
+    """Patches fetch_prerelease_assets to return a path or raise an error."""
+    from pathlib import Path
 
-
-def test_hf_model_with_single_component() -> None:
-    file_names = [
-        f"{MOBILENET_NAME}_{Precision.float}.{TargetRuntime.ONNX.file_extension}"
-    ]
-    with TemporaryDirectory() as tmpdir:
-        # Standard test
-        with hf_glob_patch(), ai_hub_no_access_patch(), hf_hub_download_patch():
-            local_paths, urls = fetch_static_assets(
-                "mobilenet_v2", TargetRuntime.ONNX, output_folder=tmpdir
+    def _fetch_prerelease_assets(
+        model_id: str,
+        runtime: TargetRuntime,
+        precision: Precision,
+        device_or_chipset: Any,
+        output_folder: Any,
+        asset_config: Any,
+        verbose: bool = True,
+    ) -> Path:
+        if not success:
+            raise ValueError(
+                "No pre-release assets found for the specified configuration."
             )
-            assert len(local_paths) == 1
-            assert len(urls) == 1
-            assert str(object=local_paths[0]) == os.path.join(tmpdir, file_names[0])
-            assert urls[0].startswith("https://huggingface.co")
-            assert urls[0].endswith(file_names[0])
-            assert __version__ in urls[0]
+        return Path(return_path or "/mock/prerelease/asset.tflite")
 
-        # With download disabled, only URLs should be returned
-        with hf_glob_patch(), hf_hub_download_patch():
-            local_paths, urls = fetch_static_assets(
-                "mobilenet_v2", TargetRuntime.ONNX, output_folder=None
-            )
-            assert len(local_paths) == 0
-            assert len(urls) == 1
-            assert urls[0].startswith("https://huggingface.co")
-            assert urls[0].endswith(file_names[0])
-            assert __version__ in urls[0]
+    return mock.patch(
+        "qai_hub_models.utils.fetch_static_assets.fetch_prerelease_assets",
+        _fetch_prerelease_assets,
+    )
 
-        # Version of info.yaml to return for previous releases.
-        info_yaml = QAIHMModelInfo.from_model("mobilenet_v2")
 
-        # Changed version should be reflected in returned URL
-        with hf_glob_patch(), hf_hub_download_patch(), download_file_patch([info_yaml]):
-            local_paths, urls = fetch_static_assets(
-                "mobilenet_v2",
-                TargetRuntime.ONNX,
-                output_folder=None,
-                qaihm_version_tag="v0.1",
-            )
-            assert len(local_paths) == 0
-            assert len(urls) == 1
-            assert urls[0].startswith("https://huggingface.co")
-            assert urls[0].endswith(file_names[0])
-            assert "v0.1" in urls[0]
+def fetch_prerelease_assets_unavailable_patch() -> mock._patch[object]:
+    """Patches fetch_prerelease_assets to be None (like in the public version of QAIHM)."""
+    return mock.patch(
+        "qai_hub_models.utils.fetch_static_assets.fetch_prerelease_assets", None
+    )
 
-        with hf_glob_patch(), hf_hub_download_patch(), download_file_patch([info_yaml]):
-            local_paths, urls = fetch_static_assets(
-                "mobilenet_v2",
-                TargetRuntime.ONNX,
-                output_folder=None,
-                qaihm_version_tag="latest",
-            )
-            assert len(local_paths) == 0
-            assert len(urls) == 1
-            assert urls[0].startswith("https://huggingface.co")
-            assert urls[0].endswith(file_names[0])
-            assert QAIHMVersion.latest_tag in urls[0]
 
-        # Throw if the old info.yaml is not available
+class TestFetchStaticAssetsPublicAsset:
+    """Tests for fetching assets from public release URLs."""
+
+    def test_fetch_universal_asset_success(self) -> None:
+        """Test successful fetch of a universal asset (non-AOT)."""
         with (
-            pytest.raises(
-                FileNotFoundError, match=r"Unable to find asset data for mobilenet_v2"
-            ),
-            download_file_patch([None]),
+            fetch_prerelease_assets_unavailable_patch(),
+            requests_head_patch(200),
+            download_file_patch(success=True),
+            TemporaryDirectory() as tmpdir,
         ):
-            fetch_static_assets(
-                "mobilenet_v2",
-                TargetRuntime.ONNX,
-                output_folder=None,
-                qaihm_version_tag="v0.1",
-            )
-
-        # Throw if the old info.yaml is not parseable
-        with (
-            pytest.raises(
-                FileNotFoundError, match=r"Unable to parse asset data for mobilenet_v2"
-            ),
-            download_file_patch([""]),
-        ):
-            fetch_static_assets(
-                "mobilenet_v2",
-                TargetRuntime.ONNX,
-                output_folder=None,
-                qaihm_version_tag="v0.1",
-            )
-
-
-def test_hf_model_with_multiple_components() -> None:
-    component_names = ["Part1", "Part2"]
-    file_names = [
-        f"{MOBILENET_NAME}_Part1_{Precision.float}.{TargetRuntime.TFLITE.file_extension}",
-        f"{MOBILENET_NAME}_Part2_{Precision.float}.{TargetRuntime.TFLITE.file_extension}",
-    ]
-    with TemporaryDirectory() as tmpdir:
-        # Default (all components)
-        with (
-            hf_glob_patch(component_glob_result=component_names),
-            hf_hub_download_patch(),
-        ):
-            local_paths, urls = fetch_static_assets(
-                "mobilenet_v2", TargetRuntime.TFLITE, output_folder=tmpdir
-            )
-            assert len(local_paths) == 2
-            assert len(urls) == 2
-            assert str(local_paths[0]) == os.path.join(tmpdir, file_names[0])
-            assert str(local_paths[1]) == os.path.join(tmpdir, file_names[1])
-            assert urls[0].startswith("https://huggingface.co")
-            assert urls[0].endswith(file_names[0])
-            assert __version__ in urls[0]
-            assert urls[1].startswith("https://huggingface.co")
-            assert urls[1].endswith(file_names[1])
-            assert __version__ in urls[1]
-
-        # Search for specific component names (out of order)
-        with hf_glob_patch(), hf_hub_download_patch():
-            local_paths, urls = fetch_static_assets(
+            path, url = fetch_static_assets(
                 "mobilenet_v2",
                 TargetRuntime.TFLITE,
+                Precision.float,
                 output_folder=tmpdir,
-                components=component_names[::-1],
             )
-            assert len(local_paths) == 2
-            assert len(urls) == 2
-            assert str(local_paths[0]) == os.path.join(tmpdir, file_names[1])
-            assert str(local_paths[1]) == os.path.join(tmpdir, file_names[0])
-            assert urls[0].startswith("https://huggingface.co")
-            assert urls[0].endswith(file_names[1])
-            assert __version__ in urls[0]
-            assert urls[1].startswith("https://huggingface.co")
-            assert urls[1].endswith(file_names[0])
-            assert __version__ in urls[1]
+            assert path is not None
+            assert path.is_relative_to(Path(tmpdir))
+            # Assets are packaged as .zip files
+            assert path.suffix == ".zip"
+            assert "mobilenet_v2" in url
+            assert url.endswith(".zip")
 
-
-def test_hf_model_with_device_specific_assets() -> None:
-    expected_huggingface_file_names = [
-        f"precompiled/qualcomm-snapdragon-x-elite/{MOBILENET_NAME}_{Precision.float}.{TargetRuntime.PRECOMPILED_QNN_ONNX.file_extension}"
-    ]
-    with TemporaryDirectory() as tmpdir:
-        with pytest.raises(
-            ValueError,
-            match=r"You must specify a device to fetch an asset that is device-specific.",
-        ):
-            local_paths, urls = fetch_static_assets(
-                "mobilenet_v2", TargetRuntime.PRECOMPILED_QNN_ONNX, output_folder=tmpdir
-            )
-
-        with hf_glob_patch(), ai_hub_no_access_patch(), hf_hub_download_patch():
-            for device in [
-                hub.Device("Snapdragon X Elite CRD"),
-                hub.Device(attributes="chipset:qualcomm-snapdragon-x-elite"),
-            ]:
-                local_paths, urls = fetch_static_assets(
-                    "mobilenet_v2",
-                    TargetRuntime.PRECOMPILED_QNN_ONNX,
-                    device=device,
-                    output_folder=tmpdir,
-                )
-                assert len(local_paths) == 1
-                assert len(urls) == 1
-                assert str(object=local_paths[0]) == os.path.join(
-                    tmpdir, expected_huggingface_file_names[0]
-                )
-                assert urls[0].startswith("https://huggingface.co")
-                assert urls[0].endswith(expected_huggingface_file_names[0])
-                assert __version__ in urls[0]
-
-            # Verify we can fetch from an older version of QAIHM.
-            info_yaml = QAIHMModelInfo.from_model("mobilenet_v2")
-            devices_yaml = DevicesAndChipsetsYaml.load()
-            with download_file_patch([info_yaml, devices_yaml]):
-                local_paths, urls = fetch_static_assets(
-                    "mobilenet_v2",
-                    TargetRuntime.PRECOMPILED_QNN_ONNX,
-                    device=hub.Device(attributes="chipset:qualcomm-snapdragon-x-elite"),
-                    output_folder=tmpdir,
-                    qaihm_version_tag="0.92",
-                )
-                assert len(local_paths) == 1
-                assert len(urls) == 1
-                assert str(object=local_paths[0]) == os.path.join(
-                    tmpdir, expected_huggingface_file_names[0]
-                )
-                assert urls[0].startswith("https://huggingface.co")
-                assert urls[0].endswith(expected_huggingface_file_names[0])
-                assert "0.92" in urls[0]
-
-        ##
-        # Verify we fail correctly if we fetch from a bad older version of QAIHM.
-        ##
-
-        # Throw if the old chipsets.yaml is not available
+    def test_fetch_device_specific_asset_success(self) -> None:
+        """Test successful fetch of a device-specific asset."""
         with (
-            pytest.raises(
-                FileNotFoundError,
-                match=r"Unable to find supported devices and chipsets for QAIHM",
-            ),
-            download_file_patch([info_yaml, None]),
+            fetch_prerelease_assets_unavailable_patch(),
+            requests_head_patch(200),
+            download_file_patch(success=True),
+            TemporaryDirectory() as tmpdir,
         ):
-            fetch_static_assets(
+            path, url = fetch_static_assets(
                 "mobilenet_v2",
                 TargetRuntime.PRECOMPILED_QNN_ONNX,
-                device=hub.Device(attributes="chipset:qualcomm-snapdragon-x-elite"),
+                Precision.float,
+                device_or_chipset="qualcomm-snapdragon-8-gen-3",
                 output_folder=tmpdir,
-                qaihm_version_tag="0.92",
             )
+            assert path is not None
+            assert path.is_relative_to(Path(tmpdir))
+            assert "mobilenet_v2" in url
+            assert "qualcomm_snapdragon_8_gen_3" in url
 
-        # Throw if the old chipsets.yaml is not parseable
+    def test_fetch_device_specific_asset_with_hub_device(self) -> None:
+        """Test fetch with a hub.Device object."""
+
+        def _load_chipsets_from_previous_release(
+            *args: Any, **kwargs: Any
+        ) -> DevicesAndChipsetsYaml:
+            return DevicesAndChipsetsYaml.load()
+
         with (
-            download_file_patch([info_yaml, ""]),
+            fetch_prerelease_assets_unavailable_patch(),
+            requests_head_patch(200),
+            download_file_patch(success=True),
+            mock.patch(
+                "qai_hub_models.utils.fetch_static_assets._load_chipsets_from_previous_release",
+                _load_chipsets_from_previous_release,
+            ),
+            TemporaryDirectory() as tmpdir,
+        ):
+            device = hub.Device("Samsung Galaxy S24")
+            path, url = fetch_static_assets(
+                "mobilenet_v2",
+                TargetRuntime.PRECOMPILED_QNN_ONNX,
+                Precision.float,
+                device_or_chipset=device,
+                output_folder=tmpdir,
+            )
+            assert path is not None
+            assert path.is_relative_to(Path(tmpdir))
+            assert "mobilenet_v2" in url
+
+    def test_fetch_aot_without_device_raises_error(self) -> None:
+        """Test that fetching AOT asset without device raises ValueError."""
+        with (
+            fetch_prerelease_assets_unavailable_patch(),
             pytest.raises(
-                FileNotFoundError,
-                match=r"Unable to parse supported devices and chipsets for QAIHM",
+                ValueError,
+                match=r"You must specify a device or chipset",
             ),
         ):
             fetch_static_assets(
                 "mobilenet_v2",
                 TargetRuntime.PRECOMPILED_QNN_ONNX,
-                device=hub.Device(attributes="chipset:qualcomm-snapdragon-x-elite"),
-                output_folder=tmpdir,
-                qaihm_version_tag="0.92",
+                Precision.float,
             )
+
+
+class TestFetchStaticAssetsPrereleaseFirst:
+    """Tests for prerelease asset fetching (called before public release)."""
+
+    def test_prerelease_called_first_when_available_version_none(self) -> None:
+        """Test that fetch_prerelease_assets is called first when available and version is None."""
+        with (
+            fetch_prerelease_assets_patch(success=True),
+            TemporaryDirectory() as tmpdir,
+        ):
+            path, url = fetch_static_assets(
+                "mobilenet_v2",
+                TargetRuntime.TFLITE,
+                Precision.float,
+                qaihm_version_tag=None,
+                output_folder=tmpdir,
+            )
+            assert str(path) == "/mock/prerelease/asset.tflite"
+            # URL is empty when using prerelease assets
+            assert url == ""
+
+    def test_prerelease_called_when_version_is_current_alias(self) -> None:
+        """Test that fetch_prerelease_assets is called when version is 'current' alias."""
+        with (
+            fetch_prerelease_assets_patch(success=True),
+            TemporaryDirectory() as tmpdir,
+        ):
+            path, url = fetch_static_assets(
+                "mobilenet_v2",
+                TargetRuntime.TFLITE,
+                Precision.float,
+                qaihm_version_tag="current",
+                output_folder=tmpdir,
+            )
+            assert str(path) == "/mock/prerelease/asset.tflite"
+            # URL is empty when using prerelease assets
+            assert url == ""
+
+    def test_public_release_when_no_prerelease_version_none(self) -> None:
+        """Test that public release is used when prerelease unavailable and version is None."""
+        with (
+            fetch_prerelease_assets_unavailable_patch(),
+            requests_head_patch(200),
+            download_file_patch(success=True),
+            TemporaryDirectory() as tmpdir,
+        ):
+            path, url = fetch_static_assets(
+                "mobilenet_v2",
+                TargetRuntime.TFLITE,
+                Precision.float,
+                qaihm_version_tag=None,
+                output_folder=tmpdir,
+            )
+            assert path is not None
+            assert str(path).startswith(tmpdir)
+            assert "mobilenet_v2" in url
+
+    def test_public_release_when_no_prerelease_version_current_alias(self) -> None:
+        """Test that public release is used when prerelease unavailable and version is 'current'."""
+        with (
+            fetch_prerelease_assets_unavailable_patch(),
+            requests_head_patch(200),
+            download_file_patch(success=True),
+            TemporaryDirectory() as tmpdir,
+        ):
+            path, url = fetch_static_assets(
+                "mobilenet_v2",
+                TargetRuntime.TFLITE,
+                Precision.float,
+                qaihm_version_tag="current",
+                output_folder=tmpdir,
+            )
+            assert path is not None
+            assert str(path).startswith(tmpdir)
+            assert "mobilenet_v2" in url
+            # "current" gets resolved to the actual current version tag
+            assert QAIHMVersion.current_tag in url
+
+    def test_public_release_used_when_specific_version_requested(self) -> None:
+        """Test that public release is used when a specific (non-current) version is requested."""
+        with (
+            fetch_prerelease_assets_patch(success=True),
+            requests_head_patch(200),
+            download_file_patch(success=True),
+            TemporaryDirectory() as tmpdir,
+        ):
+            path, url = fetch_static_assets(
+                "mobilenet_v2",
+                TargetRuntime.TFLITE,
+                Precision.float,
+                qaihm_version_tag="v0.44.0",
+                output_folder=tmpdir,
+            )
+            # Should use public release, not prerelease
+            assert path is not None
+            assert str(path).startswith(tmpdir)
+            assert "v0.44.0" in url
+
+    def test_error_when_public_release_not_found(self) -> None:
+        """Test error when public release returns 404 (no fallback)."""
+        with (
+            fetch_prerelease_assets_unavailable_patch(),
+            requests_head_patch(404),
+            pytest.raises(ValueError, match=r"No release found"),
+        ):
+            fetch_static_assets(
+                "mobilenet_v2",
+                TargetRuntime.TFLITE,
+                Precision.float,
+            )
+
+
+class TestFetchStaticAssetsVersionRequirements:
+    """Tests for version requirements."""
+
+    def test_old_version_raises_error(self) -> None:
+        """Test that fetching from old QAIHM version (< 0.44.0) raises error."""
+        with (
+            fetch_prerelease_assets_unavailable_patch(),
+            pytest.raises(
+                ValueError,
+                match=r"Fetching device-specific assets is not supported for QAIHM versions < v0.44.0",
+            ),
+        ):
+            fetch_static_assets(
+                "mobilenet_v2",
+                TargetRuntime.TFLITE,
+                Precision.float,
+                qaihm_version_tag="v0.43.0",
+            )
+
+    def test_valid_version_allowed(self) -> None:
+        """Test that valid QAIHM versions (>= 0.44.0) are allowed."""
+        with (
+            fetch_prerelease_assets_unavailable_patch(),
+            requests_head_patch(200),
+            download_file_patch(success=True),
+            TemporaryDirectory() as tmpdir,
+        ):
+            path, url = fetch_static_assets(
+                "mobilenet_v2",
+                TargetRuntime.TFLITE,
+                Precision.float,
+                qaihm_version_tag="v0.44.0",
+                output_folder=tmpdir,
+            )
+            assert path is not None
+            assert "v0.44.0" in url
+            assert "mobilenet_v2" in url

@@ -1271,7 +1271,7 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
         if precision not in {Precision.w4a16, Precision.w4}:
             raise RuntimeError("Only w4a16 and w4 precisions are supported")
 
-        other_compile_options += " --quantize_full_type w8a16 --quantize_io --qnn_bin_conversion_via_model_library"
+        other_compile_options += " --quantize_full_type w8a16 --quantize_io"
         return super().get_hub_compile_options(
             target_runtime, precision, other_compile_options, device, context_graph_name
         )
@@ -1661,7 +1661,7 @@ class LLM_QNN(LLMConfigEditor, BaseModel, ABC):
 
         Returns
         -------
-        LLM_QNN
+        LLM_QNN : Self
             Instance of the model loaded from the checkpoint.
         """
         _verify_onnxruntime_qnn_installed()

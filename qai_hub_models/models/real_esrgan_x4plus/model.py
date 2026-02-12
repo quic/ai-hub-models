@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import torch
+from typing_extensions import Self
 
 from qai_hub_models.extern.basicsr.archs.rrdbnet_arch import RRDBNet
 from qai_hub_models.models._shared.super_resolution.model import (
@@ -44,9 +45,7 @@ class Real_ESRGAN_x4plus(SuperResolutionModel):
     """Exportable RealESRGAN upscaler, end-to-end."""
 
     @classmethod
-    def from_pretrained(
-        cls, scale_factor: int = DEFAULT_SCALE_FACTOR
-    ) -> Real_ESRGAN_x4plus:
+    def from_pretrained(cls, scale_factor: int = DEFAULT_SCALE_FACTOR) -> Self:
         """Load RealESRGAN from a weightfile created by the source RealESRGAN repository."""
         # Load PyTorch model from disk
         if scale_factor == 4:
@@ -63,7 +62,9 @@ class Real_ESRGAN_x4plus(SuperResolutionModel):
         return super().forward(image).clamp_(0, 1)
 
 
-def _get_weightsfile_from_name(weights_name: str = DEFAULT_WEIGHTS):
+def _get_weightsfile_from_name(
+    weights_name: str = DEFAULT_WEIGHTS,
+) -> CachedWebModelAsset | str:
     """Convert from names of weights files to the url for the weights file"""
     if weights_name == DEFAULT_WEIGHTS:
         return DEFAULT_WEIGHTS_URL

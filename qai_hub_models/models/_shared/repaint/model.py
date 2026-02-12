@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.inpaint_evaluator import InpaintEvaluator
 from qai_hub_models.models._shared.repaint.utils import preprocess_inputs
 from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
@@ -59,3 +61,10 @@ class RepaintModel(BaseModel):
             mask = mask.resize((w, h))
         torch_inputs = preprocess_inputs(image, mask)
         return {k: [v.detach().numpy()] for k, v in torch_inputs.items()}
+
+    def get_evaluator(self) -> BaseEvaluator:
+        return InpaintEvaluator()
+
+    @staticmethod
+    def eval_datasets() -> list[str]:
+        return ["celebahq"]

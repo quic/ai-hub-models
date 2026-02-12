@@ -51,11 +51,11 @@ def app_to_net_image_inputs(
 
     Returns
     -------
-    NHWC_int_numpy_frames
+    NHWC_int_numpy_frames : list[np.ndarray]
         List of numpy arrays, one per input image with uint8 dtype, [H W C] shape,
         and RGB or grayscale layout.
         This output is typically used for drawing/displaying images with PIL and CV2.
-    NCHW_torch_frames
+    NCHW_torch_frames : torch.Tensor
         Tensor of images with shape [Batch, Channels, Height, Width],
         and RGB or grayscale layout.
 
@@ -162,7 +162,7 @@ def normalize_image_torchvision(
 
     Returns
     -------
-    normalized_tensor
+    normalized_tensor : torch.Tensor
         Normalized image tensor.
     """
     shape = [-1, 1, 1]
@@ -185,7 +185,7 @@ def normalize_image_transform() -> Callable[[torch.Tensor], torch.Tensor]:
     return functools.partial(normalize_image_torchvision, image_tensor_has_batch=False)
 
 
-def pad_to_square(frame: np.ndarray) -> np.ndarray:
+def pad_to_square(frame: np.ndarray, pad_value: float = 255) -> np.ndarray:
     """
     Pad an image or video frame to square dimensions with whitespace.
 
@@ -195,10 +195,12 @@ def pad_to_square(frame: np.ndarray) -> np.ndarray:
     ----------
     frame
         Image or video frame to pad.
+    pad_value
+        Value to use for padding (default: 255).
 
     Returns
     -------
-    padded_frame
+    padded_frame : np.ndarray
         Padded square frame.
     """
     h, w, _ = frame.shape
@@ -208,7 +210,7 @@ def pad_to_square(frame: np.ndarray) -> np.ndarray:
     else:
         top_pad = (h - w) // 2
         pad_values = ((0, 0), (top_pad, h - w - top_pad), (0, 0))
-    return np.pad(frame, pad_values, constant_values=255)
+    return np.pad(frame, pad_values, constant_values=pad_value)
 
 
 def resize_pad(
@@ -250,11 +252,11 @@ def resize_pad(
 
     Returns
     -------
-    rescaled_padded_image
+    rescaled_padded_image : torch.Tensor
         Tensor with shape (..., dst_size[0], dst_size[1]).
-    scale
+    scale : float
         Scale factor between original image and dst_size image.
-    pad
+    pad : tuple[int, int]
         Pixels of padding added to the rescaled image (left_padding, top_padding).
 
     Notes
@@ -336,7 +338,7 @@ def undo_resize_pad(
 
     Returns
     -------
-    restored_image
+    restored_image : torch.Tensor
         Image restored to original size.
     """
     width, height = orig_size_wh
@@ -372,7 +374,7 @@ def transform_resize_pad_coordinates(
 
     Returns
     -------
-    transformed_coordinates
+    transformed_coordinates : torch.Tensor
         Modified coordinates in pixel space.
     """
     return coordinates * scale_factor + torch.Tensor([*pad]).int()
@@ -406,7 +408,7 @@ def transform_resize_pad_normalized_coordinates(
 
     Returns
     -------
-    transformed_coordinates
+    transformed_coordinates : torch.Tensor
         Modified coordinates in normalized [0-1] float space.
     """
     coordinates = coordinates * torch.Tensor([*src_image_shape]).int()
@@ -499,7 +501,7 @@ def apply_batched_affines_to_frame(
 
     Returns
     -------
-    transformed_images
+    transformed_images : np.ndarray
         Computed images with shape [B H W C].
     """
     assert (
@@ -556,7 +558,7 @@ def compute_vector_rotation(
 
     Returns
     -------
-    rotation_angle
+    rotation_angle : torch.Tensor
         Computed rotation angle in radians. Shape is [Batch].
     """
     return (
@@ -596,7 +598,7 @@ def compute_affine_transform(
 
     Returns
     -------
-    affine_matrix
+    affine_matrix : np.ndarray
         Affine transform for transformation, with shape (2, 3).
     """
     src_w = scale[0]
@@ -642,7 +644,7 @@ def get_dir(src_point: np.ndarray, rot_rad: float) -> np.ndarray:
 
     Returns
     -------
-    rotated_point
+    rotated_point : np.ndarray
         The point after rotation with shape [2,].
     """
     sn, cs = np.sin(rot_rad), np.cos(rot_rad)
@@ -667,7 +669,7 @@ def get_3rd_point(point_x: np.ndarray, point_y: np.ndarray) -> np.ndarray:
 
     Returns
     -------
-    third_point
+    third_point : np.ndarray
         The third point with shape (2,).
     """
     direct = point_x - point_y
@@ -699,7 +701,7 @@ def pre_process_with_affine(
 
     Returns
     -------
-    preprocessed_image
+    preprocessed_image : torch.Tensor
         The pre-processed image with shape (1, C, H, W).
     """
     inp_height, inp_width = in_shape
@@ -738,7 +740,7 @@ def denormalize_coordinates_affine(
 
     Returns
     -------
-    denormalized_coords
+    denormalized_coords : np.ndarray
         Transformed coordinates in the original image space. Shape (N, 2).
     """
     trans = compute_affine_transform(center, scale, rot, output_size, inv=True)
@@ -764,9 +766,9 @@ def get_post_rot_and_tran(
 
     Returns
     -------
-    post_rot
+    post_rot : torch.Tensor
         Shape [3, 3]. Post rotation matrix in camera coordinate system.
-    post_tran
+    post_tran : torch.Tensor
         Shape [3,]. Post translation tensor in camera coordinate system.
     """
     post_rot = torch.eye(3)

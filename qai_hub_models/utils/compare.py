@@ -75,7 +75,7 @@ def torch_inference(
 
     Returns
     -------
-    outputs
+    outputs : list[np.ndarray]
         List of numpy array outputs.
     """
     numpy_outputs = _torch_inference_impl(model, sample_inputs)
@@ -189,7 +189,7 @@ def generate_comparison_metrics(
 
     Returns
     -------
-    df_res
+    df_res : pd.DataFrame
         DataFrame with output names or range index and shape, metrics as columns
         (e.g., shape | psnr | top1 | top5).
     """

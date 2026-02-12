@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 import torch
@@ -31,10 +32,10 @@ class BGNetApp:
         * Overlay the segmentation mask onto the image and return it
     """
 
-    def __init__(self, model: Callable[[torch.Tensor], torch.Tensor]):
+    def __init__(self, model: Callable[[torch.Tensor], torch.Tensor]) -> None:
         self.model = model
 
-    def predict(self, *args, **kwargs):
+    def predict(self, *args: Any, **kwargs: Any) -> list[Image.Image] | np.ndarray:
         # See segment_image.
         return self.segment_image(*args, **kwargs)
 
@@ -62,13 +63,11 @@ class BGNetApp:
 
         Returns
         -------
-        masks_or_images
-            If raw_output is true, returns:
-                pred_mask_img
-                    Numpy array of predicted RGB masks. Shape [N, C, H, W], uint8
-            Otherwise, returns:
-                segmented_images
-                    List of PIL Images with segmentation map overlaid with an alpha of 0.5.
+        masks_or_images : list[Image.Image] | np.ndarray
+            If raw_output is true:
+                Numpy array of predicted RGB masks. Shape [N, C, H, W], uint8
+            Otherwise:
+                List of PIL Images with segmentation map overlaid with an alpha of 0.5.
         """
         # Input Prep
         NHWC_int_numpy_frames, NCHW_fp32_torch_frames = app_to_net_image_inputs(
@@ -110,7 +109,7 @@ def postprocess_masks(
 
     Returns
     -------
-    masks
+    masks : torch.Tensor
         Masks [N, C, H, W], uint8
     """
     # Upsample pred mask to original image size

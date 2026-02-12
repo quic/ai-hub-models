@@ -71,7 +71,7 @@ class FaceAttribNetEvaluator(BaseEvaluator):
 
         Returns
         -------
-        accuracy_score
+        accuracy_score : float
             Accuracy score in the range [0, 1].
         """
         return (
@@ -84,7 +84,7 @@ class FaceAttribNetEvaluator(BaseEvaluator):
 
         Returns
         -------
-        formatted_string
+        formatted_string : str
             formatted string of accuracy report
         """
         return f"Accuracy: {self.get_accuracy_score():.3f}"

@@ -11,6 +11,7 @@ from typing_extensions import Self
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.face_det_lite_evaluator import FaceDetLiteEvaluator
+from qai_hub_models.models.common import Precision
 from qai_hub_models.models.face_det_lite.layers import (
     CBAModule,
     DetectModule,
@@ -44,7 +45,7 @@ class FaceDetLite(BaseModel):
         RGB: bool = False,
         has_se: bool = True,
         phase: str = "train",
-    ):
+    ) -> None:
         """
         FaceDetLite face detector model for face and landmark detection.
         output face bounding box and 5 landmarks.
@@ -121,15 +122,16 @@ class FaceDetLite(BaseModel):
 
         Returns
         -------
-        If has_landmark is True, returns:
-        heatmap
-            Shape is [N, C, H, W]. The heatmap for person/face detection.
-        bbox
-            Shape is [N, C*4, H, W]. The bounding box coordinates as a map.
-        landmark
-            Shape is [N, C*10, H, W]. The coordinates of landmarks as a map.
+        result : tuple[torch.Tensor, torch.Tensor, torch.Tensor] | None
+            If has_landmark is True, returns:
+            heatmap
+                Shape is [N, C, H, W]. The heatmap for person/face detection.
+            bbox
+                Shape is [N, C*4, H, W]. The bounding box coordinates as a map.
+            landmark
+                Shape is [N, C*10, H, W]. The coordinates of landmarks as a map.
 
-        If has_landmark is False, returns None.
+            If has_landmark is False, returns None.
         """
         *_, h, w = image.shape
         if h % 32 != 0 or w % 32 != 0:
@@ -216,7 +218,7 @@ class FaceDetLite(BaseModel):
         return "face_det_lite"
 
     @staticmethod
-    def get_hub_litemp_percentage(_) -> float:
+    def get_hub_litemp_percentage(precision: Precision) -> float:
         """
         Returns the Lite-MP percentage value for the specified mixed precision quantization.
         The returned value is a constant 20.0.

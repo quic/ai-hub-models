@@ -5,7 +5,6 @@
 
 from qai_hub_models.models._shared.detr.demo import detr_demo
 from qai_hub_models.models.detr_resnet50.model import (
-    DEFAULT_WEIGHTS,
     MODEL_ASSET_VERSION,
     MODEL_ID,
     DETRResNet50,
@@ -19,8 +18,8 @@ IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 
 # Run DETR app end-to-end on a sample image.
 # The demo will display the predicted mask in a window.
-def main(is_test: bool = False):
-    detr_demo(DETRResNet50, MODEL_ID, DEFAULT_WEIGHTS, IMAGE_ADDRESS, is_test)
+def main(is_test: bool = False) -> None:
+    detr_demo(DETRResNet50, MODEL_ID, IMAGE_ADDRESS, is_test)
 
 
 if __name__ == "__main__":

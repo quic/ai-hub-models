@@ -25,7 +25,7 @@ DEFAULT_IMAGES = ["image1.jpg", "image2.jpg", "image3.jpg"]
 
 # Run Clip on a directory of images with a query text.
 # The demo will display similarity score for each image.
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     # Demo parameters
     parser = argparse.ArgumentParser()
     parser.add_argument(

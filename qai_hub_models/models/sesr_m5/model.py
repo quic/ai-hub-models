@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from typing_extensions import Self
+
 from qai_hub_models.models._shared.sesr.common import _load_sesr_source_model
 from qai_hub_models.models._shared.super_resolution.model import (
     DEFAULT_SCALE_FACTOR,
@@ -26,7 +28,7 @@ class SESR_M5(SuperResolutionModel):
     """Exportable SESR_M5 super resolution model, end-to-end."""
 
     @classmethod
-    def from_pretrained(cls, scale_factor: int = DEFAULT_SCALE_FACTOR) -> SESR_M5:
+    def from_pretrained(cls, scale_factor: int = DEFAULT_SCALE_FACTOR) -> Self:
         validate_scale_factor(scale_factor)
         model = _load_sesr_source_model(
             scale_factor,

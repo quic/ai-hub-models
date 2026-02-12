@@ -21,9 +21,9 @@ class HumanPosesDataset(MPIIDataset):
 
         Returns
         -------
-        image_tensor
+        image_tensor : torch.Tensor
             Preprocessed image tensor ready for model input
-        label
+        label : int
             Always 0 since this dataset is for calibration only
         """
         image_dict = self.images_dict_list[index]

@@ -8,7 +8,7 @@ import pytest
 from qai_hub_models.models._shared.detr.app import DETRApp
 from qai_hub_models.models.detr_resnet101.demo import MODEL_ASSET_VERSION, MODEL_ID
 from qai_hub_models.models.detr_resnet101.demo import main as demo_main
-from qai_hub_models.models.detr_resnet101.model import DEFAULT_WEIGHTS, DETRResNet101
+from qai_hub_models.models.detr_resnet101.model import DETRResNet101
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 
 IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
@@ -17,17 +17,17 @@ IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 
 
 def test_task() -> None:
-    net = DETRResNet101.from_pretrained(DEFAULT_WEIGHTS)
+    net = DETRResNet101.from_pretrained()
     img = load_image(IMAGE_ADDRESS)
-    _, _, label, _ = DETRApp(net).predict(img, DEFAULT_WEIGHTS)
+    _, _, label, _ = DETRApp(net).predict(img)
     assert set(label.numpy()) == {75, 63, 17}
 
 
 @pytest.mark.trace
 def test_trace() -> None:
-    net = DETRResNet101.from_pretrained(DEFAULT_WEIGHTS).convert_to_torchscript()
+    net = DETRResNet101.from_pretrained().convert_to_torchscript()
     img = load_image(IMAGE_ADDRESS)
-    _, _, label, _ = DETRApp(net).predict(img, DEFAULT_WEIGHTS)
+    _, _, label, _ = DETRApp(net).predict(img)
     assert set(label.numpy()) == {75, 63, 17}
 
 

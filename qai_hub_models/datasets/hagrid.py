@@ -105,12 +105,12 @@ class PalmDetectorDataset(BaseDataset):
 
         Returns
         -------
-        image_tensor
+        image_tensor : torch.Tensor
             Image tensor of shape (C, H, W), where:
             C = number of channels (3 for RGB)
             H = input_height (256)
             W = input_width (256)
-        label
+        label : int
             Placeholder label (currently always 0).
         """
         row = self.annotations_db.iloc[idx]
@@ -185,12 +185,12 @@ class HandLandmarkDataset(PalmDetectorDataset):
 
         Returns
         -------
-        roi_tensor
+        roi_tensor : torch.Tensor
             Image tensor of shape (C, H, W), where:
             C = number of channels (3 for RGB)
             H = input_height (224)
             W = input_width (224)
-        label
+        label : int
             Placeholder label (currently always 0).
         """
         row = self.annotations_db.iloc[idx]
@@ -239,11 +239,12 @@ class GestureClassifierDataset(PalmDetectorDataset):
 
         Returns
         -------
-        x64_a
-            Tensor of shape (64,) with normalized features from original landmarks + handedness.
-        x64_b
-            Tensor of shape (64,) with normalized features from x-mirrored landmarks + inverted handedness.
-        gesture_label
+        hand_tensors : tuple[torch.Tensor, torch.Tensor]
+            x64_a
+                Tensor of shape (64,) with normalized features from original landmarks + handedness.
+            x64_b
+                Tensor of shape (64,) with normalized features from x-mirrored landmarks + inverted handedness.
+        gesture_label : str
             One of: "None", "Closed_Fist", "Open_Palm", "Pointing_Up",
             "Thumb_Down", "Thumb_Up", "Victory", "ILoveYou".
         """

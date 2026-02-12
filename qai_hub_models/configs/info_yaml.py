@@ -137,10 +137,6 @@ class QAIHMModelInfo(BaseQAIHMConfig):
     # If status is private, this must have a reference to an internal issue with an explanation.
     status_reason: str | None = None
 
-    # If the model outputs class indices, this field should be set and point
-    # to a file in `qai_hub_models/labels`, which specifies the name for each index.
-    labels_file: str | None = None
-
     # It is a large language model (LLM) or not.
     model_type_llm: bool = False
 
@@ -219,14 +215,6 @@ class QAIHMModelInfo(BaseQAIHMConfig):
             raise ValueError(
                 "`status_reason` in info.yaml should not be set for public models."
             )
-
-        # Labels file
-        if (
-            validate_urls_exist
-            and self.labels_file is not None
-            and not os.path.exists(ASSET_CONFIG.get_labels_file_path(self.labels_file))
-        ):
-            raise ValueError(f"Invalid labels file: {self.labels_file}")
 
         # Required assets exist
         if self.status == MODEL_STATUS.PUBLIC:
@@ -322,11 +310,6 @@ class QAIHMModelInfo(BaseQAIHMConfig):
         return os.path.join(
             ASSET_CONFIG.get_qaihm_repo(self.id, relative=False), "demo.py"
         )
-
-    def get_labels_file_path(self) -> str | None:
-        if self.labels_file is None:
-            return None
-        return ASSET_CONFIG.get_labels_file_path(self.labels_file)
 
     def get_info_yaml_path(self, root: Path = QAIHM_PACKAGE_ROOT) -> Path:
         return self.get_package_path(root) / "info.yaml"

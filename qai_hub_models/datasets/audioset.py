@@ -62,7 +62,7 @@ class AudioSetDataset(BaseDataset):
 
         Returns
         -------
-        is_valid
+        is_valid : bool
             True if data is valid and loaded successfully, False otherwise
         """
         self.audio_files: list = []
@@ -96,10 +96,10 @@ class AudioSetDataset(BaseDataset):
 
         Returns
         -------
-        audio_tensor
+        audio_tensor : torch.Tensor
             Peprocessed audio tensor of shape (96, 64)
 
-        label_and_sample
+        label_and_sample : tuple[torch.Tensor, int]
             label_tensor
                 Multi-hot encoded labels tensor of shape (num_classes,)
             sample_id

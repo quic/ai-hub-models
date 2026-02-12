@@ -70,13 +70,13 @@ class OptimizedTextEncoder(nn.Module):
 
         Returns
         -------
-        x
+        x : Tensor
             shape of (1, max_seq_len)
-        m
+        m : Tensor
             shape of (1, encoder_hidden_dim, max_seq_len)
-        logs
+        logs : Tensor
             shape of (1, encoder_hidden_dim, max_seq_len)
-        x_mask
+        x_mask : Tensor
             shape of (1, 1, max_seq_len)
         """
         bert_emb = self.bert_proj(bert).transpose(1, 2)

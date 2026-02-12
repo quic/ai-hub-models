@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 import torch
@@ -87,7 +88,7 @@ class CenterNet2DApp:
         self.vis_threshold = 0.3
         self.num_classes = 80
 
-    def predict(self, *args, **kwargs):
+    def predict(self, *args: Any, **kwargs: Any) -> np.ndarray | Image.Image:
         # See predict_2d_boxes_from_image.
         return self.predict_2d_boxes_from_image(*args, **kwargs)
 
@@ -108,7 +109,7 @@ class CenterNet2DApp:
 
         Returns
         -------
-        detections_or_image
+        detections_or_image : np.ndarray | Image.Image
             If raw_output is True:
                 dets with shape (max_dets, 6)
             Otherwise:

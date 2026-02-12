@@ -109,11 +109,11 @@ class SAMApp:
 
         Returns
         -------
-        upscaled_masks
+        upscaled_masks : torch.Tensor
             Tensor of shape [b, k, <input image spatial dims>].
             See parameter return_logits for type info.
             Where, k = number of points, b = number of input images.
-        scores
+        scores : torch.Tensor
             Tensor of shape [b, k]. Mask confidence score.
             Where, k = number of points, b = number of input images.
         """
@@ -147,10 +147,10 @@ class SAMApp:
 
         Returns
         -------
-        image_embeddings
+        image_embeddings : torch.Tensor
             Tensor of shape [b, k, <encoder embed dim>]. Image embeddings.
             Where, k = number of points, b = number of input images.
-        input_images_original_size
+        input_images_original_size : tuple[int, int]
             Original size of input image (BEFORE reshape to fit encoder input size).
 
         Notes
@@ -225,11 +225,11 @@ class SAMApp:
 
         Returns
         -------
-        upscaled_masks
+        upscaled_masks : torch.Tensor
             Tensor of shape [b, k, <input image spatial dims>].
             See parameter return_logits for type info.
             Where, k = number of points, b = number of input images.
-        scores
+        scores : torch.Tensor
             Tensor of shape [b, k]. Mask confidence score.
             Where, k = number of points, b = number of input images.
         """

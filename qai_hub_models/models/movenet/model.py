@@ -6,9 +6,11 @@
 from __future__ import annotations
 
 import torch
+from typing_extensions import Self
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.movenet_evaluator import MovenetPoseEvaluator
+from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
     SourceAsRoot,
@@ -33,7 +35,7 @@ class Movenet(BaseModel):
     def from_pretrained(
         cls,
         model_id: int = 101,
-    ) -> Movenet:
+    ) -> Self:
         with SourceAsRoot(
             SOURCE_REPOSITORY,
             COMMIT_HASH,
@@ -60,7 +62,7 @@ class Movenet(BaseModel):
 
         Returns
         -------
-        kpt_with_conf
+        kpt_with_conf : torch.Tensor
             Tensor of shape `(N, 1, 17, 3)`, where:
             - `N` -> batch size
             - `1` -> Single detected person
@@ -110,6 +112,6 @@ class Movenet(BaseModel):
         return "cocobody"
 
     @staticmethod
-    def get_hub_litemp_percentage(_) -> float:
+    def get_hub_litemp_percentage(precision: Precision) -> float:
         """Returns the Lite-MP percentage value for the specified mixed precision quantization"""
         return 2

@@ -16,6 +16,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 from transformers import AutoModel, dynamic_module_utils
+from typing_extensions import Self
 
 from qai_hub_models.evaluators.mteb_classification_evaluator import (
     BaseEvaluator,
@@ -65,7 +66,7 @@ def _patched_transformers_get_class_in_module(
 
 
 class NomicEmbedText(BaseModel):
-    def __init__(self, model: nn.Module, model_version: str, seq_length: int):
+    def __init__(self, model: nn.Module, model_version: str, seq_length: int) -> None:
         super().__init__()
         self.seq_length = seq_length
         self.model = model
@@ -76,7 +77,7 @@ class NomicEmbedText(BaseModel):
     @classmethod
     def from_pretrained(
         cls, model_version: str = DEFAULT_MODEL_VERSION, sequence_length: int = 128
-    ) -> NomicEmbedText:
+    ) -> Self:
         """
         Create a Nomic Embedding BERT model.
 
@@ -90,7 +91,7 @@ class NomicEmbedText(BaseModel):
 
         Returns
         -------
-        model
+        model : Self
             Instance of NomicEmbedText model.
         """
         with mock.patch(
@@ -124,7 +125,7 @@ class NomicEmbedText(BaseModel):
 
         Returns
         -------
-        token_embeddings
+        token_embeddings : torch.Tensor
             Transformer embeddings of shape [1, 512], dtype of fp32
         """
         last_hidden_state = self.model(input_ids, attention_mask=attention_mask)[0]

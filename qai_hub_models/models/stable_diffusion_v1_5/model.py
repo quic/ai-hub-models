@@ -74,5 +74,5 @@ class StableDiffusionV1_5_Quantized(StableDiffusionBase):
     hf_repo_id = HF_REPO
 
     @staticmethod
-    def make_tokenizer():
+    def make_tokenizer() -> CLIPTokenizer:
         return make_tokenizer()

@@ -2,25 +2,32 @@
 
 HRNet-W48-OCR is a machine learning model that can segment images from the Cityscape dataset. It has lightweight and hardware-efficient operations and thus delivers significant speedup on diverse hardware platforms
 
-This is based on the implementation of HRNet-W48-OCR found [here](https://github.com/HRNet/HRNet-Semantic-Segmentation). This repository contains scripts for optimized on-device
-export suitable to run on Qualcomm® devices. More details on model performance
-across various devices, can be found [here](https://aihub.qualcomm.com/models/hrnet_w48_ocr).
+This is based on the implementation of HRNet-W48-OCR found [here](https://github.com/HRNet/HRNet-Semantic-Segmentation).
+This repository contains scripts for optimized on-device export suitable to run on Qualcomm® devices. More details on model performance across various devices, can be found [here](https://aihub.qualcomm.com/models/hrnet_w48_ocr).
 
 Qualcomm AI Hub Models uses [Qualcomm AI Hub Workbench](https://workbench.aihub.qualcomm.com) to compile, profile, and evaluate this model. [Sign up](https://myaccount.qualcomm.com/signup) to run these models on a hosted Qualcomm® device.
 
-
-
-
-## Example & Usage
-
+## Setup
+### 1. Install the package
 Install the package via pip:
 ```bash
 # NOTE: 3.10 <= PYTHON_VERSION < 3.14 is supported.
 pip install "qai-hub-models[hrnet-w48-ocr]"
 ```
 
+### 2. Configure Qualcomm® AI Hub Workbench
+Sign-in to [Qualcomm® AI Hub Workbench](https://workbench.aihub.qualcomm.com/) with your
+Qualcomm® ID. Once signed in navigate to `Account -> Settings -> API Token`.
 
-Once installed, run the following simple CLI demo on the host machine:
+With this API token, you can configure your client to run models on the cloud
+hosted devices.
+```bash
+qai-hub configure --api_token API_TOKEN
+```
+Navigate to [docs](https://workbench.aihub.qualcomm.com/docs/) for more information.
+
+## Run CLI Demo
+Run the following simple CLI demo to verify the model is working end to end:
 
 ```bash
 python -m qai_hub_models.models.hrnet_w48_ocr.demo { --quantize w8a16 }
@@ -31,26 +38,20 @@ scripts. Please refer to our [general instructions on using
 models](../../../#getting-started) for more usage instructions.
 
 ## Export for on-device deployment
-
-This package contains export scripts that produce a model optimized for
-on-device deployment. This can be run as follows:
-
+To run the model on Qualcomm® devices, you must export the model for use with an edge runtime such as
+TensorFlow Lite, ONNX Runtime, or Qualcomm AI Engine Direct. Use the following command to export the model:
 ```bash
 python -m qai_hub_models.models.hrnet_w48_ocr.export { --quantize w8a16 }
 ```
 Additional options are documented with the `--help` option.
 
-
 ## License
 * The license for the original implementation of HRNet-W48-OCR can be found
   [here](https://github.com/HRNet/HRNet-Semantic-Segmentation/blob/HRNet-OCR/LICENSE).
 
-
 ## References
 * [Segmentation Transformer: Object-Contextual Representations for Semantic Segmentation](https://arxiv.org/abs/1909.11065)
 * [Source Model Implementation](https://github.com/HRNet/HRNet-Semantic-Segmentation)
-
-
 
 ## Community
 * Join [our AI Hub Slack community](https://aihub.qualcomm.com/community/slack) to collaborate, post questions and learn more about on-device AI.

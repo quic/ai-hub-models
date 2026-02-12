@@ -21,6 +21,7 @@ from pathlib import Path
 
 import torch
 from transformers import WhisperConfig
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.hf_whisper_quantized.model import (
     WhisperDecoderQuantizableBase,
@@ -100,7 +101,7 @@ class WhisperSmallQuantized(CollectionModel):
         return WHISPER_VERSION
 
     @classmethod
-    def from_pretrained(cls):
+    def from_pretrained(cls) -> Self:
         encoder = WhisperSmallEncoderQuantizable.from_pretrained()
         decoder = WhisperSmallDecoderQuantizable.from_pretrained()
         return cls(encoder, decoder, encoder.config, WHISPER_VERSION)

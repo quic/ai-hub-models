@@ -8,6 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import torch
+from typing_extensions import Self
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.segmentation_evaluator import SegmentationOutputEvaluator
@@ -38,7 +39,7 @@ class BiseNet(BaseModel):
     """Exportable BiseNet segmentation end-to-end."""
 
     @classmethod
-    def from_pretrained(cls, weights_path: str | None = None) -> BiseNet:
+    def from_pretrained(cls, weights_path: str | None = None) -> Self:
         """Load bisenet from a weightfile created by the source bisenet repository."""
         # Load PyTorch model from disk
         bisenet_model = _load_bisenet_source_model_from_weights(weights_path)
@@ -55,7 +56,7 @@ class BiseNet(BaseModel):
 
         Returns
         -------
-        masks_per_class
+        masks_per_class : torch.Tensor
             Predicted mask for each class. Shape [batch, classes, height, width]
         """
         return self.model(normalize_image_torchvision(image))
@@ -103,6 +104,10 @@ class BiseNet(BaseModel):
     @staticmethod
     def calibration_dataset_name() -> str:
         return "camvid"
+
+    @classmethod
+    def get_labels_file_name(cls) -> str | None:
+        return "camvid_labels.txt"
 
 
 def _load_bisenet_source_model_from_weights(

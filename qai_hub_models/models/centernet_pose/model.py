@@ -12,6 +12,7 @@ from collections.abc import Callable
 import numpy as np
 import torch
 from torch import nn
+from typing_extensions import Self
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.centernet_pose_evaluator import CenternetPoseEvaluator
@@ -67,7 +68,7 @@ class CenterNetPose(CenterNet):
         self.decode = multi_pose_decode
 
     @classmethod
-    def from_pretrained(cls, ckpt_path: str = "default") -> CenterNetPose:
+    def from_pretrained(cls, ckpt_path: str = "default") -> Self:
         heads = {
             "hm": 1,
             "wh": 2,
@@ -106,20 +107,19 @@ class CenterNetPose(CenterNet):
 
         Returns
         -------
-        hm
+        hm : torch.Tensor
             Heatmap with shape [B, num_classes, H//4, W//4].
-        wh
+        wh : torch.Tensor
             Width/Height value with shape [B, 2, H//4, W//4].
-        hps
+        hps : torch.Tensor
             Keypoint offsets relative to the object center with shape [B, 2*num_joints, H//4, W//4].
-        reg
+        reg : torch.Tensor
             2D regression value with shape [B, 2, H//4, W//4].
-        hm_hp
+        hm_hp : torch.Tensor
             Keypoint heatmap with shape [B, num_joints, H//4, W//4].
-        hm_offset
+        hm_offset : torch.Tensor
             Heatmap offset with shape [B, 2, H//4, W//4].
-
-        Where num_joints = 17, num_classes = 1.
+            Note: num_joints = 17, num_classes = 1.
         """
         image = image[:, [2, 1, 0]]
         mean = torch.Tensor([0.408, 0.447, 0.470]).reshape(1, 3, 1, 1)

@@ -5,13 +5,16 @@
 
 from __future__ import annotations
 
+import os
 from importlib import reload
 
 import torch
 from torch import nn
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.yolo.model import Yolo
 from qai_hub_models.models._shared.yolo.utils import detect_postprocess
+from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
     SourceAsRoot,
@@ -24,6 +27,11 @@ YOLOV6_SOURCE_REPOSITORY = "https://github.com/meituan/YOLOv6"
 YOLOV6_SOURCE_REPO_COMMIT = "55d80c317edd0fb5847e599a1802d394f34a3141"
 MODEL_ASSET_VERSION = 1
 MODEL_ID = __name__.split(".")[-2]
+YOLOV6_SOURCE_PATCHES = [
+    os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "patches", "pkg_resources.diff")
+    )
+]
 
 WEIGHTS_PATH = "https://github.com/meituan/YOLOv6/releases/download/0.4.0/"
 DEFAULT_WEIGHTS = "yolov6n.pt"
@@ -40,13 +48,15 @@ class YoloV6(Yolo):
     @classmethod
     def from_pretrained(
         cls, ckpt_name: str = DEFAULT_WEIGHTS, include_postprocessing: bool = True
-    ):
+    ) -> Self:
         model_url = f"{WEIGHTS_PATH}{ckpt_name}"
         asset = CachedWebModelAsset(model_url, MODEL_ID, MODEL_ASSET_VERSION, ckpt_name)
         model = _load_yolov6_source_model_from_weights(asset)
         return cls(model, include_postprocessing)
 
-    def forward(self, image: torch.Tensor):
+    def forward(
+        self, image: torch.Tensor
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Run YoloV6 on `image`, and produce a predicted set of bounding boxes and associated class probabilities.
 
@@ -59,17 +69,18 @@ class YoloV6(Yolo):
 
         Returns
         -------
-        If self.include_postprocessing is True, returns:
-        boxes
-            Shape [batch, num preds, 4] where 4 == (x1, y1, x2, y2).
-        scores
-            Class scores multiplied by confidence. Shape [batch, num_preds, # of classes (typically 80)].
-        class_idx
-            Predicted class for each bounding box. Shape [batch, num_preds, 1].
+        result : torch.Tensor | tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+            If self.include_postprocessing is True, returns:
+            boxes
+                Shape [batch, num preds, 4] where 4 == (x1, y1, x2, y2).
+            scores
+                Class scores multiplied by confidence. Shape [batch, num_preds, # of classes (typically 80)].
+            class_idx
+                Predicted class for each bounding box. Shape [batch, num_preds, 1].
 
-        If self.include_postprocessing is False, returns:
-        detector_output
-            Shape is [batch, num_preds, k] where, k = # of classes + 5. k is structured as follows [box_coordinates (4), conf (1), # of classes] and box_coordinates are [x_center, y_center, w, h].
+            If self.include_postprocessing is False, returns:
+            detector_output
+                Shape is [batch, num_preds, k] where, k = # of classes + 5. k is structured as follows [box_coordinates (4), conf (1), # of classes] and box_coordinates are [x_center, y_center, w, h].
         """
         predictions = self.model(image)
         return (
@@ -88,7 +99,7 @@ class YoloV6(Yolo):
         return self.__class__.get_output_names(self.include_postprocessing)
 
     @staticmethod
-    def get_hub_litemp_percentage(_) -> float:
+    def get_hub_litemp_percentage(precision: Precision) -> float:
         """Returns the Lite-MP percentage value for the specified mixed precision quantization."""
         return 10
 
@@ -103,6 +114,7 @@ def _load_yolov6_source_model_from_weights(
             YOLOV6_SOURCE_REPO_COMMIT,
             MODEL_ID,
             MODEL_ASSET_VERSION,
+            YOLOV6_SOURCE_PATCHES,
         ):
             # Our models/yolov6 package may already be loaded and cached as
             # "yolov6" (reproduce by running python -m yolov6.demo from models

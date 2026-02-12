@@ -30,7 +30,7 @@ INPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 )
 
 
-def fcn_resnet50_demo(model_cls: type[FCN_ResNet50], is_test: bool = False):
+def fcn_resnet50_demo(model_cls: type[FCN_ResNet50], is_test: bool = False) -> None:
     # Demo parameters
     parser = get_model_cli_parser(model_cls)
     parser = get_on_device_demo_parser(parser, add_output_dir=True)
@@ -64,7 +64,7 @@ def fcn_resnet50_demo(model_cls: type[FCN_ResNet50], is_test: bool = False):
         display_or_save_image(image_annotated, args.output_dir, "fcn_demo_output.png")
 
 
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     return fcn_resnet50_demo(FCN_ResNet50, is_test=is_test)
 
 

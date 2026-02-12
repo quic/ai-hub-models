@@ -28,7 +28,7 @@ def bert_demo(
     default_text: str = INPUT_TEXT,
     is_test: bool = False,
     max_seq_length: int = 384,
-):
+) -> None:
     """Demo for BERT model text replacement task."""
     parser = get_model_cli_parser(model_type)
     parser = get_on_device_demo_parser(parser, add_output_dir=False)
@@ -58,7 +58,7 @@ def bert_demo(
         print(f"Sequence: {results}")
 
 
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     bert_demo(ElectraBertBaseDiscrimGoogle, MODEL_ID, INPUT_TEXT, is_test)
 
 

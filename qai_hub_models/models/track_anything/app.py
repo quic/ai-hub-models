@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 import torch
@@ -53,7 +54,7 @@ class TrackAnythingApp:
             tuple[torch.Tensor, torch.Tensor],
         ],
         config: dict,
-    ):
+    ) -> None:
         """
         Parameters
         ----------
@@ -75,7 +76,7 @@ class TrackAnythingApp:
         config["top_k"] = None
         self.memory = MemoryManager(config=config)
 
-    def predict(self, *args, **kwargs):
+    def predict(self, *args: Any, **kwargs: Any) -> list[np.ndarray]:
         return self.track(*args, **kwargs)
 
     def track(
@@ -98,13 +99,14 @@ class TrackAnythingApp:
 
         Returns
         -------
-        If raw_output is False, returns:
-        painted_frames
-            List of painted images (N H W C x uint8) with masks applied on all frames.
+        frames : list[np.ndarray]
+            If raw_output is False, returns:
+            painted_frames
+                List of painted images (N H W C x uint8) with masks applied on all frames.
 
-        If raw_output is True, returns:
-        out_masks
-            List of masks (N H W C x uint8) of object for all frames.
+            If raw_output is True, returns:
+            out_masks
+                List of masks (N H W C x uint8) of object for all frames.
         """
         painted_frames = []
         out_masks = []

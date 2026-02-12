@@ -26,7 +26,7 @@ IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 
 
 # The demo will output image with segmentation mask applied for input points
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     # Demo parameters
     parser = argparse.ArgumentParser()
     parser.add_argument(

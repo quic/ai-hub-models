@@ -11,6 +11,7 @@ from typing import Any, cast
 
 import torch
 import torch.nn.functional as F
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.yolo.model import DEFAULT_YOLO_IMAGE_INPUT_HW, Yolo
 from qai_hub_models.models._shared.yolo.utils import detect_postprocess_split_input
@@ -49,7 +50,7 @@ class YoloV7(Yolo):
         split_output: bool = False,
         height: int = DEFAULT_YOLO_IMAGE_INPUT_HW,
         width: int = DEFAULT_YOLO_IMAGE_INPUT_HW,
-    ):
+    ) -> Self:
         """Load YoloV7 from a weightfile created by the source YoloV7 repository."""
         # Load PyTorch model from disk
         yolov7_model = _load_yolov7_source_model_from_weights(weights_name)
@@ -75,12 +76,16 @@ class YoloV7(Yolo):
             split_output,
         )
 
-    def _get_input_spec_for_instance(self, batch_size: int = 1):
+    def _get_input_spec_for_instance(
+        self, batch_size: int = 1
+    ) -> dict[str, tuple[tuple[int, ...], str]]:
         return super().get_input_spec(
             batch_size, self.yolov7_detector.h, self.yolov7_detector.w
         )
 
-    def forward(self, image: torch.Tensor):
+    def forward(
+        self, image: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor] | torch.Tensor:
         """
         Run YoloV7 on `image`, and produce a predicted set of bounding boxes and associated class probabilities.
 
@@ -93,25 +98,26 @@ class YoloV7(Yolo):
 
         Returns
         -------
-        If self.include_postprocessing is True, returns:
-        boxes
-            Bounding box locations. Shape [batch, num preds, 4] where 4 == (left_x, top_y, right_x, bottom_y).
-        scores
-            Class scores multiplied by confidence. Shape is [batch, num_preds].
-        class_idx
-            Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
+        result : tuple[torch.Tensor, torch.Tensor, torch.Tensor] | torch.Tensor
+            If self.include_postprocessing is True, returns:
+            boxes
+                Bounding box locations. Shape [batch, num preds, 4] where 4 == (left_x, top_y, right_x, bottom_y).
+            scores
+                Class scores multiplied by confidence. Shape is [batch, num_preds].
+            class_idx
+                Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
 
-        If self.include_postprocessing is False and self.split_output is True, returns:
-        boxes_xy
-            Shape is [batch, num_preds, 2] where, 2 is [x_center, y_center] (box_coordinates).
-        boxes_wh
-            Shape is [batch, num_preds, 2] where, 2 is [width, height] (box_size).
-        scores
-            Shape is [batch, num_preds, # of classes + 1]. The +1 is the confidence score.
+            If self.include_postprocessing is False and self.split_output is True, returns:
+            boxes_xy
+                Shape is [batch, num_preds, 2] where, 2 is [x_center, y_center] (box_coordinates).
+            boxes_wh
+                Shape is [batch, num_preds, 2] where, 2 is [width, height] (box_size).
+            scores
+                Shape is [batch, num_preds, # of classes + 1]. The +1 is the confidence score.
 
-        If self.include_postprocessing is False and self.split_output is False, returns:
-        detector_output
-            Shape is [batch, num_preds, k] where, k = # of classes + 5. k is structured as follows [box_coordinates (4), conf (1), # of classes] and box_coordinates are [x_center, y_center, w, h].
+            If self.include_postprocessing is False and self.split_output is False, returns:
+            detector_output
+                Shape is [batch, num_preds, k] where, k = # of classes + 5. k is structured as follows [box_coordinates (4), conf (1), # of classes] and box_coordinates are [x_center, y_center, w, h].
         """
         feature_extraction_output = (
             *self.yolov7_feature_extractor(image),
@@ -155,7 +161,7 @@ class YoloV7(Yolo):
         return options
 
     @staticmethod
-    def get_hub_litemp_percentage(_) -> float:
+    def get_hub_litemp_percentage(precision: Precision) -> float:
         """Returns the Lite-MP percentage value for the specified mixed precision quantization."""
         return 10
 
@@ -169,9 +175,9 @@ class _YoloV7Detector(torch.nn.Module):  # YoloV7 Detection
         num_anchors: int,
         num_layers: int,
         m_in_channels: list[int],
-        m_out_channel,
+        m_out_channel: int,
         input_shape: tuple[int, int],
-    ):
+    ) -> None:
         super().__init__()
         self.stride = stride
         self.na = num_anchors
@@ -188,13 +194,14 @@ class _YoloV7Detector(torch.nn.Module):  # YoloV7 Detection
             for m_in_channel in m_in_channels
         )  # output conv
 
-    @staticmethod
+    @classmethod
     def from_yolov7_state_dict(
+        cls,
         state_dict: Mapping[str, Any],
         input_shape: tuple[int, int],
         stride: torch.Tensor,
         strict: bool = True,
-    ):
+    ) -> Self:
         """
         Load this module from a state dict taken from the "Detect" module.
         This module is found in the original YoloV7 source repository (models/common.py::Detect).
@@ -218,7 +225,7 @@ class _YoloV7Detector(torch.nn.Module):  # YoloV7 Detection
             m_in_channels.append(new_state_dict[weight].shape[1])
             m_out_channel = new_state_dict[weight].shape[0]
 
-        out = _YoloV7Detector(
+        out = cls(
             stride,
             na,
             nl,
@@ -229,7 +236,9 @@ class _YoloV7Detector(torch.nn.Module):  # YoloV7 Detection
         out.load_state_dict(new_state_dict, strict)
         return out
 
-    def make_grid_points(self, x, i):
+    def make_grid_points(
+        self, x: torch.Tensor, i: int
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         x = x.sigmoid()
         # bs, _, ny, nx = x.shape  # x(bs,255,20,20) to x(bs,3,20,20,85)
         stride = int(self.stride[i])
@@ -257,7 +266,9 @@ class _YoloV7Detector(torch.nn.Module):  # YoloV7 Detection
         scores = y[..., 4:].reshape(-1, self.na * nx * ny, max(3, self.no - 4))
         return xy, wh, scores
 
-    def forward(self, all_x: tuple[torch.Tensor, ...]):
+    def forward(
+        self, all_x: tuple[torch.Tensor, ...]
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         From the outputs of the feature extraction layers of YoloV7, predict bounding boxes,
         classes, and confidence.
@@ -269,11 +280,11 @@ class _YoloV7Detector(torch.nn.Module):  # YoloV7 Detection
 
         Returns
         -------
-        xy
+        xy: torch.Tensor
             Center coordinates. Shape [batch_size, # of predictions, 2]
-        wh
+        wh: torch.Tensor
             Width and height. Shape [batch_size, # of predictions, 2]
-        scores
+        scores: torch.Tensor
             Confidence and class scores. Shape [batch_size, # of predictions, # of classes + 1]
         """
         # inference output
@@ -291,7 +302,7 @@ class _YoloV7Detector(torch.nn.Module):  # YoloV7 Detection
         return torch.cat(all_xy, 1), torch.cat(all_wh, 1), torch.cat(all_scores, 1)
 
     @staticmethod
-    def _make_grid(nx: int, ny: int):
+    def _make_grid(nx: int, ny: int) -> torch.Tensor:
         yv, xv = torch.meshgrid([torch.arange(ny), torch.arange(nx)], indexing="ij")
         return torch.stack((xv, yv), 2).view((1, 1, ny, nx, 2)).float()
 

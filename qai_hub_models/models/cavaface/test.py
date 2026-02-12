@@ -22,7 +22,7 @@ EXCEPTED_OUTPUT = CachedWebModelAsset.from_asset_store(
 
 
 @skip_clone_repo_check
-def test_task():
+def test_task() -> None:
     image = load_image(INPUT_IMAGE_ADDRESS_1)
     model = CavaFace.from_pretrained()
     _, _, h, w = CavaFace.get_input_spec()["image"][0]
@@ -34,5 +34,5 @@ def test_task():
 
 
 @skip_clone_repo_check
-def test_demo():
+def test_demo() -> None:
     demo_main(is_test=True)

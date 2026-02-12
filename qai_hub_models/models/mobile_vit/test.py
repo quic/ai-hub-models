@@ -79,7 +79,7 @@ def run_classifier_test(
 
 
 def run_classifier_trace_test(
-    model,
+    model: MobileVIT,
     diff_tol: float = 0.005,
     rtol: float = 0.0,
     atol: float = 1e-4,

@@ -33,7 +33,7 @@ def expand_to_rank4(tensor: torch.Tensor) -> torch.Tensor:
 
     Returns
     -------
-    expanded_tensor
+    expanded_tensor : torch.Tensor
         The tensor expanded to rank 4.
     """
     return tensor.unsqueeze(-1).unsqueeze(-1)
@@ -146,9 +146,9 @@ class SHAAttention(nn.Module):
 
         Returns
         -------
-        attn_output
+        attn_output : torch.Tensor
             The output of the attention mechanism.
-        past_key_value
+        past_key_value : tuple[torch.Tensor, torch.Tensor] | None
             The past key-value states.
         """
         is_cross_attention = self.is_decoder and past_key_value is not None
@@ -273,7 +273,7 @@ class QcWhisperEncoderLayer(nn.Module):
 
         Returns
         -------
-        hidden_states
+        hidden_states : torch.Tensor
             The output hidden states.
         """
         residual = hidden_states
@@ -339,10 +339,11 @@ class QcWhisperDecoderLayer(nn.Module):
 
         Returns
         -------
-        hidden_states
-            The output hidden states.
-        present_key_value
-            The present key and value states (optional).
+        output : tuple[torch.Tensor, ...]
+            hidden_states
+                The output hidden states.
+            present_key_value
+                The present key and value states (optional).
         """
         # Self-attention block
         residual = hidden_states
@@ -489,7 +490,7 @@ class QcWhisperEncoder(nn.Module):
     def forward(
         self,
         input_features: torch.Tensor,
-    ) -> tuple[tuple[tuple[torch.Tensor, ...], ...] | None]:
+    ) -> tuple[tuple[tuple[torch.Tensor, torch.Tensor], ...],]:
         """
         Forward-pass routine for the QcWhisperEncoder.
 
@@ -500,7 +501,7 @@ class QcWhisperEncoder(nn.Module):
 
         Returns
         -------
-        next_cache
+        next_cache : tuple[tuple[tuple[torch.Tensor, torch.Tensor], ...],]
             The output of the encoder, including the next decoder cache.
         """
         input_features = input_features.unsqueeze(0).permute(1, 2, 0, 3)
@@ -596,9 +597,9 @@ class QcWhisperDecoder(nn.Module):
 
         Returns
         -------
-        lm_logits
+        lm_logits : torch.Tensor
             The output logits of the decoder.
-        next_decoder_cache
+        next_decoder_cache : tuple[torch.Tensor, ...]
             The next cache for the decoder.
         """
         input_shape = input_ids.size()

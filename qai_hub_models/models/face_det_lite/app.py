@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 import torch
@@ -33,10 +34,12 @@ class FaceDetLiteApp:
         * Output list of face Bounding Box objects.
     """
 
-    def __init__(self, model: Callable[[torch.Tensor], torch.Tensor]):
+    def __init__(self, model: Callable[[torch.Tensor], torch.Tensor]) -> None:
         self.model = model
 
-    def predict(self, *args, **kwargs):
+    def predict(
+        self, *args: Any, **kwargs: Any
+    ) -> tuple[list[list[int | float]], Image.Image]:
         return self.run_inference_on_image(*args, **kwargs)
 
     def run_inference_on_image(
@@ -59,9 +62,9 @@ class FaceDetLiteApp:
 
         Returns
         -------
-        face_bounding_boxes
+        face_bounding_boxes : list[list[int | float]]
             A list of BBox for face.
-        annotated_image
+        annotated_image : Image.Image
             Image with detected faces drawn.
         """
         assert pixel_values_or_image is not None, "pixel_values_or_image is None"

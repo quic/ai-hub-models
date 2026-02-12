@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import copy
+from typing import cast
 
 import numpy as np
 import torch
@@ -15,6 +16,7 @@ from transformers.models.trocr.modeling_trocr import (
     TrOCRAttention,
     TrOCRForCausalLM,
 )
+from typing_extensions import Self
 
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel
 from qai_hub_models.utils.input_spec import InputSpec
@@ -35,7 +37,7 @@ KVCache = tuple[torch.Tensor, ...]  # Export friendly
 class TrOCREncoder(BaseModel):
     """Vision encoder that returns the decoder's cross attn cache state."""
 
-    def __init__(self, encoder: PreTrainedModel, decoder: TrOCRForCausalLM):
+    def __init__(self, encoder: PreTrainedModel, decoder: TrOCRForCausalLM) -> None:
         super().__init__()
         self.encoder = encoder
         self.decoder = decoder
@@ -43,7 +45,7 @@ class TrOCREncoder(BaseModel):
     @staticmethod
     def cross_attn_kv_shape(
         attn: TrOCRAttention, tensor: torch.Tensor, seq_len: int, bsz: int
-    ):
+    ) -> torch.Tensor:
         return (
             tensor.view(bsz, seq_len, attn.num_heads, attn.head_dim)
             .transpose(1, 2)
@@ -109,8 +111,12 @@ class TrOCREncoder(BaseModel):
         return self.__class__.get_output_names(len(self.decoder.model.decoder.layers))
 
     @classmethod
-    def from_pretrained(cls):
-        return TrOCR.from_pretrained().encoder
+    def from_pretrained(cls) -> Self:
+        source_model = TrOCR.load_source_model()
+        return cls(
+            cast(PreTrainedModel, source_model.encoder),
+            cast(TrOCRForCausalLM, source_model.decoder),
+        )
 
     @staticmethod
     def get_channel_last_inputs() -> list[str]:
@@ -125,7 +131,9 @@ class TrOCRDecoder(BaseModel):
     Outputs: (output_ids, Updated Attention KV Cache)
     """
 
-    def __init__(self, decoder: TrOCRForCausalLM, max_decode_len: int = MAX_DECODE_LEN):
+    def __init__(
+        self, decoder: TrOCRForCausalLM, max_decode_len: int = MAX_DECODE_LEN
+    ) -> None:
         super().__init__()
         self.decoder = copy.deepcopy(decoder)
         # Delete unused layers that exist only to generate initial KV cache.
@@ -157,8 +165,8 @@ class TrOCRDecoder(BaseModel):
         self,
         input_ids: torch.IntTensor,
         index: torch.IntTensor,
-        *kv_cache_args,
-        **kv_cache_kwargs,
+        *kv_cache_args: torch.Tensor,
+        **kv_cache_kwargs: torch.Tensor,
     ) -> tuple[torch.Tensor, ...]:
         """
         Generate the next token in the predicted output text sequence.
@@ -178,11 +186,12 @@ class TrOCRDecoder(BaseModel):
 
         Returns
         -------
-        predicted_ids
-            Next predicted token.
-        kv_cache
-            tuple[kv_cache_attn_0_key, kv_cache_attn_0_val, kv_cache_attn_1_key, ...].
-            Updated KV cache for attention layers. Count == 2 * number of source model decoder layers.
+        tuple[torch.Tensor, ...]
+            predicted_ids
+                Next predicted token.
+            kv_cache
+                tuple[kv_cache_attn_0_key, kv_cache_attn_0_val, kv_cache_attn_1_key, ...].
+                Updated KV cache for attention layers. Count == 2 * number of source model decoder layers.
         """
         # encoder_hidden_states is not used by the network when kv_cache is set.
         #
@@ -297,8 +306,8 @@ class TrOCRDecoder(BaseModel):
         )
 
     @classmethod
-    def from_pretrained(cls):
-        return TrOCR.from_pretrained().decoder
+    def from_pretrained(cls) -> Self:
+        return cls(cast(TrOCRForCausalLM, TrOCR.load_source_model().decoder))
 
 
 @CollectionModel.add_component(TrOCRDecoder)
@@ -316,7 +325,7 @@ class TrOCR(CollectionModel):
         num_decoder_layers: int = DEFAULT_NUM_DECODER_LAYERS,
         decoder_attention_heads: int = 8,
         embeddings_per_head: int = 32,
-    ):
+    ) -> None:
         super().__init__(decoder, encoder)
         self.encoder = encoder
         self.decoder = decoder
@@ -335,26 +344,33 @@ class TrOCR(CollectionModel):
         self.embeddings_per_head = embeddings_per_head
 
     @classmethod
-    def from_pretrained(cls, hf_trocr_model: str = HUGGINGFACE_TROCR_MODEL) -> TrOCR:
+    def load_source_model(
+        cls, hf_trocr_model: str = HUGGINGFACE_TROCR_MODEL
+    ) -> VisionEncoderDecoderModel:
         # Load Huggingface source
         source_model = VisionEncoderDecoderModel.from_pretrained(
             hf_trocr_model, return_dict=False
         )
-        io_processor = TrOCRProcessor.from_pretrained(hf_trocr_model)
+        assert isinstance(source_model, VisionEncoderDecoderModel)
+        return source_model
 
+    @classmethod
+    def from_pretrained(cls, hf_trocr_model: str = HUGGINGFACE_TROCR_MODEL) -> Self:
+        source_model = cls.load_source_model(hf_trocr_model)
+        io_processor = TrOCRProcessor.from_pretrained(hf_trocr_model)
         assert isinstance(source_model, VisionEncoderDecoderModel)
         assert isinstance(io_processor, TrOCRProcessor)
-        return TrOCR.from_source_model(source_model, io_processor)
+        return cls.from_source_model(source_model, io_processor)
 
-    @staticmethod
+    @classmethod
     def from_source_model(
-        source_model: VisionEncoderDecoderModel, io_processor: TrOCRProcessor
-    ) -> TrOCR:
+        cls, source_model: VisionEncoderDecoderModel, io_processor: TrOCRProcessor
+    ) -> Self:
         assert source_model.encoder is not None
         encoder = TrOCREncoder(source_model.encoder, source_model.decoder)  # pyright: ignore[reportArgumentType]
         decoder = TrOCRDecoder(source_model.decoder)  # pyright: ignore[reportArgumentType]
         assert source_model.generation_config is not None
-        return TrOCR(
+        return cls(
             encoder,
             decoder,
             io_processor,

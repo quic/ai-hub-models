@@ -24,7 +24,6 @@ from qai_hub_models.utils.display import display_or_save_image
 def detr_demo(
     model_cls: type[BaseModel],
     model_id: str,
-    default_weights: str,
     default_image: str | CachedWebAsset,
     is_test: bool = False,
 ) -> None:
@@ -55,7 +54,7 @@ def detr_demo(
         h,
         w,
     )
-    pred_images, _, _, _ = app.predict(img, default_weights)
+    pred_images, _, _, _ = app.predict(img)
     pred_image = Image.fromarray(pred_images[0])
 
     # Show the predicted boxes, scores and class names on the image.

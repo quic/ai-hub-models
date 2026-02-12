@@ -30,7 +30,7 @@ def test_task() -> None:
 
 @pytest.mark.trace
 @skip_clone_repo_check
-def test_trace():
+def test_trace() -> None:
     run_imagenet_classifier_trace_test(InternImageClassifier.from_pretrained())
 
 

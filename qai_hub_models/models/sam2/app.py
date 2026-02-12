@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from enum import Enum
+from typing import Any
 
 import numpy as np
 import torch
@@ -84,7 +85,7 @@ class SAM2App:
         self.mask_input = None
         self.input_image_channel_layout = input_image_channel_layout
 
-    def predict(self, *args, **kwargs):
+    def predict(self, *args: Any, **kwargs: Any) -> tuple[torch.Tensor, torch.Tensor]:
         return self.predict_mask_from_points(*args, **kwargs)
 
     def predict_mask_from_points(
@@ -121,11 +122,11 @@ class SAM2App:
 
         Returns
         -------
-        upscaled_masks
+        upscaled_masks : torch.Tensor
             Shape [b, 1, <input image spatial dims>].
             The predicted segmentation masks, upscaled to original size.
             Where b = number of input images.
-        scores
+        scores : torch.Tensor
             Shape [b, 1].
             Confidence scores for each predicted mask.
             Where b = number of input images.
@@ -181,15 +182,15 @@ class SAM2App:
 
         Returns
         -------
-        image_embeddings
+        image_embeddings : torch.Tensor
             Shape [1,256,64,64]. The image embeddings from the encoder.
-        high_res_features1
+        high_res_features1 : torch.Tensor
             Shape [1, 32, 256, 256]. First set of high-resolution features.
-        high_res_features2
+        high_res_features2 : torch.Tensor
             Shape [1, 64, 128, 128]. Second set of high-resolution features.
-        sparse_embeddings
+        sparse_embeddings : torch.Tensor
             Shape [1, N+1, 256]. The sparse embeddings from the prompt encoder.
-        input_images_original_size
+        input_images_original_size : tuple[int, int]
             Original size of input image (BEFORE reshape to fit encoder input size).
 
         Notes
@@ -281,11 +282,11 @@ class SAM2App:
 
         Returns
         -------
-        upscaled_masks
+        upscaled_masks : torch.Tensor
             Shape [b, 1, <input image spatial dims>].
             The predicted segmentation masks, upscaled to original size.
             Where b = number of input images.
-        scores
+        scores : torch.Tensor
             Shape [b, 1].
             Confidence scores for each predicted mask.
             Where b = number of input images.

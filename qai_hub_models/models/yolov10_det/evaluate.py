@@ -35,7 +35,9 @@ def main() -> None:
             TargetRuntime.ONNX,
             TargetRuntime.PRECOMPILED_QNN_ONNX,
         ],
-        Precision.w8a8: [],
+        Precision.w8a8: [
+            TargetRuntime.TFLITE,
+        ],
         Precision.w8a8_mixed_int16: [],
         Precision.w8a16: [
             TargetRuntime.QNN_DLC,

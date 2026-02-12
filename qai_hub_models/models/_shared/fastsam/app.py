@@ -87,22 +87,23 @@ class FastSAMApp:
 
         Returns
         -------
-        If raw_output is False, returns:
-        images
-            A list of images with masks / boxes/ confidences drawn.
+        output : tuple[list[torch.Tensor], list[torch.Tensor], list[torch.Tensor]] | list[Image.Image]
+            If raw_output is True, returns:
+                boxes : list[torch.Tensor]
+                    List of each batch of predicted bounding boxes.
+                    Each tensor is shape [N, 4], where N is the number of boxes
+                    and 4 == [x1, y1, x2, y2] (box coordinates in pixel space).
+                scores : list[torch.Tensor]
+                    List of each batch of predicted box scores.
+                    Each tensor is shape [B], where N is the number of boxes.
+                masks : list[torch.Tensor]
+                    List of each batch of predicted masks.
+                    Each tensor is shape [N, H, W], where N is the number of boxes,
+                    and (H, W) is the network image input shape.
 
-        If raw_output is True, returns:
-        boxes
-            List of each batch of predicted bounding boxes.
-            Each tensor is shape [N, 4], where N is the number of boxes
-            and 4 == [x1, y1, x2, y2] (box coordinates in pixel space).
-        scores
-            List of each batch of predicted box scores.
-            Each tensor is shape [B], where N is the number of boxes.
-        masks
-            List of each batch of predicted masks.
-            Each tensor is shape [N, H, W], where N is the number of boxes,
-            and (H, W) is the network image input shape.
+            If raw_output is False, returns:
+                images : list[Image.Image]
+                    A list of images with masks / boxes/ confidences drawn.
         """
         # Input Prep
         NHWC_int_numpy_frames, NCHW_fp32_torch_frames = app_to_net_image_inputs(

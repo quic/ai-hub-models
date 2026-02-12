@@ -1,0 +1,27 @@
+metrics:
+- dataset_name: bert_wikitext_masked
+  dataset_link: https://huggingface.co/datasets/wikitext
+  dataset_split_description: wikitext-2-raw-v1 validation split
+  metric_name: Top-1 Masked LM Accuracy
+  metric_description: Percentage of masked tokens correctly predicted (highest-probability token).
+  metric_unit: '%'
+  metric_range:
+    min: 0.0
+    max: 100.0
+  metric_fp_vs_device_enablement_threshold: 10.0
+  num_partial_samples: 250
+  partial_torch_metric: 0.744
+  device_metric:
+    Samsung Galaxy S25:
+      w8a16:
+        qnn_dlc:
+          partial_metric: 0.556
+        onnx:
+          partial_metric: 0.744
+      float:
+        tflite:
+          partial_metric: 0.744
+        qnn_dlc:
+          partial_metric: 0.744
+        onnx:
+          partial_metric: 0.028

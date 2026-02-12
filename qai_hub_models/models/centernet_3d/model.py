@@ -12,6 +12,7 @@ from collections.abc import Callable
 import numpy as np
 import torch
 from torch import nn
+from typing_extensions import Self
 
 from qai_hub_models.evaluators.kitti_evaluator import BaseEvaluator, KittiEvaluator
 from qai_hub_models.models._shared.centernet.model import CenterNet, CenterNetAsRoot
@@ -70,7 +71,7 @@ class CenterNet3D(CenterNet):
         self.decode = ddd_decode
 
     @classmethod
-    def from_pretrained(cls, ckpt_path: str = "default") -> CenterNet3D:
+    def from_pretrained(cls, ckpt_path: str = "default") -> Self:
         heads = {"hm": 3, "dep": 1, "rot": 8, "dim": 3, "wh": 2, "reg": 2}
         if ckpt_path == "default":
             ckpt_path = str(DEFAULT_WEIGHTS.fetch())
@@ -102,17 +103,17 @@ class CenterNet3D(CenterNet):
 
         Returns
         -------
-        hm
+        hm : torch.Tensor
             Heatmap with the shape of [B, num_classes, H//4, W//4].
-        dep
+        dep : torch.Tensor
             Depth value with the shape of [B, 1, H//4, W//4].
-        rot
+        rot : torch.Tensor
             Rotation value with the shape of [B, 8, H//4, W//4].
-        dim
+        dim : torch.Tensor
             Size value with the shape of [B, 3, H//4, W//4].
-        wh
+        wh : torch.Tensor
             Width/Height value with the shape of [B, 2, H//4, W//4].
-        reg
+        reg : torch.Tensor
             2D regression value with the shape of [B, 2, H//4, W//4].
         """
         image = image[:, [2, 1, 0]]

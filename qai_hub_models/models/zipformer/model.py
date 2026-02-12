@@ -49,9 +49,9 @@ class ZipformerEncoder(BaseModel):
 
         Returns
         -------
-        output
+        output : Tensor
             a 3-D tensor of shape (N, T', joiner_dim)
-        new_states
+        new_states : tuple[Tensor, ...]
             list of updated state tensors
         """
         x = args[0]
@@ -158,7 +158,11 @@ class ZipformerEncoder(BaseModel):
         context_graph_name: str | None = None,
     ) -> str:
         compile_options = super().get_hub_compile_options(
-            target_runtime, precision, other_compile_options, device, context_graph_name
+            target_runtime,
+            precision,
+            other_compile_options,
+            device,
+            context_graph_name="encoder_model",
         )
         if target_runtime != TargetRuntime.ONNX:
             compile_options += " --truncate_64bit_tensors --truncate_64bit_io "
@@ -181,7 +185,7 @@ class ZipformerDecoder(BaseModel):
 
         Returns
         -------
-        decoder_output
+        decoder_output : Tensor
             a 2-D tensor of shape (N, joiner_dim)
         """
         decoder_output = self.decoder(y, need_pad=False)
@@ -223,7 +227,11 @@ class ZipformerDecoder(BaseModel):
         context_graph_name: str | None = None,
     ) -> str:
         compile_options = super().get_hub_compile_options(
-            target_runtime, precision, other_compile_options, device, context_graph_name
+            target_runtime,
+            precision,
+            other_compile_options,
+            device,
+            context_graph_name="decoder_model",
         )
         if target_runtime != TargetRuntime.ONNX:
             compile_options += " --truncate_64bit_tensors --truncate_64bit_io "
@@ -246,7 +254,7 @@ class ZipformerJoiner(BaseModel):
 
         Returns
         -------
-        logit
+        logit : Tensor
             a 2-D tensor of shape (N, vocab_size)
         """
         logit = encoder_out + decoder_out
@@ -274,6 +282,22 @@ class ZipformerJoiner(BaseModel):
     @staticmethod
     def calibration_dataset_name() -> str:
         return "common_voice"
+
+    def get_hub_compile_options(
+        self,
+        target_runtime: TargetRuntime,
+        precision: Precision,
+        other_compile_options: str = "",
+        device: Device | None = None,
+        context_graph_name: str | None = None,
+    ) -> str:
+        return super().get_hub_compile_options(
+            target_runtime,
+            precision,
+            other_compile_options,
+            device,
+            context_graph_name="joiner_model",
+        )
 
 
 @CollectionModel.add_component(ZipformerEncoder)

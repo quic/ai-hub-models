@@ -6,8 +6,10 @@
 from __future__ import annotations
 
 import os
+from typing import Any
 
 import torch
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.llama.model import (
     Llama2BundledModel,
@@ -91,7 +93,7 @@ DEFAULT_PROMPT_CONTEXT = "You are a helpful AI assistant"
 DEFAULT_USER_PROMPT = "Hi! What is 2+3?"
 
 
-def _get_intermediate_logit_name(split_part):
+def _get_intermediate_logit_name(split_part: int) -> str:
     if split_part == 1:
         return "input_ids"
     start_layer_num = MODEL_SPLIT_MAP[split_part][0]
@@ -101,7 +103,7 @@ def _get_intermediate_logit_name(split_part):
 def get_input_prompt_with_tags(
     user_input_prompt: str = DEFAULT_USER_PROMPT,
     system_context_prompt: str = DEFAULT_PROMPT_CONTEXT,
-):
+) -> str:
     """Get prompt to set context and initialize prompt-processor"""
     return f"""<s>{INST_START} {SYS_START}
 {system_context_prompt}
@@ -111,7 +113,7 @@ def get_input_prompt_with_tags(
 """
 
 
-def get_tokenizer():
+def get_tokenizer() -> LlamaTokenizer:
     """Tokenizer to use for LLama2"""
     tokenizer = LlamaTokenizer.from_pretrained(HF_REPO_NAME)
     tokenizer.padding_side = "left"
@@ -125,7 +127,7 @@ def prepare_combined_attention_mask(
     input_shape: tuple | None = None,
     past_key_values_length: int = 0,
     dtype: torch.dtype = torch.float32,
-):
+) -> torch.Tensor:
     """
     Creates combined attention_mask from given input attention_mask
         Input attention_mask: 2d (1, input_seq_len)
@@ -145,7 +147,7 @@ class Llama2Wrapper(torch.nn.Module):
         max_position_embeddings: int = MAX_POS_EMBEDDINGS,
         split_part: int = 1,
         is_token_generator: bool = False,
-    ):
+    ) -> None:
         super().__init__()
 
         model_type = "TokenGenerator" if is_token_generator else "PromptProcessor"
@@ -218,12 +220,12 @@ class Llama2Wrapper(torch.nn.Module):
 
     def forward(
         self,
-        input_ids,
-        attention_mask,
-        position_ids_cos,
-        position_ids_sin,
-        *past_key_values,
-    ):
+        input_ids: torch.Tensor,
+        attention_mask: torch.Tensor,
+        position_ids_cos: torch.Tensor,
+        position_ids_sin: torch.Tensor,
+        *past_key_values: torch.Tensor,
+    ) -> tuple[torch.Tensor, ...]:
         if self.is_token_generator:
             out = self.forward_token_generator(
                 input_ids,
@@ -237,25 +239,31 @@ class Llama2Wrapper(torch.nn.Module):
                 input_ids, attention_mask, position_ids_cos, position_ids_sin
             )
         # Flatten past_key_values
+        # out[1] contains nested tuples of past_key_values, cast to Any for mypy
+        pkv: Any = out[1]
         return tuple(
             out[:1],
-        ) + tuple(flatten(out[1]))
+        ) + tuple(flatten(pkv))
 
     def forward_prompt_processor(
-        self, input_ids, attention_mask, position_ids_cos, position_ids_sin
-    ):
+        self,
+        input_ids: torch.Tensor,
+        attention_mask: torch.Tensor,
+        position_ids_cos: torch.Tensor,
+        position_ids_sin: torch.Tensor,
+    ) -> tuple[torch.Tensor, ...]:
         return self.model(
             input_ids, attention_mask, position_ids=(position_ids_cos, position_ids_sin)
         )
 
     def forward_token_generator(
         self,
-        input_ids,
-        attention_mask,
-        position_ids_cos,
-        position_ids_sin,
-        *past_key_values,
-    ):
+        input_ids: torch.Tensor,
+        attention_mask: torch.Tensor,
+        position_ids_cos: torch.Tensor,
+        position_ids_sin: torch.Tensor,
+        *past_key_values: torch.Tensor,
+    ) -> tuple[torch.Tensor, ...]:
         past_key_values_tuple = make_torch_compatible_past_key_values(
             self.total_hidden_layers, 32, True, *past_key_values
         )
@@ -309,10 +317,8 @@ class Llama2_Quantized(Llama2BundledModel):
         self.max_position_embeddings = max_position_embeddings
 
     @classmethod
-    def from_pretrained(
-        cls, max_position_embeddings: int = MAX_POS_EMBEDDINGS
-    ) -> Llama2_Quantized:
-        return Llama2_Quantized(max_position_embeddings=max_position_embeddings)
+    def from_pretrained(cls, max_position_embeddings: int = MAX_POS_EMBEDDINGS) -> Self:
+        return cls(max_position_embeddings=max_position_embeddings)
 
     def load_model_part(self, split_part: str) -> BaseModel:
         if split_part == "PromptProcessor_1":
@@ -351,7 +357,7 @@ class Llama2_Quantized(Llama2BundledModel):
 
 
 class Llama2_PromptProcessor_1(LlamaMixin):
-    def __init__(self, model, encoding_path):
+    def __init__(self, model: torch.nn.Module, encoding_path: str) -> None:
         super().__init__(model, encoding_path)
         self.model = model
         self.split_part = 1
@@ -362,13 +368,11 @@ class Llama2_PromptProcessor_1(LlamaMixin):
         attention_mask: torch.Tensor,
         position_ids_cos: torch.Tensor,
         position_ids_sin: torch.Tensor,
-    ):
+    ) -> tuple[torch.Tensor, ...]:
         return self.model(input_ids, attention_mask, position_ids_cos, position_ids_sin)
 
     @classmethod
-    def from_pretrained(
-        cls, max_position_embeddings: int = MAX_POS_EMBEDDINGS
-    ) -> Llama2_PromptProcessor_1:
+    def from_pretrained(cls, max_position_embeddings: int = MAX_POS_EMBEDDINGS) -> Self:
         model, encoding_path = _get_llama_model_with_split(
             max_position_embeddings, split_part=1
         )
@@ -390,7 +394,7 @@ class Llama2_PromptProcessor_1(LlamaMixin):
         }
 
     @staticmethod
-    def get_output_names():
+    def get_output_names() -> list[str]:
         layers_start, layers_end = get_hidden_layer_range_from_split(
             split_part=1, model_split_map=MODEL_SPLIT_MAP
         )
@@ -462,7 +466,7 @@ class Llama2_PromptProcessor_1(LlamaMixin):
 
 
 class Llama2_PromptProcessor_2(LlamaMixin):
-    def __init__(self, model: torch.nn.Module, encoding_path: str):
+    def __init__(self, model: torch.nn.Module, encoding_path: str) -> None:
         super().__init__(model, encoding_path)
         self.split_part = 2
 
@@ -472,13 +476,11 @@ class Llama2_PromptProcessor_2(LlamaMixin):
         attention_mask: torch.Tensor,
         position_ids_cos: torch.Tensor,
         position_ids_sin: torch.Tensor,
-    ):
+    ) -> tuple[torch.Tensor, ...]:
         return self.model(input_ids, attention_mask, position_ids_cos, position_ids_sin)
 
     @classmethod
-    def from_pretrained(
-        cls, max_position_embeddings: int = MAX_POS_EMBEDDINGS
-    ) -> Llama2_PromptProcessor_2:
+    def from_pretrained(cls, max_position_embeddings: int = MAX_POS_EMBEDDINGS) -> Self:
         model, encoding_path = _get_llama_model_with_split(
             max_position_embeddings, split_part=2
         )
@@ -503,7 +505,7 @@ class Llama2_PromptProcessor_2(LlamaMixin):
         }
 
     @staticmethod
-    def get_output_names():
+    def get_output_names() -> list[str]:
         layers_start, layers_end = get_hidden_layer_range_from_split(
             split_part=2, model_split_map=MODEL_SPLIT_MAP
         )
@@ -562,7 +564,7 @@ class Llama2_PromptProcessor_2(LlamaMixin):
 
 
 class Llama2_PromptProcessor_3(LlamaMixin):
-    def __init__(self, model: torch.nn.Module, encoding_path: str):
+    def __init__(self, model: torch.nn.Module, encoding_path: str) -> None:
         super().__init__(model, encoding_path)
         self.split_part = 3
 
@@ -572,13 +574,11 @@ class Llama2_PromptProcessor_3(LlamaMixin):
         attention_mask: torch.Tensor,
         position_ids_cos: torch.Tensor,
         position_ids_sin: torch.Tensor,
-    ):
+    ) -> tuple[torch.Tensor, ...]:
         return self.model(input_ids, attention_mask, position_ids_cos, position_ids_sin)
 
     @classmethod
-    def from_pretrained(
-        cls, max_position_embeddings: int = MAX_POS_EMBEDDINGS
-    ) -> Llama2_PromptProcessor_3:
+    def from_pretrained(cls, max_position_embeddings: int = MAX_POS_EMBEDDINGS) -> Self:
         model, encoding_path = _get_llama_model_with_split(
             max_position_embeddings, split_part=3
         )
@@ -603,7 +603,7 @@ class Llama2_PromptProcessor_3(LlamaMixin):
         }
 
     @staticmethod
-    def get_output_names():
+    def get_output_names() -> list[str]:
         layers_start, layers_end = get_hidden_layer_range_from_split(
             split_part=3, model_split_map=MODEL_SPLIT_MAP
         )
@@ -662,7 +662,7 @@ class Llama2_PromptProcessor_3(LlamaMixin):
 
 
 class Llama2_PromptProcessor_4(LlamaMixin):
-    def __init__(self, model: torch.nn.Module, encoding_path: str):
+    def __init__(self, model: torch.nn.Module, encoding_path: str) -> None:
         super().__init__(model, encoding_path)
         self.split_part = 4
 
@@ -672,13 +672,11 @@ class Llama2_PromptProcessor_4(LlamaMixin):
         attention_mask: torch.Tensor,
         position_ids_cos: torch.Tensor,
         position_ids_sin: torch.Tensor,
-    ):
+    ) -> tuple[torch.Tensor, ...]:
         return self.model(input_ids, attention_mask, position_ids_cos, position_ids_sin)
 
     @classmethod
-    def from_pretrained(
-        cls, max_position_embeddings: int = MAX_POS_EMBEDDINGS
-    ) -> Llama2_PromptProcessor_4:
+    def from_pretrained(cls, max_position_embeddings: int = MAX_POS_EMBEDDINGS) -> Self:
         model, encoding_path = _get_llama_model_with_split(
             max_position_embeddings, split_part=4
         )
@@ -703,7 +701,7 @@ class Llama2_PromptProcessor_4(LlamaMixin):
         }
 
     @staticmethod
-    def get_output_names():
+    def get_output_names() -> list[str]:
         layers_start, layers_end = get_hidden_layer_range_from_split(
             split_part=4, model_split_map=MODEL_SPLIT_MAP
         )
@@ -767,7 +765,7 @@ class Llama2_PromptProcessor_4(LlamaMixin):
 
 
 class Llama2_TokenGenerator_1(LlamaMixin):
-    def __init__(self, model: torch.nn.Module, encoding_path: str):
+    def __init__(self, model: torch.nn.Module, encoding_path: str) -> None:
         super().__init__(model, encoding_path, is_token_generator=True)
         self.split_part = 1
 
@@ -777,8 +775,8 @@ class Llama2_TokenGenerator_1(LlamaMixin):
         attention_mask: torch.Tensor,
         position_ids_cos: torch.Tensor,
         position_ids_sin: torch.Tensor,
-        *past_key_values,
-    ):
+        *past_key_values: torch.Tensor,
+    ) -> tuple[torch.Tensor, ...]:
         return self.model(
             input_ids,
             attention_mask,
@@ -788,9 +786,7 @@ class Llama2_TokenGenerator_1(LlamaMixin):
         )
 
     @classmethod
-    def from_pretrained(
-        cls, max_position_embeddings: int = MAX_POS_EMBEDDINGS
-    ) -> Llama2_TokenGenerator_1:
+    def from_pretrained(cls, max_position_embeddings: int = MAX_POS_EMBEDDINGS) -> Self:
         model, encoding_path = _get_llama_model_with_split(
             max_position_embeddings,
             split_part=1,
@@ -838,7 +834,7 @@ class Llama2_TokenGenerator_1(LlamaMixin):
         return input_spec
 
     @staticmethod
-    def get_output_names():
+    def get_output_names() -> list[str]:
         layers_start, layers_end = get_hidden_layer_range_from_split(
             split_part=1, model_split_map=MODEL_SPLIT_MAP
         )
@@ -952,7 +948,7 @@ class Llama2_TokenGenerator_1(LlamaMixin):
 
 
 class Llama2_TokenGenerator_2(LlamaMixin):
-    def __init__(self, model: torch.nn.Module, encoding_path: str):
+    def __init__(self, model: torch.nn.Module, encoding_path: str) -> None:
         super().__init__(model, encoding_path, is_token_generator=True)
         self.split_part = 2
 
@@ -962,8 +958,8 @@ class Llama2_TokenGenerator_2(LlamaMixin):
         attention_mask: torch.Tensor,
         position_ids_cos: torch.Tensor,
         position_ids_sin: torch.Tensor,
-        *past_key_values,
-    ):
+        *past_key_values: torch.Tensor,
+    ) -> tuple[torch.Tensor, ...]:
         return self.model(
             input_ids,
             attention_mask,
@@ -973,9 +969,7 @@ class Llama2_TokenGenerator_2(LlamaMixin):
         )
 
     @classmethod
-    def from_pretrained(
-        cls, max_position_embeddings: int = MAX_POS_EMBEDDINGS
-    ) -> Llama2_TokenGenerator_2:
+    def from_pretrained(cls, max_position_embeddings: int = MAX_POS_EMBEDDINGS) -> Self:
         model, encoding_path = _get_llama_model_with_split(
             max_position_embeddings,
             split_part=2,
@@ -1026,7 +1020,7 @@ class Llama2_TokenGenerator_2(LlamaMixin):
         return input_spec
 
     @staticmethod
-    def get_output_names():
+    def get_output_names() -> list[str]:
         layers_start, layers_end = get_hidden_layer_range_from_split(
             split_part=2, model_split_map=MODEL_SPLIT_MAP
         )
@@ -1105,7 +1099,7 @@ class Llama2_TokenGenerator_2(LlamaMixin):
 
 
 class Llama2_TokenGenerator_3(LlamaMixin):
-    def __init__(self, model: torch.nn.Module, encoding_path: str):
+    def __init__(self, model: torch.nn.Module, encoding_path: str) -> None:
         super().__init__(model, encoding_path, is_token_generator=True)
         self.split_part = 3
 
@@ -1115,8 +1109,8 @@ class Llama2_TokenGenerator_3(LlamaMixin):
         attention_mask: torch.Tensor,
         position_ids_cos: torch.Tensor,
         position_ids_sin: torch.Tensor,
-        *past_key_values,
-    ):
+        *past_key_values: torch.Tensor,
+    ) -> tuple[torch.Tensor, ...]:
         return self.model(
             input_ids,
             attention_mask,
@@ -1126,9 +1120,7 @@ class Llama2_TokenGenerator_3(LlamaMixin):
         )
 
     @classmethod
-    def from_pretrained(
-        cls, max_position_embeddings: int = MAX_POS_EMBEDDINGS
-    ) -> Llama2_TokenGenerator_3:
+    def from_pretrained(cls, max_position_embeddings: int = MAX_POS_EMBEDDINGS) -> Self:
         model, encoding_path = _get_llama_model_with_split(
             max_position_embeddings,
             split_part=3,
@@ -1179,7 +1171,7 @@ class Llama2_TokenGenerator_3(LlamaMixin):
         return input_spec
 
     @staticmethod
-    def get_output_names():
+    def get_output_names() -> list[str]:
         layers_start, layers_end = get_hidden_layer_range_from_split(
             split_part=3, model_split_map=MODEL_SPLIT_MAP
         )
@@ -1258,7 +1250,7 @@ class Llama2_TokenGenerator_3(LlamaMixin):
 
 
 class Llama2_TokenGenerator_4(LlamaMixin):
-    def __init__(self, model: torch.nn.Module, encoding_path: str):
+    def __init__(self, model: torch.nn.Module, encoding_path: str) -> None:
         super().__init__(model, encoding_path, is_token_generator=True)
         self.split_part = 4
 
@@ -1268,8 +1260,8 @@ class Llama2_TokenGenerator_4(LlamaMixin):
         attention_mask: torch.Tensor,
         position_ids_cos: torch.Tensor,
         position_ids_sin: torch.Tensor,
-        *past_key_values,
-    ):
+        *past_key_values: torch.Tensor,
+    ) -> tuple[torch.Tensor, ...]:
         return self.model(
             input_ids,
             attention_mask,
@@ -1279,9 +1271,7 @@ class Llama2_TokenGenerator_4(LlamaMixin):
         )
 
     @classmethod
-    def from_pretrained(
-        cls, max_position_embeddings: int = MAX_POS_EMBEDDINGS
-    ) -> Llama2_TokenGenerator_4:
+    def from_pretrained(cls, max_position_embeddings: int = MAX_POS_EMBEDDINGS) -> Self:
         model, encoding_path = _get_llama_model_with_split(
             max_position_embeddings,
             split_part=4,
@@ -1332,7 +1322,7 @@ class Llama2_TokenGenerator_4(LlamaMixin):
         return input_spec
 
     @staticmethod
-    def get_output_names():
+    def get_output_names() -> list[str]:
         layers_start, layers_end = get_hidden_layer_range_from_split(
             split_part=4, model_split_map=MODEL_SPLIT_MAP
         )

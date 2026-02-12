@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import Any
 
 import torchvision.models as tv_models
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.video_classifier.model import (
     KineticsClassifier,
@@ -24,7 +25,7 @@ class ResNetMixed(KineticsClassifier):
     def from_pretrained(
         cls,
         weights: Any = DEFAULT_WEIGHTS,
-    ) -> ResNetMixed:
+    ) -> Self:
         net = tv_models.video.mc3_18(weights=weights)
         net.avgpool = SimpleAvgPool()
         return cls(net)

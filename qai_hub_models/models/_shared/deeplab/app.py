@@ -29,7 +29,7 @@ def preprocess_image(image: Image) -> torch.Tensor:
 
     Returns
     -------
-    preprocessed_image
+    preprocessed_image : torch.Tensor
         Torch tensor to be directly passed to the model.
     """
     out_tensor: torch.Tensor = transforms.ToTensor()(image)
@@ -68,7 +68,7 @@ class DeepLabV3App:
 
         Returns
         -------
-        output
+        output : Image | np.ndarray
             If raw_output is true, returns a np.ndarray with predicted masks.
             Otherwise, returns a PIL.Image with segmentation map overlaid with an alpha of 0.5.
         """

@@ -7,7 +7,7 @@ from qai_hub_models.models._shared.imagenet_classifier.demo import imagenet_demo
 from qai_hub_models.models.googlenet.model import MODEL_ID, GoogLeNet
 
 
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     imagenet_demo(GoogLeNet, MODEL_ID, is_test)
 
 

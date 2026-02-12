@@ -9,6 +9,7 @@ from typing import cast
 
 import torch
 from torch import nn
+from typing_extensions import Self
 from yolox.exp import get_exp
 from yolox.models.network_blocks import SiLU
 from yolox.models.yolo_head import YOLOXHead
@@ -17,6 +18,7 @@ from yolox.utils import meshgrid, replace_module
 
 from qai_hub_models.models._shared.yolo.model import Yolo
 from qai_hub_models.models._shared.yolo.utils import detect_postprocess_split_input
+from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 
 MODEL_ID = __name__.split(".")[-2]
@@ -53,7 +55,7 @@ class YoloX(Yolo):
         weights_name: str = DEFAULT_WEIGHTS,
         include_postprocessing: bool = True,
         split_output: bool = False,
-    ):
+    ) -> Self:
         """Load yolox-m from a weightfile created by the source Yolox repository."""
         checkpoint_path = CachedWebModelAsset.from_asset_store(
             MODEL_ID, MODEL_ASSET_VERSION, weights_name
@@ -65,7 +67,7 @@ class YoloX(Yolo):
         return cls(yolox_model, include_postprocessing, split_output)
 
     def yolox_head_forward_with_split_outputs(
-        self, xin
+        self, xin: list[torch.Tensor]
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Modified version of the YOLOX Detector Head's forward() function.
@@ -119,7 +121,7 @@ class YoloX(Yolo):
         return self.yolox_head_decode_with_split_outputs(outputs, dtype=xin[0].type())
 
     def yolox_head_decode_with_split_outputs(
-        self, outputs: list[tuple[torch.Tensor, torch.Tensor]], dtype
+        self, outputs: list[tuple[torch.Tensor, torch.Tensor]], dtype: str
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Modified version of the YOLOX Detector Head's decode_outputs() function.
@@ -156,7 +158,9 @@ class YoloX(Yolo):
             scores,
         )
 
-    def forward(self, image: torch.Tensor):
+    def forward(
+        self, image: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor] | torch.Tensor:
         """
         Run YoloX on `image`, and produce a predicted set of bounding boxes and associated class probabilities.
 
@@ -169,25 +173,26 @@ class YoloX(Yolo):
 
         Returns
         -------
-        If self.include_postprocessing is True, returns:
-        boxes
-            Bounding box locations. Shape [batch, num preds, 4] where 4 == (topleft_x, topleft_y, bottomright_x, bottomright_y).
-        scores
-            Confidence score that the given box is the predicted class. Shape is [batch, num_preds].
-        class_idx
-            Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
+        result : tuple[torch.Tensor, torch.Tensor, torch.Tensor] | torch.Tensor
+            If self.include_postprocessing is True, returns:
+            boxes
+                Bounding box locations. Shape [batch, num preds, 4] where 4 == (topleft_x, topleft_y, bottomright_x, bottomright_y).
+            scores
+                Confidence score that the given box is the predicted class. Shape is [batch, num_preds].
+            class_idx
+                Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
 
-        If self.include_postprocessing is False and self.split_output is True, returns:
-        boxes_xy
-            Shape is [batch, num_preds, 2] where, 2 is [x_center, y_center] (box_coordinates).
-        boxes_wh
-            Shape is [batch, num_preds, 2] where, 2 is [width, height] (box_size).
-        scores
-            Shape is [batch, num_preds, 81] where 81 is structured as follows: [0] -> confidence there is an object in the box, [1:81] -> confidence that the detected object is each class (80 classes).
+            If self.include_postprocessing is False and self.split_output is True, returns:
+            boxes_xy
+                Shape is [batch, num_preds, 2] where, 2 is [x_center, y_center] (box_coordinates).
+            boxes_wh
+                Shape is [batch, num_preds, 2] where, 2 is [width, height] (box_size).
+            scores
+                Shape is [batch, num_preds, 81] where 81 is structured as follows: [0] -> confidence there is an object in the box, [1:81] -> confidence that the detected object is each class (80 classes).
 
-        If self.include_postprocessing is False and self.split_output is False, returns:
-        detector_output
-            Shape is [batch, num_preds, 85] where 85 is structured as follows: [0:4] -> [x_center, y_center, w, h] box_coordinates, [4] -> confidence there is an object in the box (1), [5:85] -> confidence that the detected object is each class (80 -- the number of classes).
+            If self.include_postprocessing is False and self.split_output is False, returns:
+            detector_output
+                Shape is [batch, num_preds, 85] where 85 is structured as follows: [0:4] -> [x_center, y_center, w, h] box_coordinates, [4] -> confidence there is an object in the box (1), [5:85] -> confidence that the detected object is each class (80 -- the number of classes).
         """
         # Scale the image pixel values from [0, 1] to [0, 255] as per yolox requirement
         image = image * 255
@@ -222,7 +227,7 @@ class YoloX(Yolo):
         )
 
     @staticmethod
-    def get_hub_litemp_percentage(_) -> float:
+    def get_hub_litemp_percentage(precision: Precision) -> float:
         """Returns the Lite-MP percentage value for the specified mixed precision quantization."""
         return 10
 

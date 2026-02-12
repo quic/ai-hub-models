@@ -59,7 +59,7 @@ class SuperResolutionModel(BaseModel):
 
         Returns
         -------
-        upscaled_image
+        upscaled_image : torch.Tensor
             Pixel values
             Range: float[0, 1]
             3-channel Color Space: RGB

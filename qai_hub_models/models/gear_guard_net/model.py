@@ -78,7 +78,7 @@ class GearGuardNet(BaseModel):
 
         Returns
         -------
-        decoded_predictions
+        decoded_predictions : torch.Tensor
             Decoded predictions for this scale with shape [batch, num_predictions, 7],
             where 7 represents [x_center, y_center, width, height, confidence, class_0_score, class_1_score].
         """
@@ -174,7 +174,7 @@ class GearGuardNet(BaseModel):
 
         Returns
         -------
-        detection_results
+        detection_results : torch.Tensor
             Detection results with shape (batch_size, num_detections, 7), where:
             - Each detection contains 7 values:
                 [x_center, y_center, width, height, confidence, class_0_score, class_1_score]
@@ -219,22 +219,23 @@ class GearGuardNet(BaseModel):
 
         Returns
         -------
-        If include_postprocessing is True, returns:
-        boxes
-            Bounding box coordinates with shape [batch_size, num_detections, 4].
-            Each box is represented as (x1, y1, x2, y2) in absolute pixel coordinates.
-        scores
-            Detection confidence scores with shape [batch_size, num_detections].
-            Each score is the product of objectness confidence and class score.
-        class_idx
-            Predicted class indices with shape [batch_size, num_detections].
-            Values are integer indices representing the detected class.
+        result : torch.Tensor | tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+            If include_postprocessing is True, returns:
+            boxes
+                Bounding box coordinates with shape [batch_size, num_detections, 4].
+                Each box is represented as (x1, y1, x2, y2) in absolute pixel coordinates.
+            scores
+                Detection confidence scores with shape [batch_size, num_detections].
+                Each score is the product of objectness confidence and class score.
+            class_idx
+                Predicted class indices with shape [batch_size, num_detections].
+                Values are integer indices representing the detected class.
 
-        If include_postprocessing is False, returns:
-        detector_output
-            Raw detection results with shape [batch_size, num_detections, 7].
-            The 7 values for each detection are: [x_center, y_center, width, height,
-            confidence, class_0_score, class_1_score].
+            If include_postprocessing is False, returns:
+            predictions
+                Raw detection results with shape [batch_size, num_detections, 7].
+                The 7 values for each detection are: [x_center, y_center, width, height,
+                confidence, class_0_score, class_1_score].
         """
         # Run backbone model
         y: list[int | None] = []
@@ -279,7 +280,7 @@ class GearGuardNet(BaseModel):
 
         Returns
         -------
-        model
+        model : Self
             The GearGuardNet detection model.
         """
         cfg = {
@@ -371,3 +372,7 @@ class GearGuardNet(BaseModel):
     @staticmethod
     def calibration_dataset_name() -> str:
         return "coco_ppe"
+
+    @classmethod
+    def get_labels_file_name(cls) -> str | None:
+        return "ppe_labels.txt"

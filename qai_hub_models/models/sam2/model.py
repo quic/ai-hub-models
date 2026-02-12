@@ -8,7 +8,7 @@ from __future__ import annotations
 import functools
 import os
 from pathlib import Path
-from typing import cast
+from typing import TypeVar, cast
 
 import sam2
 import torch
@@ -21,6 +21,7 @@ from sam2.modeling.backbones.hieradet import MultiScaleBlock as SAM2_Encoder_Blo
 from sam2.modeling.sam.transformer import TwoWayAttentionBlock, TwoWayTransformer
 from sam2.modeling.sam2_base import SAM2Base as Sam2
 from sam2.modeling.sam2_utils import MLP as SAM2MaskDecoderMLP
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.sam.model_patches import (
     Conv2DInplaceLinearSAMMaskDecoderMLP,
@@ -120,13 +121,13 @@ class SAM2Encoder(BaseModel):
 
         Returns
         -------
-        image_embeddings
+        image_embeddings : torch.Tensor
             Shape (1, 256, 64, 64).
-        high_res_features1
+        high_res_features1 : torch.Tensor
             Shape (1, 32, 256, 256).
-        high_res_features2
+        high_res_features2 : torch.Tensor
             Shape (1, 64, 128, 128).
-        sparse_embeddings
+        sparse_embeddings : torch.Tensor
             Shape (1, N+1, 256).
         """
         x = self.normalize(Image)
@@ -201,15 +202,15 @@ class SAM2Encoder(BaseModel):
         ]
 
     @classmethod
-    def from_pretrained(cls, model_type: str = DEFAULT_MODEL_TYPE) -> SAM2Encoder:
-        return SAM2Loader.load(model_type)[1]
+    def from_pretrained(cls, model_type: str = DEFAULT_MODEL_TYPE) -> Self:
+        return SAM2Loader.load(encoder_cls=cls, model_type=model_type)[1]
 
     @staticmethod
     def calibration_dataset_name() -> str:
         return "sav"
 
     @staticmethod
-    def get_hub_litemp_percentage(_) -> float:
+    def get_hub_litemp_percentage(precision: Precision) -> float:
         """Returns the Lite-MP percentage value for the specified mixed precision quantization."""
         return 10
 
@@ -261,9 +262,9 @@ class SAM2Decoder(BaseModel):
 
         Returns
         -------
-        masks
+        masks : torch.Tensor
             Torch.Tensor of shape [1, 1, 256, 256].
-        scores
+        scores : torch.Tensor
             Torch.Tensor of shape [1, 1].
         """
         dense_embedding = self.prompt_encoder.no_mask_embed.weight.reshape(1, -1, 1, 1)
@@ -356,17 +357,21 @@ class SAM2Decoder(BaseModel):
         return ["masks", "scores"]
 
     @classmethod
-    def from_pretrained(cls, model_type: str = DEFAULT_MODEL_TYPE) -> SAM2Decoder:
-        return SAM2Loader.load(model_type)[2]
+    def from_pretrained(cls, model_type: str = DEFAULT_MODEL_TYPE) -> Self:
+        return SAM2Loader.load(decoder_cls=cls, model_type=model_type)[2]
 
     @staticmethod
     def calibration_dataset_name() -> str:
         return "sav"
 
     @staticmethod
-    def get_hub_litemp_percentage(_) -> float:
+    def get_hub_litemp_percentage(precision: Precision) -> float:
         """Returns the Lite-MP percentage value for the specified mixed precision quantization."""
         return 10
+
+
+encoderT = TypeVar("encoderT", bound=SAM2Encoder)
+decoderT = TypeVar("decoderT", bound=SAM2Decoder)
 
 
 class SAM2Loader:
@@ -375,12 +380,13 @@ class SAM2Loader:
     @staticmethod
     def load(
         model_type: str = SMALL_MODEL_TYPE,
-    ) -> tuple[Sam2, SAM2Encoder, SAM2Decoder]:
+        encoder_cls: type[encoderT] = SAM2Encoder,  # type: ignore[assignment]
+        decoder_cls: type[decoderT] = SAM2Decoder,  # type: ignore[assignment]
+    ) -> tuple[Sam2, encoderT, decoderT]:
         sam2 = SAM2Loader._load_sam2(model_type)
         SAM2Loader._patch_sam2_for_qnn_comatibility(sam2)
-        encoder = SAM2Encoder(sam2)
-        decoder = SAM2Decoder(sam2)
-
+        encoder = encoder_cls(sam2)
+        decoder = decoder_cls(sam2)
         return sam2, encoder, decoder
 
     @staticmethod
@@ -474,29 +480,29 @@ class SAM2(CollectionModel):
         self.decoder = decoder
 
     @classmethod
-    def from_pretrained(cls, model_type: str = DEFAULT_MODEL_TYPE) -> SAM2:
+    def from_pretrained(cls, model_type: str = DEFAULT_MODEL_TYPE) -> Self:
         return cls(*SAM2Loader.load(model_type))
 
 
 class SAM2Tiny(SAM2):
     @classmethod
-    def from_pretrained(cls) -> SAM2:
+    def from_pretrained(cls) -> Self:
         return cls(*SAM2Loader.load(TINY_MODEL_TYPE))
 
 
 class SAM2Small(SAM2):
     @classmethod
-    def from_pretrained(cls) -> SAM2:
+    def from_pretrained(cls) -> Self:
         return cls(*SAM2Loader.load(SMALL_MODEL_TYPE))
 
 
 class SAM2BasePlus(SAM2):
     @classmethod
-    def from_pretrained(cls) -> SAM2:
+    def from_pretrained(cls) -> Self:
         return cls(*SAM2Loader.load(BASE_PLUS_MODEL_TYPE))
 
 
 class SAM2Large(SAM2):
     @classmethod
-    def from_pretrained(cls) -> SAM2:
+    def from_pretrained(cls) -> Self:
         return cls(*SAM2Loader.load(LARGE_MODEL_TYPE))
