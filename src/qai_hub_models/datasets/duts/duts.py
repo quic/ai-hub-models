@@ -158,7 +158,7 @@ class DUTSDataset(BaseDataset):
 
     @staticmethod
     def default_samples_per_job() -> int:
-        return 100
+        return 400
 
     @staticmethod
     def dataset_name() -> str:
