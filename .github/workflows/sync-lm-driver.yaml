@@ -29,7 +29,7 @@ jobs:
 
       - name: Mint AIMET reader token
         id: aimet-token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ vars.READER_APP_ID }}
           private-key: ${{ secrets.READER_APP_PRIVATE_KEY }}
