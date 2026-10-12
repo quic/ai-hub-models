@@ -169,13 +169,9 @@ class HubDevicePlatform:
 
 # ---- persistent job records for LLM perf collection ------------------------
 # Flat YAML mapping of `<model>_<precision>_<runtime>_<device>` -> record.
-# Submit writes one entry per job, collect polls each and on retryable
-# failure re-fetches the bundle and resubmits.
+# Submit writes one entry per job, collect polls each.
 
 _JobRecordRetT = TypeVar("_JobRecordRetT")
-
-# Resubmits allowed after the first job, so total tries is this + 1.
-DEFAULT_RETRIES = 1
 
 
 class JobOutcome(str, Enum):
@@ -188,7 +184,6 @@ class JobOutcome(str, Enum):
 @dataclass
 class JobRecord:
     job_id: str
-    attempts_left: int = DEFAULT_RETRIES
     # Saved at submit so collect needn't re-download the bundle for metadata.json.
     context_lengths: list[int] | None = None
 
@@ -206,7 +201,6 @@ def load_jobs(jobs_file: str | Path) -> dict[str, JobRecord]:
     return {
         k: JobRecord(
             job_id=str(v["job_id"]),
-            attempts_left=int(v.get("attempts_left", DEFAULT_RETRIES)),
             context_lengths=(
                 [int(c) for c in v["context_lengths"]]
                 if "context_lengths" in v
@@ -218,36 +212,21 @@ def load_jobs(jobs_file: str | Path) -> dict[str, JobRecord]:
     }
 
 
-def poll_and_retry(
-    initial_job_id: str,
-    attempts_left: int,
+def poll_job(
+    job_id: str,
     collect_fn: Callable[[str], tuple[_JobRecordRetT, JobOutcome, str | None]],
-    resubmit_fn: Callable[[], str],
-    on_new_job_id: Callable[[str, int], None] | None = None,
 ) -> _JobRecordRetT:
-    """Poll a device-farm job; on retryable failure, resubmit until ``attempts_left`` runs out."""
-    job_id = initial_job_id
-    while True:
-        result, outcome, reason = collect_fn(job_id)
-        if outcome is JobOutcome.SUCCESS:
-            return result
-        if attempts_left <= 0:
-            raise RuntimeError(
-                f"{reason} after exhausting retry budget. "
-                f"Check device farm job logs for details."
-            )
-        job_id = resubmit_fn()
-        attempts_left -= 1
-        if on_new_job_id is not None:
-            on_new_job_id(job_id, attempts_left)
-        print(f"Retrying with new job {job_id} (attempts_left={attempts_left})")
+    """Poll a device-farm job once; raise RuntimeError if it did not succeed."""
+    result, outcome, reason = collect_fn(job_id)
+    if outcome is not JobOutcome.SUCCESS:
+        raise RuntimeError(f"{reason}. Check device farm job logs for details.")
+    return result
 
 
 def save_job(
     jobs_file: str | Path,
     key: str,
     job_id: str,
-    attempts_left: int = DEFAULT_RETRIES,
     context_lengths: list[int] | None = None,
 ) -> None:
     """Upsert one row into ``jobs_file``. FileLock-guarded for parallel submitters."""
@@ -259,7 +238,7 @@ def save_job(
         mapping: dict[str, Any] = (
             dict(ruamel.yaml.YAML().load(raw) or {}) if raw.strip() else {}
         )
-        row: dict[str, Any] = {"job_id": job_id, "attempts_left": attempts_left}
+        row: dict[str, Any] = {"job_id": job_id}
         if context_lengths is not None:
             row["context_lengths"] = list(context_lengths)
         mapping[key] = row

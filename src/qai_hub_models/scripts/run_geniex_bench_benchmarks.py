@@ -43,14 +43,13 @@ from qai_hub_models.scorecard.utils.fetch_prerelease_assets import (
 )
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG
 from qai_hub_models.utils.devicefarm.devicefarm import (
-    DEFAULT_RETRIES,
     DeviceFarm,
     JobOutcome,
     JobRecord,
     get_device_farm,
     load_jobs,
     make_key,
-    poll_and_retry,
+    poll_job,
     sanitize_job_id,
     save_job,
 )
@@ -344,7 +343,6 @@ def _submit_one(
     eval_prompts: list[str] | None = None,
     run_perf: bool = True,
     qairt_version: str | None = None,
-    attempts_left: int = DEFAULT_RETRIES,
 ) -> str:
     """Submit one geniex-bench job and upsert a jobs_file entry.
 
@@ -391,7 +389,7 @@ def _submit_one(
         qairt_version=qairt_version,
     )
     key = make_key(model_id, str(precision), _runtime(plugin), sd.name)
-    save_job(jobs_file, key, job_id, attempts_left=attempts_left)
+    save_job(jobs_file, key, job_id)
     return job_id
 
 
@@ -475,20 +473,13 @@ def _collect_one(
     device_name: str,
     plugin: str,
     record: JobRecord,
-    jobs_file: str,
     save_dir_root: str,
-    geniex_version: str | None,
     ctx_list: list[int],
-    llamacpp_urls: dict[Precision, str] | None = None,
     eval_prompts: list[str] | None = None,
     run_perf: bool = True,
-    qairt_version: str | None = None,
 ) -> tuple[list[GenieXBenchMetrics], list[dict], str, str | None]:
-    """Poll a submitted geniex-bench job. On retryable failure, re-fetch
-    the bundle from release-assets.yaml (qairt) or the HF URL (llama_cpp)
-    and resubmit; the jobs_file row is rewritten with the new job id and
-    one fewer attempt. A failed job whose logs hold every expected result is
-    kept rather than resubmitted.
+    """Poll a submitted geniex-bench job. A failed job whose logs hold every
+    expected result is kept rather than reported as failed.
 
     Returns ``(metrics, eval_results, status, job_failure)`` where status is
     ``"success"``, ``"eval_only"``, ``"eval_incomplete (...)"``,
@@ -496,59 +487,7 @@ def _collect_one(
     kept job failed, if it did.
     """
     sd = ScorecardDevice.get(device_name)
-    device_alias = _device_alias(plugin)
-    job_name = f"geniex-bench {plugin} {model_id}"
-    key = make_key(model_id, str(precision), _runtime(plugin), sd.name)
-
-    if plugin == "llama_cpp" and (
-        llamacpp_urls is None or precision not in llamacpp_urls
-    ):
-        print(
-            f"ERROR: cannot resubmit llama_cpp job for {model_id} "
-            f"@ {device_name}: no GGUF URL available",
-            file=sys.stderr,
-        )
-        return [], [], "failed", None
-
-    def _resolve_resubmit_args() -> tuple[str, list[int], str | None]:
-        if plugin == "qairt":
-            bundle_dir, ctx_list = fetch_geniex_qairt_bundle(
-                model_id, precision, sd.chipset, Path(save_dir_root) / "qairt_bundles"
-            )
-            return str(bundle_dir), ctx_list, None
-        assert llamacpp_urls is not None
-        return llamacpp_urls[precision], LLAMACPP_CONTEXT_LENGTHS, str(precision)
-
     backend = get_device_farm(sd)
-
-    def _resubmit() -> str:
-        model_ref, ctx_list, llamacpp_quant = _resolve_resubmit_args()
-        # Re-derive the presigned URL fresh on every resubmit -- never reuse
-        # one from a previous attempt, so a just-recompiled asset (not a
-        # stale one) is always what's signed.
-        qairt_bundle_urls = (
-            {model_id: get_geniex_qairt_bundle_url(model_id, precision, sd.chipset)}
-            if plugin == "qairt"
-            else None
-        )
-        new_job_id, _, _ = submit_geniex_bench(
-            backend,
-            hub_device_name=sd.reference_device_name,
-            chipset=sd.chipset,
-            model_rows=[(model_id, model_ref)],
-            context_lengths=ctx_list,
-            plugin=plugin,
-            device_alias=device_alias,
-            job_name=job_name,
-            geniex_version=geniex_version,
-            llamacpp_quant=llamacpp_quant,
-            eval_prompts=eval_prompts,
-            run_perf=run_perf,
-            qairt_bundle_urls=qairt_bundle_urls,
-            qairt_version=qairt_version,
-        )
-        return new_job_id
-
     job_failure: str | None = None
 
     def _collect(job_id: str) -> tuple[tuple, JobOutcome, str | None]:
@@ -569,15 +508,7 @@ def _collect_one(
         return (metrics, eval_results), outcome, reason
 
     try:
-        metrics, eval_results = poll_and_retry(
-            initial_job_id=record.job_id,
-            attempts_left=record.attempts_left,
-            collect_fn=_collect,
-            resubmit_fn=_resubmit,
-            on_new_job_id=lambda new_id, left: save_job(
-                jobs_file, key, new_id, attempts_left=left
-            ),
-        )
+        metrics, eval_results = poll_job(record.job_id, _collect)
     except RuntimeError as e:
         print(
             f"ERROR: {e} for {model_id} @ {device_name}",
@@ -1004,16 +935,14 @@ def _cmd_submit(args: argparse.Namespace) -> int:
 def _cmd_collect(args: argparse.Namespace) -> int:
     """Re-iterate the submit-side work list and pick up each job by key.
 
-    The jobs_file carries just (job_id, attempts_left), so we re-run the
+    The jobs_file carries just the job_id, so we re-run the
     same _iter_work discovery the submit side used and look each
     (model, precision, plugin, device) tuple up in the jobs_file by key.
     """
     eval_prompts = _resolve_eval_prompts(args.run_eval)
-    qairt_version = _resolve_qairt_version(args)
     rows: list[dict] = []
     perf_updates: list[dict] = []
     records = load_jobs(args.jobs_file)
-    llamacpp_cache: dict[str, dict[Precision, str]] = {}
     for (
         plugin,
         model_id,
@@ -1064,12 +993,6 @@ def _cmd_collect(args: argparse.Namespace) -> int:
                 precision=precision,
             )
 
-        llamacpp_urls: dict[Precision, str] | None = None
-        if plugin == "llama_cpp":
-            llamacpp_urls = llamacpp_cache.setdefault(
-                model_id, _llamacpp_assets(model_id)
-            )
-
         try:
             metrics, eval_results, status, job_failure = _collect_one(
                 model_id=model_id,
@@ -1077,14 +1000,10 @@ def _cmd_collect(args: argparse.Namespace) -> int:
                 device_name=sd.name,
                 plugin=plugin,
                 record=record,
-                jobs_file=args.jobs_file,
                 save_dir_root=args.results_dir,
-                geniex_version=args.geniex_version,
                 ctx_list=ctx_list,
-                llamacpp_urls=llamacpp_urls,
                 eval_prompts=_eval_prompts_for_device(eval_prompts, sd, args.devices),
                 run_perf=args.run_perf,
-                qairt_version=qairt_version if plugin == "qairt" else None,
             )
         except Exception as e:
             print(
@@ -1179,7 +1098,6 @@ class _Case:
     ctx_list: list[int]
     llamacpp_quant: str | None
     eval_prompts: list[str] | None
-    attempts_left: int = DEFAULT_RETRIES
     job_id: str | None = None
 
     @property
@@ -1193,7 +1111,6 @@ def _cmd_run(args: argparse.Namespace) -> int:
     A new job is submitted only while fewer than ``--max-waiting`` jobs are
     queued for that device (across every submitter on the account), so phones
     never idle and no job waits long enough for its presigned URL to lapse.
-    Retries go back through the same gate, freshly signed.
     """
     eval_prompts = _resolve_eval_prompts(args.run_eval)
     qairt_version = _resolve_qairt_version(args)
@@ -1232,16 +1149,6 @@ def _cmd_run(args: argparse.Namespace) -> int:
         return backends.setdefault(case.sd.name, get_device_farm(case.sd))
 
     def _submit(case: _Case) -> None:
-        is_resubmit = case.job_id is not None
-        if case.plugin == "qairt" and is_resubmit:
-            # Re-resolve the bundle so a just-recompiled asset is what's used.
-            bundle_dir, case.ctx_list = fetch_geniex_qairt_bundle(
-                case.model_id,
-                case.precision,
-                case.sd.chipset,
-                Path(args.results_dir) / "qairt_bundles",
-            )
-            case.model_ref = str(bundle_dir)
         case.job_id = _submit_one(
             case.model_id,
             case.model_ref,
@@ -1256,9 +1163,8 @@ def _cmd_run(args: argparse.Namespace) -> int:
             eval_prompts=case.eval_prompts,
             run_perf=args.run_perf,
             qairt_version=qairt_version if case.plugin == "qairt" else None,
-            attempts_left=case.attempts_left,
         )
-        if args.run_perf and not is_resubmit:
+        if args.run_perf:
             # Like collect: only submitted buckets are scoped, so a failed
             # submit keeps its committed numbers but a failed job drops them.
             record_perf_scope(
@@ -1314,17 +1220,8 @@ def _cmd_run(args: argparse.Namespace) -> int:
         if outcome is JobOutcome.SUCCESS:
             status = _final_status(metrics, evals, args.run_perf, case.eval_prompts)
             _finish(case, status, metrics, evals, kept)
-        elif case.attempts_left > 0:
-            case.attempts_left -= 1
-            print(
-                f"Requeueing {case.name} (attempts_left={case.attempts_left}): {reason}"
-            )
-            pending.append(case)
         else:
-            print(
-                f"ERROR: {reason} after exhausting retry budget for {case.name}",
-                file=sys.stderr,
-            )
+            print(f"ERROR: {reason} for {case.name}", file=sys.stderr)
             _finish(case, "failed", [], [], None)
 
     while pending or in_flight:

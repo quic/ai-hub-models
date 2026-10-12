@@ -213,8 +213,7 @@ if [ "$RUN_EVAL" = "1" ]; then
     sleep {EVAL_SLEEP_S}
   done
   echo "eval done ($(grep -c '===EVAL_IDX_' "$EVAL_OUT") prompts, $eval_ran ran)"
-  # Every prompt failed => surface it so poll_and_retry resubmits instead of a
-  # false SUCCESS.
+  # Every prompt failed => surface it instead of a false SUCCESS.
   if [ "$eval_ran" -eq 0 ]; then
     echo "FATAL: accuracy eval produced no output"
     exit 1

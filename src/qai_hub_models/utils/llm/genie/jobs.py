@@ -44,7 +44,6 @@ from qai_hub_models.utils.aws import (
     get_qaihm_s3,
 )
 from qai_hub_models.utils.devicefarm.devicefarm import (
-    DEFAULT_RETRIES,
     DeviceFarm,
     HubDevicePlatform,
     JobOutcome,
@@ -53,7 +52,7 @@ from qai_hub_models.utils.devicefarm.devicefarm import (
     get_device_farm,
     load_jobs,
     make_key,
-    poll_and_retry,
+    poll_job,
     save_job,
     walk_dir_entries,
 )
@@ -946,22 +945,8 @@ def submit_and_collect_genie_bundle(
     Composed wrapper over ``submit_genie_bundle`` + ``collect_genie_bundle``
     for manual/on-device-test callers that want a single submit-and-wait
     call rather than the jobs_file-driven submit/collect split the CI
-    perf-collection path uses. Retries retryable outcomes up to
-    ``DEFAULT_RETRIES`` times.
+    perf-collection path uses.
     """
-
-    def _submit() -> str:
-        return submit_genie_bundle(
-            backend,
-            hub_device_name,
-            genie_bundle_path,
-            job_name=job_name,
-            qairt_sdk_path=qairt_sdk_path,
-            qairt_version=qairt_version,
-            eval_prompts=eval_prompts,
-            num_trials=num_trials,
-            model_id=model_id,
-        )
 
     def _collect(job_id: str) -> tuple[tuple, JobOutcome, str | None]:
         tps, prefill_tps, ttft, eval_results, outcome, reason = collect_genie_bundle(
@@ -969,12 +954,18 @@ def submit_and_collect_genie_bundle(
         )
         return (tps, prefill_tps, ttft, eval_results), outcome, reason
 
-    return poll_and_retry(
-        initial_job_id=_submit(),
-        attempts_left=DEFAULT_RETRIES,
-        collect_fn=_collect,
-        resubmit_fn=_submit,
+    job_id = submit_genie_bundle(
+        backend,
+        hub_device_name,
+        genie_bundle_path,
+        job_name=job_name,
+        qairt_sdk_path=qairt_sdk_path,
+        qairt_version=qairt_version,
+        eval_prompts=eval_prompts,
+        num_trials=num_trials,
+        model_id=model_id,
     )
+    return poll_job(job_id, _collect)
 
 
 # ---- CI perf-collection harness: jobs_file bookkeeping, perf.yaml updates --
@@ -1104,13 +1095,7 @@ def submit_llm_perf_job(
         shutil.rmtree(genie_bundle_path, ignore_errors=True)
 
     key = make_key(model_id, str(precision), "GENIE", device.name)
-    save_job(
-        jobs_file,
-        key,
-        job_id,
-        attempts_left=DEFAULT_RETRIES,
-        context_lengths=context_lengths,
-    )
+    save_job(jobs_file, key, job_id, context_lengths=context_lengths)
     return job_id
 
 
@@ -1124,14 +1109,11 @@ def collect_llm_perf_job(
     qairt_sdk_path: str | None = None,
     skip_perf_update: bool = False,
 ) -> tuple[float | None, float | None, float | None]:
-    """Poll a submitted Genie job. On retryable failure, re-fetch the
-    bundle from release-assets.yaml and resubmit; the jobs_file row is
-    rewritten with the new job id and one fewer attempt.
+    """Poll a submitted Genie job.
 
-    ``record`` is the current entry read from jobs_file (job_id +
-    attempts_left). Everything else is re-derived from (model_id,
-    precision, device) so the collect runner is independent of whatever
-    filesystem state the submit runner had.
+    ``record`` is the current entry read from jobs_file. Everything else is
+    re-derived from (model_id, precision, device) so the collect runner is
+    independent of whatever filesystem state the submit runner had.
     """
     if not skip_perf_update:
         record_perf_scope(
@@ -1142,37 +1124,10 @@ def collect_llm_perf_job(
         )
 
     eval_prompts = _USE_DEFAULT_PROMPTS if device == get_llm_eval_device() else None
-    job_name = f"Genie {model_id} {precision}"
     key = make_key(model_id, str(precision), "GENIE", device.name)
     hub_device_name = device.reference_device.name
     backend = get_device_farm(device)
-    qairt_version = QAIRTVersionEnvvar.get_on_device_sdk_version()
     context_lengths = record.context_lengths
-
-    def _resubmit() -> str:
-        # Re-derive both the local path and the presigned URL fresh on every
-        # resubmit -- never reuse a URL/path from a previous attempt, so a
-        # just-recompiled asset (not a stale one) is always what's signed.
-        nonlocal context_lengths
-        bundle_path = fetch_genie_bundle_for_perf(
-            model_id, precision, device.chipset, Path(output_dir)
-        )
-        try:
-            context_lengths = _bundle_context_lengths(bundle_path)
-            bundle_url = get_genie_bundle_url(model_id, precision, device.chipset)
-            return submit_genie_bundle(
-                backend,
-                hub_device_name,
-                str(bundle_path),
-                job_name=job_name,
-                qairt_sdk_path=qairt_sdk_path,
-                qairt_version=qairt_version,
-                eval_prompts=eval_prompts,
-                model_id=model_id,
-                genie_bundle_url=bundle_url,
-            )
-        finally:
-            shutil.rmtree(bundle_path, ignore_errors=True)
 
     def _collect(job_id: str) -> tuple[tuple, JobOutcome, str | None]:
         tps, prefill_tps, ttft, eval_results, outcome, reason = collect_genie_bundle(
@@ -1185,15 +1140,7 @@ def collect_llm_perf_job(
         )
         return (tps, prefill_tps, ttft, eval_results), outcome, reason
 
-    tps, prefill_tps, ttft, eval_results = poll_and_retry(
-        initial_job_id=record.job_id,
-        attempts_left=record.attempts_left,
-        collect_fn=_collect,
-        resubmit_fn=_resubmit,
-        on_new_job_id=lambda new_id, left: save_job(
-            jobs_file, key, new_id, attempts_left=left, context_lengths=context_lengths
-        ),
-    )
+    tps, prefill_tps, ttft, eval_results = poll_job(record.job_id, _collect)
 
     if context_lengths is None:
         # Jobs file written before submit recorded context_lengths.

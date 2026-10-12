@@ -500,8 +500,8 @@ def test_scorecard() -> None:
             pytest.fail("accuracy eval produced no output (all prompts failed)")
         # Prompts can all run and still leave nothing to fetch: a late adb drop
         # means device_logs is never harvested, yet the job reports "Successful", so
-        # the host burns the run on eval_incomplete (0/N) with no retry. Fail so
-        # poll_and_retry resubmits.
+        # the host burns the run on eval_incomplete (0/N). Fail so the job is
+        # reported as failed.
         if RUN_EVAL and eval_collected < eval_expected:
             pytest.fail(
                 f"accuracy eval output incomplete on device: "
