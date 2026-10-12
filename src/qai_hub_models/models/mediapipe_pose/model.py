@@ -11,7 +11,7 @@ import torch
 from typing_extensions import Self
 
 from qai_hub_models import Precision, SampleInputsType
-from qai_hub_models.models.mediapipe_pose.dataset import HumanPosesDataset
+from qai_hub_models.models.mediapipe_pose.dataset import CocoPosesCalibrationDataset
 from qai_hub_models.models.templates.mediapipe.external_repos import EXTERNAL_REPO_PATHS
 from qai_hub_models.models.templates.mediapipe.external_repos.mediapipe.blazepose import (
     BlazePose,
@@ -348,7 +348,7 @@ class MediaPipePose(WorkbenchModelCollection):
         self.pose_landmark_detector = pose_landmark_detector
 
     def get_calibration_dataset_cls(self) -> type[BaseDataset]:
-        return HumanPosesDataset
+        return CocoPosesCalibrationDataset
 
     def get_input_spec(self, batch_size: int = BATCH_SIZE) -> ComponentGroup[InputSpec]:
         return super().get_input_spec(batch_size=batch_size)
