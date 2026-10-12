@@ -15,6 +15,7 @@ from PIL import Image
 from qai_hub_models.utils.asset_loaders import load_json
 from qai_hub_models.utils.base_dataset import (
     BaseDataset,
+    DatasetMetadata,
     DatasetSplit,
 )
 from qai_hub_models.utils.image_processing import (
@@ -425,6 +426,13 @@ class NuscenesDatasetBase(BaseDataset):
                 f"{cls.__name__}.configure expects 1 file(s), got {len(files)}."
             )
         cls(source_dataset_file=str(files[0]))
+
+    @staticmethod
+    def get_dataset_metadata() -> DatasetMetadata:
+        return DatasetMetadata(
+            link="https://www.nuscenes.org/nuscenes",
+            split_description="v1.0-mini validation scenes",
+        )
 
     @staticmethod
     def default_samples_per_job() -> int:

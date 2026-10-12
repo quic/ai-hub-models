@@ -19,6 +19,7 @@ from qai_hub_models.utils.asset_loaders import (
 )
 from qai_hub_models.utils.base_dataset import (
     BaseDataset,
+    DatasetMetadata,
     DatasetSplit,
 )
 from qai_hub_models.utils.image_processing import pre_process_with_affine
@@ -227,6 +228,13 @@ class KittiDataset(BaseDataset):
             input_images_zip=str(files[0]),
             input_labels_zip=str(files[1]),
             input_calibs_zip=str(files[2]),
+        )
+
+    @staticmethod
+    def get_dataset_metadata() -> DatasetMetadata:
+        return DatasetMetadata(
+            link="https://www.cvlibs.net/datasets/kitti/eval_object.php?obj_benchmark=3d",
+            split_description="val split (held-out images from the 7,481 labeled training images)",
         )
 
     @staticmethod

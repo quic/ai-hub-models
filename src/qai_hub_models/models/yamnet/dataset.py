@@ -14,7 +14,7 @@ from torch_audioset.data.torch_input_processing import (
 )
 
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset
-from qai_hub_models.utils.base_dataset import BaseDataset, DatasetSplit
+from qai_hub_models.utils.base_dataset import BaseDataset, DatasetMetadata, DatasetSplit
 
 AUDIOSET_FOLDER_NAME = "audioset"
 AUDIOSET_VERSION = 2
@@ -184,6 +184,13 @@ class AudioSetDataset(BaseDataset):
         AUDIOSET_CLASS_MAP.fetch()
         AUDIOSET_CSV.fetch()
         AUDIOSET_ASSET.fetch(extract=True)
+
+    @staticmethod
+    def get_dataset_metadata() -> DatasetMetadata:
+        return DatasetMetadata(
+            link="https://research.google.com/audioset/",
+            split_description="eval segments subset",
+        )
 
     @staticmethod
     def default_samples_per_job() -> int:

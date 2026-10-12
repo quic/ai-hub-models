@@ -10,7 +10,7 @@ import torch
 from datasets import load_dataset
 from transformers import AutoTokenizer
 
-from qai_hub_models.utils.base_dataset import BaseDataset, DatasetSplit
+from qai_hub_models.utils.base_dataset import BaseDataset, DatasetMetadata, DatasetSplit
 
 
 class AmazonCounterfactualClassificationDataset(BaseDataset):
@@ -77,6 +77,13 @@ class AmazonCounterfactualClassificationDataset(BaseDataset):
 
     def _download_data(self) -> None:
         pass
+
+    @staticmethod
+    def get_dataset_metadata() -> DatasetMetadata:
+        return DatasetMetadata(
+            link="https://huggingface.co/datasets/mteb/amazon_counterfactual",
+            split_description="English test split",
+        )
 
     @staticmethod
     def default_samples_per_job() -> int:

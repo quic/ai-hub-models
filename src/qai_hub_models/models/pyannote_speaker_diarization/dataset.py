@@ -23,7 +23,7 @@ import torch
 import torch.nn.functional as F
 
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset
-from qai_hub_models.utils.base_dataset import BaseDataset, DatasetSplit
+from qai_hub_models.utils.base_dataset import BaseDataset, DatasetMetadata, DatasetSplit
 from qai_hub_models.utils.input_spec import InputSpec
 
 _VERSION = 1
@@ -300,6 +300,13 @@ class AMIDiarizationEvalDataset(BaseDataset):
         audio_tensor = _encode_path(str(_AMI_ASSETS[index].path))
         rttm_tensor = _encode_path(str(_AMI_RTTM_ASSETS[index].path))
         return audio_tensor, rttm_tensor
+
+    @staticmethod
+    def get_dataset_metadata() -> DatasetMetadata:
+        return DatasetMetadata(
+            link="https://groups.inf.ed.ac.uk/ami/corpus/",
+            split_description="AMI IHM test.mini split (3 recordings)",
+        )
 
     @staticmethod
     def default_samples_per_job() -> int:
