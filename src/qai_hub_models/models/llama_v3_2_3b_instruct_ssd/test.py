@@ -42,6 +42,7 @@ def test_create_genie_config() -> None:
         "dialog": {
             "version": 1,
             "type": "ssd-q1",
+            "max-num-tokens": 2048,
             "context": {
                 "version": 1,
                 "size": 1024,
