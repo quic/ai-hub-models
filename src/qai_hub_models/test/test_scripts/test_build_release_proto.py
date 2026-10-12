@@ -188,6 +188,7 @@ def test_cmd_aws(output_dir: Path) -> None:
         version=__version__,
         models=SAMPLE_MODELS,
         upload=False,
+        dangerously_upload_partial_manifest=True,
     )
     cmd_aws(args)
 
@@ -240,6 +241,22 @@ def test_cmd_aws(output_dir: Path) -> None:
                     )
 
 
+def test_cmd_aws_partial_selection_skips_manifest(output_dir: Path) -> None:
+    args = argparse.Namespace(
+        output_dir=str(output_dir),
+        version=__version__,
+        models=SAMPLE_MODELS,
+        upload=False,
+        dangerously_upload_partial_manifest=False,
+    )
+    cmd_aws(args)
+
+    for variant in ["public", "internal"]:
+        assert (output_dir / variant / "platform.json").exists()
+        assert not (output_dir / variant / "manifest.json").exists()
+        assert not (output_dir / variant / "manifest.pb").exists()
+
+
 def test_restricted_model_excludes_release_assets(output_dir: Path) -> None:
     models = {RESTRICTED_MODEL}
     args_website = argparse.Namespace(
@@ -254,6 +271,7 @@ def test_restricted_model_excludes_release_assets(output_dir: Path) -> None:
         version=__version__,
         models=models,
         upload=False,
+        dangerously_upload_partial_manifest=False,
     )
     cmd_aws(args_aws)
     model_dir = output_dir / "aws" / "models" / RESTRICTED_MODEL

@@ -66,6 +66,8 @@ GLOBAL_YAMLS_TO_COPY = [
 ]
 
 
+_ALL_MODELS_SETTINGS = frozenset({SpecialModelSetting.PYTORCH, SpecialModelSetting.ALL})
+
 _EXT: dict[Format, str] = {"yaml": ".yaml", "json": ".json", "proto": ".pb"}
 
 # Proto enum prefixes from release_assets.proto (Precision, Runtime).
@@ -481,6 +483,7 @@ def _build_and_collect(
     output_root: Path,
     model_ids: list[str],
     internal: bool,
+    build_manifest: bool = True,
 ) -> list[tuple[Path, str]]:
     """Build protos for a single variant (public or internal) and return (path, s3_key) pairs."""
     fmts: list[Format] = ["json", "proto"]
@@ -517,12 +520,13 @@ def _build_and_collect(
     print(f"\n[{suffix}]")
     _for_each_model(build_model, model_ids)
 
-    manifest_paths = _build_manifest(
-        version, model_written_paths, variant_root, fmts, internal=internal
-    )
-    all_files.extend(
-        (path, os.path.join(global_s3_folder, path.name)) for path in manifest_paths
-    )
+    if build_manifest:
+        manifest_paths = _build_manifest(
+            version, model_written_paths, variant_root, fmts, internal=internal
+        )
+        all_files.extend(
+            (path, os.path.join(global_s3_folder, path.name)) for path in manifest_paths
+        )
 
     print(f"Built {suffix} proto for {len(model_ids)} models in {variant_root}")
     return all_files
@@ -540,12 +544,28 @@ def cmd_aws(args: argparse.Namespace) -> None:
 
     enabled, _ = validate_and_split_enabled_models(args.models)
     model_ids = sorted(enabled)
+    all_models_selected = not _ALL_MODELS_SETTINGS.isdisjoint(args.models)
+    build_manifest = all_models_selected or args.dangerously_upload_partial_manifest
+    if not build_manifest:
+        print(
+            "NOTE: The global manifest will NOT be built because only a subset of "
+            "models was selected. Pass --models pytorch (or all), or "
+            "--dangerously-upload-partial-manifest, to build it."
+        )
 
     public_files = _build_and_collect(
-        args.version, output_root, model_ids, internal=False
+        args.version,
+        output_root,
+        model_ids,
+        internal=False,
+        build_manifest=build_manifest,
     )
     internal_files = _build_and_collect(
-        args.version, output_root, model_ids, internal=True
+        args.version,
+        output_root,
+        model_ids,
+        internal=True,
+        build_manifest=build_manifest,
     )
 
     if args.upload:
@@ -609,6 +629,15 @@ def main() -> None:
         "-u",
         action="store_true",
         help="Upload proto files to S3 after building (aws mode only).",
+    )
+
+    parser.add_argument(
+        "--dangerously-upload-partial-manifest",
+        action="store_true",
+        help="DANGEROUS: upload the global manifest even when only a subset of models is selected. "
+        "The manifest lists ONLY the selected models, so uploading it REMOVES every other model "
+        "from the release and BREAKS the release. Only use if you know exactly what you are doing "
+        "(aws mode only).",
     )
 
     args = parser.parse_args()
