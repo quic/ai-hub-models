@@ -15,7 +15,7 @@ def process_output(command: subprocess.CompletedProcess[bytes]) -> str:
 
 ON_WINDOWS = sys.platform == "win32"
 
-DEFAULT_PYTHON = "py -3.10" if ON_WINDOWS else "python3.10"
+DEFAULT_PYTHON = "py -3.12" if ON_WINDOWS else "python3.12"
 
 
 def _find_bash() -> str | None:
