@@ -14,3 +14,7 @@ class PiperTTS_IT(PiperTTS):
     @classmethod
     def get_language(cls) -> TTSLanguage:
         return TTSLanguage.ITALIAN
+
+    @classmethod
+    def get_voice_id(cls) -> str:
+        return "paola"

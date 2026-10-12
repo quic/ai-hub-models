@@ -51,26 +51,29 @@ DEC_SEQ_LEN = MAX_DEC_SEQ_LEN + 2 * DEC_SEQ_OVERLAP
 UPSAMPLE_FACTOR = 256
 UPSAMPLED_MAX_SEQ_LEN = MAX_SEQ_LEN * 3
 
-hf_models = {
-    TTSLanguage.ITALIAN: "https://huggingface.co/rhasspy/piper-voices/resolve/main/it/it_IT/paola/medium/it_IT-paola-medium.onnx",
-    TTSLanguage.ENGLISH: "https://huggingface.co/datasets/rhasspy/piper-checkpoints/resolve/main/en/en_US/kusal/medium/epoch%3D2652-step%3D1953828.ckpt",
-    TTSLanguage.GERMAN: "https://huggingface.co/datasets/rhasspy/piper-checkpoints/resolve/main/de/de_DE/thorsten/medium/epoch%3D3135-step%3D2702056.ckpt",
+VOICE_CHECKPOINTS = {
+    "paola": "https://huggingface.co/rhasspy/piper-voices/resolve/main/it/it_IT/paola/medium/it_IT-paola-medium.onnx",
+    "kusal": "https://huggingface.co/datasets/rhasspy/piper-checkpoints/resolve/main/en/en_US/kusal/medium/epoch%3D2652-step%3D1953828.ckpt",
+    "thorsten": "https://huggingface.co/datasets/rhasspy/piper-checkpoints/resolve/main/de/de_DE/thorsten/medium/epoch%3D3135-step%3D2702056.ckpt",
+    "amy": "https://huggingface.co/datasets/rhasspy/piper-checkpoints/resolve/main/en/en_US/amy/medium/epoch%3D6679-step%3D1554200.ckpt",
 }
-SPEED = {
-    TTSLanguage.ITALIAN: 0.85,
-    TTSLanguage.ENGLISH: 1.0,
-    TTSLanguage.GERMAN: 1.075,
+VOICE_SPEED = {
+    "paola": 0.85,
+    "kusal": 1.0,
+    "thorsten": 1.075,
+    "amy": 1.0,
 }
 
 
 @lru_cache(maxsize=1)
-def get_model(language: TTSLanguage) -> SynthesizerTrn:
+def get_model(voice_id: str) -> SynthesizerTrn:
     patch_rational_quadratic_spline()
+    checkpoint_url = VOICE_CHECKPOINTS[voice_id]
     model_path = CachedWebModelAsset(
-        hf_models[language], "pipertts", 1, hf_models[language].split("/")[-1]
+        checkpoint_url, "pipertts", 1, checkpoint_url.split("/")[-1]
     ).fetch()
 
-    if language == TTSLanguage.ITALIAN:
+    if checkpoint_url.lower().endswith(".onnx"):
         config_path = hf_hub_download(
             repo_id="rhasspy/piper-voices",
             filename="it/it_IT/paola/medium/it_IT-paola-medium.onnx.json",
@@ -136,7 +139,7 @@ class Encoder(BaseModel):
 
     @classmethod
     def from_pretrained(cls) -> Self:
-        return cls(get_model(PiperTTS.get_language()))
+        return cls(get_model(PiperTTS.get_voice_id()))
 
     @property
     def context_graph_name(self) -> str:
@@ -254,7 +257,7 @@ class SDP(BaseModel):
 
     @classmethod
     def from_pretrained(cls) -> Self:
-        return cls(get_model(PiperTTS.get_language()))
+        return cls(get_model(PiperTTS.get_voice_id()))
 
     @property
     def context_graph_name(self) -> str:
@@ -328,7 +331,7 @@ class Flow(BaseModel):
 
     @classmethod
     def from_pretrained(cls) -> Self:
-        return cls(get_model(PiperTTS.get_language()))
+        return cls(get_model(PiperTTS.get_voice_id()))
 
     @property
     def context_graph_name(self) -> str:
@@ -370,7 +373,7 @@ class Decoder(BaseModel):
 
     @classmethod
     def from_pretrained(cls) -> Self:
-        return cls(get_model(PiperTTS.get_language()))
+        return cls(get_model(PiperTTS.get_voice_id()))
 
     @property
     def context_graph_name(self) -> str:
@@ -430,11 +433,19 @@ class PiperTTS(WorkbenchModelCollection):
         return TTSLanguage.ENGLISH
 
     @classmethod
+    def get_voice_id(cls) -> str:
+        raise NotImplementedError(
+            "Subclasses of PiperTTS must override get_voice_id() with an "
+            "explicit voice identifier (e.g. 'kusal') matching a key in "
+            "VOICE_CHECKPOINTS."
+        )
+
+    @classmethod
     def from_pretrained(cls) -> Self:
-        model_g = get_model(cls.get_language())
+        model_g = get_model(cls.get_voice_id())
         return cls(
             Encoder(model_g),
-            SDP(model_g, SPEED[cls.get_language()]),
+            SDP(model_g, VOICE_SPEED[cls.get_voice_id()]),
             Flow(model_g),
             Decoder(model_g),
             T5Encoder.from_pretrained(),
