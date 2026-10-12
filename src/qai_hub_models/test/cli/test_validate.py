@@ -43,6 +43,7 @@ from qai_hub_models.cli.validate import (
     _check_status_not_unset,
     _check_status_reason,
     _check_url_reachability,
+    _check_web_asset_urls,
     _check_website_fields_set,
     _collect_manifest_urls,
     _extract_pip_command_pkgs,
@@ -561,6 +562,66 @@ class TestUrlReachability:
         _check_url_reachability(manifest, report)
         assert not called
         assert report.rows[0].status is Status.SKIP
+
+    def test_skip_url_checks_reports_skip_without_network_calls(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        manifest = _make_manifest(
+            license="https://example.com/lic",
+            source_repo="https://example.com/repo",
+            research_paper=None,
+            external_repos=None,
+        )
+
+        def _unexpected_call(_pairs: list[tuple[str, str]]) -> list[str]:
+            raise AssertionError("URL checks should be skipped")
+
+        monkeypatch.setattr(validate_mod, "head_check_urls", _unexpected_call)
+        report = Report()
+        _check_url_reachability(manifest, report, skip_url_checks=True)
+
+        assert [row.status for row in report.rows] == [Status.SKIP, Status.SKIP]
+        assert all("--skip-url-checks" in row.detail for row in report.rows)
+
+    def test_skip_url_checks_with_no_urls_reports_skip(self) -> None:
+        manifest = _make_manifest(
+            license=None,
+            source_repo=None,
+            research_paper=None,
+            external_repos=None,
+        )
+        report = Report()
+
+        _check_url_reachability(manifest, report, skip_url_checks=True)
+
+        assert len(report.rows) == 1
+        assert report.rows[0].status is Status.SKIP
+        assert "--skip-url-checks" in report.rows[0].detail
+
+    def test_skip_web_asset_url_checks(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        manifest = _make_manifest()
+        monkeypatch.setattr(
+            validate_mod,
+            "_collect_web_asset_urls",
+            lambda _manifest: [
+                (
+                    "static banner",
+                    "https://example.com/banner.png",
+                    "banner unreachable",
+                )
+            ],
+        )
+
+        def _unexpected_call(_pairs: list[tuple[str, str]]) -> list[str]:
+            raise AssertionError("Web asset URL checks should be skipped")
+
+        monkeypatch.setattr(validate_mod, "head_check_urls", _unexpected_call)
+        report = Report()
+
+        _check_web_asset_urls(manifest, report, skip_url_checks=True)
+
+        assert report.rows[0].status is Status.SKIP
+        assert "--skip-url-checks" in report.rows[0].detail
 
     def test_all_reachable(self, monkeypatch: pytest.MonkeyPatch) -> None:
         manifest = _make_manifest(

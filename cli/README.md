@@ -66,6 +66,10 @@ the full flag list of any command.
 | `upload-to-hf` | Publish a recipe — its source and a generated model card — to Hugging Face as `<your-hf-username>/<folder-name>`, public and tagged `qai-hub-models`. Each upload makes the repo an exact copy of the folder. `--private` creates it private to review first. Its target is always read as a **folder**, not a model id | `qai-hub-models upload-to-hf my_model` |
 | `configure-dataset` | Set up a dataset that can't be downloaded automatically (login, license agreement, or a manual archive). Its target is a dotted dataset class path; you don't need to know it — the error raised when a dataset can't be fetched prints the exact command, including datasets in a standalone recipe folder. Run `install` first | `qai-hub-models configure-dataset qai_hub_models.datasets.kitti.kitti.KittiDataset --files images.zip labels.zip calibs.zip` |
 
+For local validation, pass `--skip-url-checks` to report manifest URL checks and
+internal banner URL checks as skipped. Installation and other recipe checks may
+still need network access.
+
 These commands require the full `qai_hub_models` package (`pip install qai_hub_models`).
 
 ### Recipe aliases
