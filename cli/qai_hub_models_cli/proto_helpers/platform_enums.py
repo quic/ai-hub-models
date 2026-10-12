@@ -263,9 +263,9 @@ def runtime_str_to_proto(
     raise KeyError(f"Unknown runtime: {runtime!r}. Valid runtimes: {valid}") from None
 
 
-def form_factor_proto_to_str(form_factor: int) -> str:
+def form_factor_proto_to_str(form_factor: FormFactor.ValueType) -> str:
     """Convert a FormFactor enum value to a human-readable string."""
-    name = FormFactor.Name(form_factor)  # type: ignore[arg-type]
+    name = FormFactor.Name(form_factor)
     key = name.removeprefix("FORM_FACTOR_")
     return _PLATFORM_DISPLAY_OVERRIDES.get(key, key.replace("_", " ").title())
 
@@ -304,9 +304,9 @@ def form_factor_str_to_proto(form_factor: str) -> FormFactor.ValueType:
     raise KeyError(f"Unknown device type: {form_factor!r}. Valid types: {valid}")
 
 
-def world_proto_to_str(world: int) -> str:
+def world_proto_to_str(world: WebsiteWorld.ValueType) -> str:
     """Convert a WebsiteWorld enum value to a human-readable string."""
-    name = WebsiteWorld.Name(world)  # type: ignore[arg-type]
+    name = WebsiteWorld.Name(world)
     key = name.removeprefix("WEBSITE_WORLD_")
     return _PLATFORM_DISPLAY_OVERRIDES.get(key, key.replace("_", " ").title())
 
@@ -345,9 +345,9 @@ def world_str_to_proto(world: str) -> WebsiteWorld.ValueType:
     raise KeyError(f"Unknown chipset type: {world!r}. Valid types: {valid}")
 
 
-def os_type_proto_to_str(os_type: int) -> str:
+def os_type_proto_to_str(os_type: OperatingSystemType.ValueType) -> str:
     """Convert an OperatingSystemType enum value to a human-readable string."""
-    name = OperatingSystemType.Name(os_type)  # type: ignore[arg-type]
+    name = OperatingSystemType.Name(os_type)
     key = name.removeprefix("OPERATING_SYSTEM_TYPE_")
     return {"QC_LINUX": "QC Linux"}.get(key, key.title())
 
@@ -397,15 +397,15 @@ def os_proto_to_str(os: OperatingSystem) -> str:
     return f"{name} {os.version}".strip() if os.version else name
 
 
-def domain_proto_to_str(domain: int) -> str:
+def domain_proto_to_str(domain: ModelDomain.ValueType) -> str:
     """Convert a ModelDomain enum value to a human-readable string."""
-    name = ModelDomain.Name(domain)  # type: ignore[arg-type]
+    name = ModelDomain.Name(domain)
     return (
         name.removeprefix("MODEL_DOMAIN_").replace("_", " ").title().replace("Ai", "AI")
     )
 
 
-def use_case_proto_to_str(use_case: int) -> str:
+def use_case_proto_to_str(use_case: ModelUseCase.ValueType) -> str:
     """Convert a ModelUseCase enum value to a human-readable string.
 
     Returns the empty string for ``MODEL_USE_CASE_UNSPECIFIED`` so callers don't
@@ -413,7 +413,7 @@ def use_case_proto_to_str(use_case: int) -> str:
     """
     if use_case == ModelUseCase.MODEL_USE_CASE_UNSPECIFIED:
         return ""
-    name = ModelUseCase.Name(use_case)  # type: ignore[arg-type]
+    name = ModelUseCase.Name(use_case)
     return (
         name.removeprefix("MODEL_USE_CASE_")
         .replace("_", " ")
@@ -471,9 +471,9 @@ _TAG_DISPLAY_NAMES: dict[str, str] = {
 }
 
 
-def tag_proto_to_str(tag: int) -> str:
+def tag_proto_to_str(tag: ModelTag.ValueType) -> str:
     """Convert a ModelTag enum value to a human-readable string."""
-    name = ModelTag.Name(tag)  # type: ignore[arg-type]
+    name = ModelTag.Name(tag)
     key = name.removeprefix("MODEL_TAG_")
     return _TAG_DISPLAY_NAMES.get(key, key.replace("_", " ").title())
 
@@ -536,8 +536,8 @@ _LICENSE_DISPLAY_NAMES: dict[str, str] = {
 }
 
 
-def license_proto_to_str(license_val: int) -> str:
+def license_proto_to_str(license_val: ModelLicense.ValueType) -> str:
     """Convert a ModelLicense enum value to a human-readable string."""
-    name = ModelLicense.Name(license_val)  # type: ignore[arg-type]
+    name = ModelLicense.Name(license_val)
     key = name.removeprefix("MODEL_LICENSE_")
     return _LICENSE_DISPLAY_NAMES.get(key, key.replace("_", " ").title())
