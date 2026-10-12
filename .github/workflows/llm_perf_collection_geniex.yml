@@ -305,8 +305,9 @@ jobs:
       if: ${{ !cancelled() && inputs.scope != 'perf' }}
       uses: actions/upload-artifact@v7
       with:
-        # Runtime-scoped so this doesn't collide with the genie workflow.
-        name: llm-perf-results-geniex-${{ matrix.pool }}
+        # Plugin-scoped: the qairt and llama_cpp legs share a run id, and the
+        # grader downloads by this prefix.
+        name: llm-perf-results-geniex-${{ inputs.geniex_bench_plugin || 'all' }}-${{ matrix.pool }}
         path: llm-perf-results/
         if-no-files-found: ignore
 
@@ -467,5 +468,5 @@ jobs:
     with:
       is_grader: true
       grader_artifacts_run_id: ${{ github.run_id }}
-      split_name: geniex
+      split_name: geniex-${{ inputs.geniex_bench_plugin || 'all' }}
     secrets: inherit

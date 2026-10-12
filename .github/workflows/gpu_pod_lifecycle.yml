@@ -376,5 +376,5 @@ jobs:
       if: ${{ !cancelled() }}
       uses: actions/upload-artifact@v7
       with:
-        name: Grace2 Results
+        name: Grace2 Results (${{ inputs.split_name != '' && inputs.split_name || 'genie' }})
         path: ${{ env.GRADER_INPUT_DIR }}
