@@ -24,6 +24,7 @@ jobs:
     secrets: inherit
     uses: ./.github/workflows/test.yml
     with:
+      python_version: ${{ vars.CI_PYTHON_VERSION || '3.10' }}
       precommit_scope: ALL # never skippable
       models: ${{ github.actor == 'dependabot[bot]' && 'none' || (contains(github.event.pull_request.body, '%ALL_MODELS%') && 'all' || (contains(github.event.pull_request.body, '%SKIP_ALL_CI%') && 'none' || 'changed')) }}
       enable_compile_tests: ${{ github.actor != 'dependabot[bot]' }}

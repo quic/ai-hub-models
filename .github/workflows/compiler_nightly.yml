@@ -42,7 +42,7 @@ on:
         default: dev
 
 env:
-  PYTHON_VERSION: "3.10"
+  PYTHON_VERSION: ${{ vars.CI_PYTHON_VERSION || '3.10' }}
   VENV_PATH: build/ci-envs/qaihm-build
   # Hub env/profile to compile against: 'dev' on schedule, bespoke sandbox on manual dispatch.
   HUB_ENV: ${{ inputs.hub_env || 'dev' }}
