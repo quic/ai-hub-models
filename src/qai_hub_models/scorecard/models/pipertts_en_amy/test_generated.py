@@ -16,7 +16,8 @@ import qai_hub as hub
 import torch
 
 import qai_hub_models.models.pipertts_en_amy as _model_module
-from qai_hub_models import Precision, TargetRuntime
+from qai_hub_models import Precision
+from qai_hub_models.configs.manifest_yaml import QAIHMModelManifest
 from qai_hub_models.models.pipertts_en_amy import MODEL_ID, Model
 from qai_hub_models.scorecard import (
     ScorecardCompilePath,
@@ -61,29 +62,16 @@ from qai_hub_models.utils.export.upload import upload_collection_source as uploa
 from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.validation import perform_runtime_model_validation
 
-# All runtime + precision pairs that are enabled for testing and are compatibile with this model.
-# NOTE:
-#   Certain supported pairs may be excluded from this list if they are not enabled for testing.
-#   For example, models that allow JIT (on-device) compile will not test AOT runtimes; we assume that if it works on JIT it will work on AOT.
-ENABLED_PRECISION_RUNTIMES: dict[Precision, list[TargetRuntime]] = {
-    Precision.float: [
-        TargetRuntime.VOICE_AI,
-    ],
-}
+# All runtime + precision pairs that are enabled for testing, and the subset with no known failure reasons.
+# Certain supported pairs may be excluded if not enabled for testing (e.g. JIT-compile models do not test AOT runtimes).
+_MANIFEST = QAIHMModelManifest.from_model(MODEL_ID)
+ENABLED_PRECISION_RUNTIMES = _MANIFEST.get_supported_paths_for_testing()
+PASSING_PRECISION_RUNTIMES = _MANIFEST.get_supported_paths_for_testing(
+    only_include_passing=True
+)
 
 
-# All runtime + precision pairs that are enabled for testing and have no known failure reasons.
-# NOTE:
-#   Certain supported pairs may be excluded from this list if they are not enabled for testing.
-#   For example, models that allow JIT (on-device) compile will not test AOT runtimes; we assume that if it works on JIT it will work on AOT.
-PASSING_PRECISION_RUNTIMES: dict[Precision, list[TargetRuntime]] = {
-    Precision.float: [
-        TargetRuntime.VOICE_AI,
-    ],
-}
-
-
-EVAL_DEVICE = ScorecardDevice.get("Samsung Galaxy S25 (Family)")
+EVAL_DEVICE = ScorecardDevice.get(_MANIFEST.default_device)
 HAS_EVAL_DATASET = len(Model.get_eval_dataset_classes()) > 0
 export_model = select_pipeline(resolve_recipe_dir(MODEL_ID))
 
