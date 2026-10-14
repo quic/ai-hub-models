@@ -61,6 +61,7 @@ from huggingface_hub import (
 )
 from huggingface_hub.errors import HfHubHTTPError
 from huggingface_hub.utils import HFValidationError, validate_repo_id
+from qai_hub_models_cli.errors import CLIUserError
 
 from qai_hub_models.cli.generate_files import write_readme
 from qai_hub_models.cli.hf_common import (
@@ -185,14 +186,14 @@ def _resolve_upload_dir(target: str) -> Path:
     """
     folder = Path(target).expanduser()
     if not folder.is_dir():
-        raise ValueError(
+        raise CLIUserError(
             f"No folder named {target!r}. Pass a recipe folder -- the name of a "
             "folder in the current directory (my_model) or a path "
             "(~/recipes/my_model)."
         )
 
     if not (folder / "manifest.yaml").exists():
-        raise ValueError(
+        raise CLIUserError(
             f"{folder} has no manifest.yaml, so it is not a recipe folder."
         )
     return folder.resolve()
@@ -214,7 +215,7 @@ def _assert_token_can_write(token: str) -> None:
 
     Raises
     ------
-    ValueError
+    CLIUserError
         If the token's role is read-only.
     """
     # scripts isn't in the release wheel, so import here rather than at module load.
@@ -224,7 +225,7 @@ def _assert_token_can_write(token: str) -> None:
     except Exception:
         return
     if role == "read":
-        raise ValueError(_READ_ONLY_TOKEN_HELP)
+        raise CLIUserError(_READ_ONLY_TOKEN_HELP)
 
 
 def _resolve_token(token: str | None) -> str:
@@ -236,7 +237,7 @@ def _resolve_token(token: str | None) -> str:
     """
     resolved = token or get_token()
     if not resolved:
-        raise ValueError(_NO_TOKEN_HELP)
+        raise CLIUserError(_NO_TOKEN_HELP)
     _assert_token_can_write(resolved)
     return resolved
 
@@ -431,13 +432,13 @@ def _validate_repo_name(folder_name: str) -> None:
 
     Raises
     ------
-    ValueError
+    CLIUserError
         If *folder_name* is not a valid HuggingFace repo name.
     """
     try:
         validate_repo_id(f"owner/{folder_name}")
     except HFValidationError as e:
-        raise ValueError(
+        raise CLIUserError(
             f"The folder is named {folder_name!r}, which HuggingFace will not "
             f"accept as a repo name. {_REPO_NAME_RULES}\n\n"
             "Rename the folder, or choose the published name yourself:\n"
@@ -529,27 +530,27 @@ def _assert_may_overwrite(repo_id: str, token: str | None) -> None:
 
     Raises
     ------
-    ValueError
+    CLIUserError
         If the repo was created by someone else, or ownership cannot be verified.
     """
     username = _hf_username(token)
     creator = _repo_creator(repo_id, token)
 
     if username is None:
-        raise ValueError(
+        raise CLIUserError(
             f"{repo_id} already exists, but your HuggingFace username could not "
             "be read, so ownership cannot be verified. Check that your token is "
             "valid and try again."
         )
     if creator is None:
-        raise ValueError(
+        raise CLIUserError(
             f"{repo_id} already exists, but its commit history could not be "
             "read, so ownership cannot be verified. It may be private and owned "
             "by someone else. Publish under a name you own instead:\n"
             f"  qai-hub-models upload-to-hf <target> --repo-id {username}/<name>"
         )
     if creator != username:
-        raise ValueError(
+        raise CLIUserError(
             f"{repo_id} was created by {creator!r}, not you ({username!r}), so "
             "this upload would overwrite someone else's model.\n\n"
             "Publish into your own namespace instead, which is the default:\n"
@@ -673,16 +674,18 @@ def upload_to_hf(
 
     Raises
     ------
-    ValueError
+    CLIUserError
         If *target* is not a recipe folder, its name is not a valid repo name,
         the recipe is in-tree rather than external, no token is available, or
         the destination repo already exists and was created by someone else.
+    ValueError
+        If the upload is rejected with a permission error.
     """
     source_dir = _resolve_upload_dir(target)
     manifest = resolve_manifest(source_dir)
 
     if manifest.status is not MODEL_STATUS.UNSET:
-        raise ValueError(
+        raise CLIUserError(
             f"{source_dir.name} has status {manifest.status.value!r}, so it is an "
             "in-tree recipe. The community org is for external recipes; in-tree "
             "models are published to the `qualcomm` org by the release scripts."
@@ -702,7 +705,7 @@ def upload_to_hf(
         try:
             validate_repo_id(repo_id)
         except HFValidationError as e:
-            raise ValueError(f"--repo-id {repo_id!r} is invalid. {e}") from e
+            raise CLIUserError(f"--repo-id {repo_id!r} is invalid. {e}") from e
 
     with TemporaryDirectory() as tmpdir:
         staging = Path(tmpdir)
@@ -896,7 +899,7 @@ def main(argv: list[str] | None = None) -> None:
             assume_yes=args.yes,
             no_tag=args.no_tag,
         )
-    except ValueError as e:
+    except (ValueError, CLIUserError) as e:
         sys.exit(str(e))
 
 

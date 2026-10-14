@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
+from qai_hub_models_cli.errors import CLIUnknownNameError
 from qai_hub_models_cli.proto.info_pb2 import (
     ModelDomain,
     ModelLicense,
@@ -97,7 +98,7 @@ def precision_str_to_proto(precision: str | Precision.ValueType) -> Precision.Va
             for name in Precision.DESCRIPTOR.values_by_name
             if name != "PRECISION_UNSPECIFIED"
         )
-        raise KeyError(
+        raise CLIUnknownNameError(
             f"Unknown precision: {precision!r}. Valid precisions: {valid}"
         ) from None
 
@@ -260,7 +261,9 @@ def runtime_str_to_proto(
             for name in Runtime.DESCRIPTOR.values_by_name
             if name != "RUNTIME_UNSPECIFIED"
         )
-    raise KeyError(f"Unknown runtime: {runtime!r}. Valid runtimes: {valid}") from None
+    raise CLIUnknownNameError(
+        f"Unknown runtime: {runtime!r}. Valid runtimes: {valid}"
+    ) from None
 
 
 def form_factor_proto_to_str(form_factor: FormFactor.ValueType) -> str:
@@ -301,7 +304,9 @@ def form_factor_str_to_proto(form_factor: str) -> FormFactor.ValueType:
         for ff in FormFactor.values()
         if ff != FormFactor.FORM_FACTOR_UNSPECIFIED
     )
-    raise KeyError(f"Unknown device type: {form_factor!r}. Valid types: {valid}")
+    raise CLIUnknownNameError(
+        f"Unknown device type: {form_factor!r}. Valid types: {valid}"
+    )
 
 
 def world_proto_to_str(world: WebsiteWorld.ValueType) -> str:
@@ -342,7 +347,7 @@ def world_str_to_proto(world: str) -> WebsiteWorld.ValueType:
         for w in WebsiteWorld.values()
         if w != WebsiteWorld.WEBSITE_WORLD_UNSPECIFIED
     )
-    raise KeyError(f"Unknown chipset type: {world!r}. Valid types: {valid}")
+    raise CLIUnknownNameError(f"Unknown chipset type: {world!r}. Valid types: {valid}")
 
 
 def os_type_proto_to_str(os_type: OperatingSystemType.ValueType) -> str:
@@ -386,7 +391,7 @@ def os_str_to_proto(os: str) -> OperatingSystem:
         for ot in OperatingSystemType.values()
         if ot != OperatingSystemType.OPERATING_SYSTEM_TYPE_UNSPECIFIED
     )
-    raise KeyError(f"Unknown OS: {os!r}. Valid operating systems: {valid}")
+    raise CLIUnknownNameError(f"Unknown OS: {os!r}. Valid operating systems: {valid}")
 
 
 def os_proto_to_str(os: OperatingSystem) -> str:
@@ -453,7 +458,9 @@ def use_case_str_to_proto(use_case: str) -> ModelUseCase.ValueType:
         for u in ModelUseCase.values()
         if u != ModelUseCase.MODEL_USE_CASE_UNSPECIFIED
     )
-    raise KeyError(f"Unknown use case: {use_case!r}. Valid use cases: {valid}")
+    raise CLIUnknownNameError(
+        f"Unknown use case: {use_case!r}. Valid use cases: {valid}"
+    )
 
 
 _TAG_DISPLAY_NAMES: dict[str, str] = {
@@ -509,7 +516,7 @@ def tag_str_to_proto(tag: str) -> ModelTag.ValueType:
         for t in ModelTag.values()
         if t != ModelTag.MODEL_TAG_UNSPECIFIED
     )
-    raise KeyError(f"Unknown tag: {tag!r}. Valid tags: {valid}")
+    raise CLIUnknownNameError(f"Unknown tag: {tag!r}. Valid tags: {valid}")
 
 
 _LICENSE_DISPLAY_NAMES: dict[str, str] = {

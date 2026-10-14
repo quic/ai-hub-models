@@ -12,6 +12,7 @@ from unittest.mock import MagicMock, create_autospec, patch
 
 import pytest
 import qai_hub as hub
+from qai_hub_models_cli.errors import CLIUserError
 
 from qai_hub_models import Precision, TargetRuntime
 
@@ -383,7 +384,7 @@ def test_demo_model_from_cli_args() -> None:
         assert isinstance(model, OnDeviceModel)
 
     args = parser.parse_args(["--eval-mode", "on-device"])
-    with pytest.raises(ValueError, match="--device or --chipset must be specified"):
+    with pytest.raises(CLIUserError, match="--device or --chipset must be specified"):
         validate_on_device_demo_args(args, RESNET_MODEL_ID)
 
 

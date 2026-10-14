@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 import qai_hub as hub
+from qai_hub_models_cli.errors import CLIRuntimeError
 
 from qai_hub_models import Precision, TargetRuntime
 from qai_hub_models.configs.manifest_yaml import QAIHMModelManifest
@@ -134,7 +135,7 @@ def export_model(
 
     model_id = resolve_model_id(source_dir)
     if not can_access_qualcomm_ai_hub():
-        raise RuntimeError(
+        raise CLIRuntimeError(
             "Could not find AI Hub credentials. Sign up at "
             f"{_AIHUB_URL} for free access. To use pre-released assets "
             "without AI Hub credentials, run "

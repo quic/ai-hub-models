@@ -27,6 +27,7 @@ import sys
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
+from qai_hub_models_cli.errors import CLIUserError
 from qai_hub_models_cli.registry import default_alias
 
 from qai_hub_models.configs._info_yaml_enums import MODEL_STATUS
@@ -100,7 +101,7 @@ def _hf_register_cmd(hf_repo_id: str | None, model_id: str | None) -> str | None
         return None
     try:
         derived: str | None = default_alias(hf_repo_id)
-    except ValueError:
+    except CLIUserError:
         derived = None
     # A manifest with no id renders a card with no target to pin an alias to.
     alias_flag = (
@@ -155,7 +156,7 @@ def write_readme(
     )
 
     if manifest.headline is None:
-        raise ValueError(
+        raise CLIUserError(
             f"{folder}/manifest.yaml is missing required field for README "
             "generation (headline). Fill it in and re-run generate-files."
         )

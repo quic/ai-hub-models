@@ -16,6 +16,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
+from qai_hub_models_cli.errors import CLIUserError
 
 from qai_hub_models.cli import upload_to_hf as mod
 from qai_hub_models.cli.hf_common import (
@@ -186,7 +187,7 @@ class TestTargetResolution:
 
         model_id = next(iter(sorted(MODEL_IDS)))
         monkeypatch.chdir(tmp_path)
-        with pytest.raises(ValueError, match="No folder named"):
+        with pytest.raises(CLIUserError, match="No folder named"):
             upload_to_hf(model_id, dry_run=True)
 
     def test_never_resolves_into_the_installed_package(
@@ -197,18 +198,18 @@ class TestTargetResolution:
 
         model_id = next(iter(sorted(MODEL_IDS)))
         monkeypatch.chdir(tmp_path)
-        with pytest.raises(ValueError, match="No folder named") as excinfo:
+        with pytest.raises(CLIUserError, match="No folder named") as excinfo:
             upload_to_hf(model_id, dry_run=True)
         assert "site-packages" not in str(excinfo.value)
         assert "qai_hub_models/models" not in str(excinfo.value)
 
     def test_unknown_target_names_both_accepted_forms(self, tmp_path: Path) -> None:
-        with pytest.raises(ValueError, match="No folder named"):
+        with pytest.raises(CLIUserError, match="No folder named"):
             upload_to_hf(str(tmp_path / "nope"), dry_run=True)
 
     def test_folder_without_manifest(self, tmp_path: Path) -> None:
         (tmp_path / "empty").mkdir()
-        with pytest.raises(ValueError, match="not a recipe folder"):
+        with pytest.raises(CLIUserError, match="not a recipe folder"):
             upload_to_hf(str(tmp_path / "empty"), dry_run=True)
 
 
@@ -444,7 +445,7 @@ class TestRefusals:
         folder = tmp_path / "not_a_recipe"
         folder.mkdir()
         (folder / "model.py").write_text("x = 1\n")
-        with pytest.raises(ValueError, match=r"no manifest\.yaml"):
+        with pytest.raises(CLIUserError, match=r"no manifest\.yaml"):
             upload_to_hf(str(folder), dry_run=True)
 
     def test_missing_manifest_fails_before_staging(
@@ -454,14 +455,14 @@ class TestRefusals:
         folder.mkdir()
         with (
             patch.object(mod, "_stage") as stage,
-            pytest.raises(ValueError, match=r"no manifest\.yaml"),
+            pytest.raises(CLIUserError, match=r"no manifest\.yaml"),
         ):
             upload_to_hf(str(folder), assume_yes=True)
         stage.assert_not_called()
         hf_api["create_repo"].assert_not_called()
 
     def test_refuses_a_missing_folder(self, tmp_path: Path) -> None:
-        with pytest.raises(ValueError, match="No folder named"):
+        with pytest.raises(CLIUserError, match="No folder named"):
             upload_to_hf(str(tmp_path / "nope"), dry_run=True)
 
     @pytest.mark.parametrize("status", ["published", "unpublished", "pending"])
@@ -469,7 +470,7 @@ class TestRefusals:
         recipe = tmp_path / "my_model"
         extra = "status_reason: because\n" if status == "unpublished" else ""
         _write_recipe(recipe, status_line=f"status: {status}\n", extra=extra)
-        with pytest.raises(ValueError, match="in-tree recipe"):
+        with pytest.raises(CLIUserError, match="in-tree recipe"):
             upload_to_hf(str(recipe), dry_run=True)
 
     def test_restricted_sharing_is_not_a_refusal(
@@ -566,7 +567,7 @@ class TestUpload:
         recipe = tmp_path / folder_name
         _write_recipe(recipe)
 
-        with pytest.raises(ValueError, match="will not accept as a repo name"):
+        with pytest.raises(CLIUserError, match="will not accept as a repo name"):
             upload_to_hf(str(recipe), assume_yes=True)
 
         hf_api["create_repo"].assert_not_called()
@@ -577,7 +578,7 @@ class TestUpload:
     ) -> None:
         recipe = tmp_path / "my model"
         _write_recipe(recipe)
-        with pytest.raises(ValueError, match="--repo-id") as excinfo:
+        with pytest.raises(CLIUserError, match="--repo-id") as excinfo:
             upload_to_hf(str(recipe), assume_yes=True)
         assert "Rename the folder" in str(excinfo.value)
 
@@ -595,7 +596,7 @@ class TestUpload:
     ) -> None:
         recipe = tmp_path / "my_model"
         _write_recipe(recipe)
-        with pytest.raises(ValueError, match="is invalid"):
+        with pytest.raises(CLIUserError, match="is invalid"):
             upload_to_hf(str(recipe), repo_id="me/bad name", assume_yes=True)
         hf_api["create_repo"].assert_not_called()
 
@@ -910,7 +911,7 @@ class TestOwnership:
         _write_recipe(recipe)
         hf_api["list_repo_commits"].return_value = _fake_commits("someone_else")
 
-        with pytest.raises(ValueError, match="created by 'someone_else'"):
+        with pytest.raises(CLIUserError, match="created by 'someone_else'"):
             upload_to_hf(str(recipe), assume_yes=True)
 
     def test_refusal_suggests_a_name_the_user_owns(
@@ -920,7 +921,7 @@ class TestOwnership:
         _write_recipe(recipe)
         hf_api["list_repo_commits"].return_value = _fake_commits("someone_else")
 
-        with pytest.raises(ValueError, match="not you") as excinfo:
+        with pytest.raises(CLIUserError, match="not you") as excinfo:
             upload_to_hf(str(recipe), assume_yes=True)
 
         message = str(excinfo.value)
@@ -936,7 +937,7 @@ class TestOwnership:
         hf_api["list_repo_commits"].return_value = _fake_commits("someone_else")
         hf_api["list_repo_files"].return_value = ["doomed.py"]
 
-        with pytest.raises(ValueError, match="not you"):
+        with pytest.raises(CLIUserError, match="not you"):
             upload_to_hf(str(recipe), assume_yes=True)
 
         hf_api["create_repo"].assert_not_called()
@@ -953,7 +954,7 @@ class TestOwnership:
         hf_api["list_repo_commits"].return_value = _fake_commits(
             "someone_else", latest_author="me"
         )
-        with pytest.raises(ValueError, match="created by 'someone_else'"):
+        with pytest.raises(CLIUserError, match="created by 'someone_else'"):
             upload_to_hf(str(recipe), assume_yes=True)
 
     def test_new_repo_skips_the_ownership_check(
@@ -982,14 +983,14 @@ class TestOwnership:
         _write_recipe(recipe)
         hf_api["list_repo_commits"].side_effect = RuntimeError("403")
 
-        with pytest.raises(ValueError, match="ownership cannot be verified"):
+        with pytest.raises(CLIUserError, match="ownership cannot be verified"):
             upload_to_hf(str(recipe), assume_yes=True)
 
     def test_empty_history_fails_closed(self, tmp_path: Path, hf_api: Any) -> None:
         recipe = tmp_path / "my_model"
         _write_recipe(recipe)
         hf_api["list_repo_commits"].return_value = []
-        with pytest.raises(ValueError, match="ownership cannot be verified"):
+        with pytest.raises(CLIUserError, match="ownership cannot be verified"):
             upload_to_hf(str(recipe), assume_yes=True)
 
     def test_unreadable_username_fails_closed(
@@ -998,7 +999,7 @@ class TestOwnership:
         recipe = tmp_path / "my_model"
         _write_recipe(recipe)
         hf_api["whoami"].side_effect = RuntimeError("bad token")
-        with pytest.raises(ValueError, match="username could not be read"):
+        with pytest.raises(CLIUserError, match="username could not be read"):
             upload_to_hf(str(recipe), assume_yes=True)
 
     def test_applies_to_explicit_repo_ids_too(
@@ -1008,7 +1009,7 @@ class TestOwnership:
         recipe = tmp_path / "my_model"
         _write_recipe(recipe)
         hf_api["list_repo_commits"].return_value = _fake_commits("someone_else")
-        with pytest.raises(ValueError, match="created by 'someone_else'"):
+        with pytest.raises(CLIUserError, match="created by 'someone_else'"):
             upload_to_hf(str(recipe), repo_id="someorg/thing", assume_yes=True)
 
 
@@ -1191,7 +1192,7 @@ class TestToken:
         _write_recipe(recipe)
         with (
             patch.object(mod, "get_token", return_value=None),
-            pytest.raises(ValueError, match="No Hugging Face token") as excinfo,
+            pytest.raises(CLIUserError, match="No Hugging Face token") as excinfo,
         ):
             upload_to_hf(str(recipe), assume_yes=True)
 
@@ -1210,7 +1211,7 @@ class TestToken:
         with (
             patch.object(mod, "get_token", return_value=None),
             patch.object(mod, "_stage") as stage,
-            pytest.raises(ValueError, match="No Hugging Face token"),
+            pytest.raises(CLIUserError, match="No Hugging Face token"),
         ):
             upload_to_hf(str(recipe), assume_yes=True)
         stage.assert_not_called()
@@ -1235,7 +1236,7 @@ class TestToken:
         recipe = tmp_path / "my_model"
         _write_recipe(recipe)
         hf_api["whoami"].return_value = self._whoami("read")
-        with pytest.raises(ValueError, match="read-only") as excinfo:
+        with pytest.raises(CLIUserError, match="read-only") as excinfo:
             upload_to_hf(str(recipe), assume_yes=True)
 
         message = str(excinfo.value)
@@ -1252,7 +1253,7 @@ class TestToken:
         hf_api["whoami"].return_value = self._whoami("read")
         with (
             patch.object(mod, "_stage") as stage,
-            pytest.raises(ValueError, match="read-only"),
+            pytest.raises(CLIUserError, match="read-only"),
         ):
             upload_to_hf(str(recipe), assume_yes=True)
         stage.assert_not_called()

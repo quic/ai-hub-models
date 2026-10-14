@@ -8,6 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from qai_hub_models_cli.common import sample_command
+from qai_hub_models_cli.errors import CLIUserError
 
 from qai_hub_models.utils.asset_loaders import (
     ASSET_CONFIG,
@@ -79,7 +80,7 @@ class CachedPrivateAsset(CachedWebAsset):
             # - Internal repo users get a credential setup prompt
             # - External users get the access_denied_error (e.g., manual download steps)
             if is_internal_repo():
-                raise ValueError(
+                raise CLIUserError(
                     "You appear to be using the internal repository but have not "
                     "set up AWS credentials for private asset downloads.\n"
                     f"Run `{sample_command('validate_aws_credentials')}` to configure them."
@@ -91,7 +92,7 @@ class CachedPrivateAsset(CachedWebAsset):
         return Path(super().fetch(extract=extract, local_path=local_path))
 
 
-class UnfetchableDatasetError(Exception):
+class UnfetchableDatasetError(CLIUserError):
     def __init__(
         self,
         dataset_name: str,

@@ -16,8 +16,8 @@ import pytest
 from packaging.version import Version
 
 from qai_hub_models_cli.cli import _run_versions, add_versions_parser
+from qai_hub_models_cli.errors import UnsupportedVersionError
 from qai_hub_models_cli.versions import (
-    UnsupportedVersionError,
     feature_supported,
     get_published_versions,
     get_supported_versions,

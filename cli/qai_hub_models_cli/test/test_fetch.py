@@ -12,6 +12,7 @@ import pytest
 from packaging.version import Version
 
 from qai_hub_models_cli.cli import _run_fetch, add_fetch_parser
+from qai_hub_models_cli.errors import AssetNotFoundError
 from qai_hub_models_cli.fetch import _asset_url, fetch, get_asset_url
 from qai_hub_models_cli.proto.info_pb2 import ModelInfo
 from qai_hub_models_cli.proto.manifest_pb2 import ManifestModelEntry
@@ -26,7 +27,6 @@ from qai_hub_models_cli.proto.platform_pb2 import (
 from qai_hub_models_cli.proto.release_assets_pb2 import ModelReleaseAssets
 from qai_hub_models_cli.proto.shared.precision_pb2 import Precision
 from qai_hub_models_cli.proto.shared.runtime_pb2 import Runtime
-from qai_hub_models_cli.proto_helpers.release_assets import AssetNotFoundError
 
 # Legacy (pre-manifest) version vs a manifest-era version (>= MIN_MANIFEST_VERSION).
 _LEGACY_VERSION = Version("0.45.0")

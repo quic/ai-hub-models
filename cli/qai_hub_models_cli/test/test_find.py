@@ -11,6 +11,7 @@ import pytest
 from packaging.version import Version
 
 from qai_hub_models_cli.cli import _run_find, add_find_parser
+from qai_hub_models_cli.errors import CLIUserError, UnsupportedVersionError
 from qai_hub_models_cli.find import (
     default_search_versions,
     find_in_version,
@@ -20,7 +21,6 @@ from qai_hub_models_cli.proto.platform_pb2 import PlatformInfo, RuntimeInfo
 from qai_hub_models_cli.proto.release_assets_pb2 import ModelReleaseAssets
 from qai_hub_models_cli.proto.shared.precision_pb2 import Precision
 from qai_hub_models_cli.proto.shared.runtime_pb2 import Runtime
-from qai_hub_models_cli.versions import UnsupportedVersionError
 
 _TFLITE = Runtime.RUNTIME_TFLITE
 _FLOAT = Precision.PRECISION_FLOAT
@@ -121,10 +121,10 @@ def test_find_matching_releases_first_only_vs_all(mock_find: MagicMock) -> None:
 @pytest.mark.parametrize(
     ("kwargs", "exc"),
     [
-        ({"chipset": "c", "device": "d"}, ValueError),
+        ({"chipset": "c", "device": "d"}, CLIUserError),
         ({"runtime": "not-a-runtime"}, KeyError),
         ({"precision": "not-a-precision"}, KeyError),
-        ({"sdk_versions": {"notatool": "1.0"}}, ValueError),
+        ({"sdk_versions": {"notatool": "1.0"}}, CLIUserError),
     ],
 )
 def test_find_matching_releases_validates_filters(

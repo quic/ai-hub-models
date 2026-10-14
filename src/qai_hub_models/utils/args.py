@@ -21,6 +21,7 @@ from typing import Any, TypeVar, cast
 
 import qai_hub as hub
 from numpydoc.docscrape import FunctionDoc
+from qai_hub_models_cli.errors import CLIUserError
 
 from qai_hub_models import Precision, TargetRuntime
 from qai_hub_models.protocols import (
@@ -277,7 +278,7 @@ class QAIHMArgumentParser(argparse.ArgumentParser):
         quantized_model_id_arg = getattr(parsed, "quantized_model_id", None)
         if quantized_model_id_arg:
             if getattr(parsed, "precision", None) == Precision.float:
-                raise ValueError(
+                raise CLIUserError(
                     "--quantized-model-id can only be used with a quantized precision. "
                     "Pass --precision <non-float> or --quantize."
                 )
@@ -591,18 +592,18 @@ def validate_on_device_demo_args(args: argparse.Namespace, model_name: str) -> N
     """
     is_on_device = args.eval_mode == EvalMode.ON_DEVICE
     if is_on_device and not can_access_qualcomm_ai_hub():
-        raise ValueError(
+        raise CLIUserError(
             "On-device demos (--eval-mode on-device) are not available without Qualcomm® AI Hub Workbench access.\n",
             "Please sign up for Qualcomm® AI Hub Workbench at https://myaccount.qualcomm.com/signup .",
         )
 
     if is_on_device and (args.device is None):
-        raise ValueError(
+        raise CLIUserError(
             "--device or --chipset must be specified with --eval-mode on-device."
         )
 
     if (args.inference_options or args.hub_model_id) and not is_on_device:
-        raise ValueError(
+        raise CLIUserError(
             "A Hub model ID and inference options can be provided only with --eval-mode on-device."
         )
 

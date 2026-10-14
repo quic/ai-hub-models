@@ -21,6 +21,7 @@ import qai_hub as hub
 import torch
 from qai_hub.client import Device
 from qai_hub.public_rest_api import DatasetEntries
+from qai_hub_models_cli.errors import CLIUserError
 
 from qai_hub_models import (
     Precision,
@@ -357,7 +358,7 @@ def download_model_in_memory(model: hub.Model) -> Any:
 
 def raise_if_fp_is_unsupported(device: hub.Device, precision: Precision) -> None:
     """
-    Raise ValueError if the device does not support FP16 but the precision
+    Raise CLIUserError if the device does not support FP16 but the precision
     requires floating-point activations on the NPU.
 
     Parameters
@@ -372,7 +373,7 @@ def raise_if_fp_is_unsupported(device: hub.Device, precision: Precision) -> None
     if not precision.has_float_activations:
         return
     if "htp-supports-fp16:true" not in device.attributes:
-        raise ValueError(
+        raise CLIUserError(
             f"The selected precision ({precision}) requires FP16 support, "
             "but the selected device does not support FP16 "
             "(missing htp-supports-fp16:true attribute). "

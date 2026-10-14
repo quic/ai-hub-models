@@ -16,6 +16,8 @@ import requests
 from prettytable import PrettyTable
 from tqdm import tqdm
 
+from qai_hub_models_cli.errors import CLIFileExistsError
+
 
 def get_next_free_path(path: str | os.PathLike, delim: str = "-") -> Path:
     """Adds an incrementing number at the end of the given path until a non-existent filename is found."""
@@ -196,7 +198,7 @@ def download(
 
     dst = Path(dst_path)
     if dst.exists():
-        raise FileExistsError(f"Destination already exists: {dst}")
+        raise CLIFileExistsError(f"Destination already exists: {dst}")
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_filepath = os.path.join(tmp_dir, dst.name)
@@ -239,7 +241,7 @@ def extract_zip_file(
     out_path = Path(out_path if out_path else filepath.parent / filepath.stem)
 
     if out_path.exists():
-        raise FileExistsError(f"Cannot extract to an existing directory: {out_path}")
+        raise CLIFileExistsError(f"Cannot extract to an existing directory: {out_path}")
 
     with tempfile.TemporaryDirectory() as tmp:
         with ZipFile(filepath, "r") as zf:

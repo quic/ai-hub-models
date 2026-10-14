@@ -5,6 +5,7 @@
 import argparse
 import functools
 import sys
+import traceback
 from collections.abc import Callable, Iterable
 from functools import partial
 from importlib.metadata import PackageNotFoundError, version
@@ -27,6 +28,7 @@ from qai_hub_models_cli.args import (
 from qai_hub_models_cli.common import (
     AIHUB_MODELS_URL,
     CLI_NAME,
+    SUPPORT_EMAIL,
     build_filter_command,
     format_command_sections,
     is_heavy_package_installed,
@@ -35,6 +37,7 @@ from qai_hub_models_cli.common import (
     sample_command,
 )
 from qai_hub_models_cli.envvars import verbose_exceptions_enabled
+from qai_hub_models_cli.errors import CLIUserError, UnsupportedVersionError
 from qai_hub_models_cli.fetch import fetch, get_asset_url
 from qai_hub_models_cli.find import find_matching_releases
 from qai_hub_models_cli.proto.info_pb2 import (
@@ -103,7 +106,6 @@ from qai_hub_models_cli.utils import build_table, wrap_table_column
 from qai_hub_models_cli.versions import (
     CURRENT_VERSION,
     MIN_MODEL_FILTER_VERSION,
-    UnsupportedVersionError,
     feature_supported,
     get_supported_versions,
     print_upgrade_notice,
@@ -822,7 +824,7 @@ def _run_register(args: argparse.Namespace) -> None:
             force=args.force,
             revision=args.version,
         )
-    except (ValueError, FileNotFoundError) as e:
+    except (CLIUserError, FileNotFoundError) as e:
         sys.exit(str(e))
     print(f"Registered {name!r} -> {stored}")
 
@@ -1765,6 +1767,28 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _run_reporting_errors(func: Callable[[], None]) -> None:
+    try:
+        func()
+    except Exception as e:
+        if verbose_exceptions_enabled():
+            raise
+        if isinstance(e, CLIUserError):
+            # KeyError.__str__ wraps its message in quotes (it uses repr); print
+            # the message text directly so error output reads cleanly.
+            print(e.args[0] if isinstance(e, KeyError) and e.args else e)
+            sys.exit(1)
+        traceback.print_exc()
+        print(
+            "\nAn unexpected error occurred. This may be caused by the command's "
+            "arguments or your environment; check the stack trace above for details. "
+            f"If you believe this is a bug in {CLI_NAME}, email {SUPPORT_EMAIL} "
+            "with the stack trace.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
 def main(args: list[str] | None = None) -> None:
     _check_version_match()
 
@@ -1772,13 +1796,7 @@ def main(args: list[str] | None = None) -> None:
     # here so argparse doesn't try to consume model-specific flags.
     raw = sys.argv[1:] if args is None else args
     if raw and raw[0] in _RECIPE_COMMANDS and is_heavy_package_installed():
-        try:
-            _dispatch_recipe_command(raw[0], raw[1:])
-        except Exception as e:
-            if verbose_exceptions_enabled():
-                raise
-            print(e.args[0] if isinstance(e, KeyError) and e.args else e)
-            sys.exit(1)
+        _run_reporting_errors(lambda: _dispatch_recipe_command(raw[0], raw[1:]))
         return
 
     parser = _build_parser()
@@ -1793,15 +1811,7 @@ def main(args: list[str] | None = None) -> None:
         target = subparsers_action.choices.get(cmd, parser) if cmd else parser
         target.error(f"unrecognized arguments: {' '.join(extras)}")
     if hasattr(parsed, "func"):
-        try:
-            parsed.func(parsed)
-        except Exception as e:
-            if verbose_exceptions_enabled():
-                raise
-            # KeyError.__str__ wraps its message in quotes (it uses repr); print
-            # the message text directly so error output reads cleanly.
-            print(e.args[0] if isinstance(e, KeyError) and e.args else e)
-            sys.exit(1)
+        _run_reporting_errors(lambda: parsed.func(parsed))
     else:
         parser.print_help()
 

@@ -78,6 +78,7 @@ from qai_hub_models.scorecard.utils.testing_async_utils import (
 from qai_hub_models.utils.asset_loaders import load_yaml
 from qai_hub_models.utils.aws import (
     QAIHM_PRIVATE_S3_BUCKET,
+    NoAWSCredsError,
     get_qaihm_s3,
     s3_multipart_upload,
 )
@@ -1409,7 +1410,7 @@ def export_test_e2e(
     )
 
     s3_bucket: Bucket | None = None
-    with contextlib.suppress(ValueError):
+    with contextlib.suppress(NoAWSCredsError):
         s3_bucket = get_qaihm_s3(QAIHM_PRIVATE_S3_BUCKET)[0]
     upload_to_s3 = (
         s3_bucket is not None

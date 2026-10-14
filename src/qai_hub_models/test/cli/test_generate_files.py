@@ -17,6 +17,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from qai_hub_models_cli.errors import CLIUserError
 
 from qai_hub_models.cli.generate_files import _hf_register_cmd, write_readme
 from qai_hub_models.configs.manifest_yaml import QAIHMModelManifest
@@ -177,7 +178,7 @@ class TestExternalReadme:
             ).replace("headline: A test classifier.\n", "")
         )
         manifest = QAIHMModelManifest.from_yaml(manifest_path)
-        with pytest.raises(ValueError, match="headline"):
+        with pytest.raises(CLIUserError, match="headline"):
             write_readme(recipe, manifest)
 
 

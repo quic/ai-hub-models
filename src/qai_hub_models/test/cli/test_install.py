@@ -10,6 +10,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from qai_hub_models_cli.errors import CLIUserError
 
 from qai_hub_models.cli import install as install_mod
 from qai_hub_models.cli.install import (
@@ -153,7 +154,7 @@ class TestBuildInstallOrder:
             fake_tree / "models" / "root_model",
             "datasets:\n  - typo_dataset\n",
         )
-        with pytest.raises(ValueError, match="typo_dataset"):
+        with pytest.raises(CLIUserError, match="typo_dataset"):
             build_install_order(Node(NodeKind.MODEL, "root_model"))
 
     def test_path_traversal_dep_name_rejected(self, fake_tree: Path) -> None:
@@ -162,7 +163,7 @@ class TestBuildInstallOrder:
             fake_tree / "models" / "root_model",
             "datasets:\n  - ../../etc/passwd\n",
         )
-        with pytest.raises(ValueError, match="invalid"):
+        with pytest.raises(CLIUserError, match="invalid"):
             build_install_order(Node(NodeKind.MODEL, "root_model"))
 
     def test_models_field_ignored_on_non_model_nodes(self, fake_tree: Path) -> None:
@@ -234,9 +235,9 @@ class TestResolveRoot:
         self, fake_tree: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.chdir(fake_tree)
-        with pytest.raises(ValueError, match="Unknown model"):
+        with pytest.raises(CLIUserError, match="Unknown model"):
             _resolve_root("nope")
-        with pytest.raises(ValueError, match="no folder of that name exists"):
+        with pytest.raises(CLIUserError, match="no folder of that name exists"):
             _resolve_root("nope")
 
     def test_cwd_folder_without_manifest(
@@ -245,7 +246,7 @@ class TestResolveRoot:
         """The manifest check must win over the 'not a model id' error."""
         (fake_tree / "empty").mkdir()
         monkeypatch.chdir(fake_tree)
-        with pytest.raises(ValueError, match="nothing to install"):
+        with pytest.raises(CLIUserError, match="nothing to install"):
             _resolve_root("empty")
 
     def test_explicit_path_still_works(self, fake_tree: Path) -> None:
@@ -255,7 +256,7 @@ class TestResolveRoot:
         assert node.folder == recipe.resolve()
 
     def test_explicit_path_that_is_not_a_directory(self, fake_tree: Path) -> None:
-        with pytest.raises(ValueError, match="is not a directory"):
+        with pytest.raises(CLIUserError, match="is not a directory"):
             _resolve_root(str(fake_tree / "missing" / "x"))
 
 
@@ -339,7 +340,7 @@ class TestPlanInstall:
         assert template_entry[1] == []
 
     def test_unknown_model_id_rejected(self, fake_tree: Path) -> None:
-        with pytest.raises(ValueError, match="Unknown model"):
+        with pytest.raises(CLIUserError, match="Unknown model"):
             plan_install("does_not_exist")
 
 

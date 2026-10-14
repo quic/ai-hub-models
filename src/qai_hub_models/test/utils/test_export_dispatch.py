@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from qai_hub_models_cli.errors import CLIUserError
 
 from qai_hub_models.utils.export.context import (
     RecipeSourceUnavailableError,
@@ -45,7 +46,7 @@ def test_resolve_recipe_dir_rejects_unknown_id(tmp_path: Path) -> None:
     """A bare id not in MODEL_IDS raises with a helpful message."""
     with (
         patch("qai_hub_models.utils.export.context.MODEL_IDS", ["known_model"]),
-        pytest.raises(ValueError, match="Unknown model"),
+        pytest.raises(CLIUserError, match="Unknown model"),
     ):
         resolve_recipe_dir("does_not_exist_anywhere_xyz")
 
@@ -113,7 +114,7 @@ def test_resolve_recipe_dir_rejects_folder_without_manifest(tmp_path: Path) -> N
     model_dir = tmp_path / "empty_recipe"
     model_dir.mkdir()
 
-    with pytest.raises(ValueError, match=r"does not contain a manifest\.yaml"):
+    with pytest.raises(CLIUserError, match=r"does not contain a manifest\.yaml"):
         resolve_recipe_dir(str(model_dir))
 
 

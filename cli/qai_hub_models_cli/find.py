@@ -8,6 +8,7 @@ from collections.abc import Callable, Iterable
 
 from packaging.version import Version
 
+from qai_hub_models_cli.errors import CLIUserError, UnsupportedVersionError
 from qai_hub_models_cli.proto.release_assets_pb2 import ModelReleaseAssets
 from qai_hub_models_cli.proto.shared.precision_pb2 import Precision
 from qai_hub_models_cli.proto.shared.runtime_pb2 import Runtime
@@ -25,11 +26,7 @@ from qai_hub_models_cli.proto_helpers.release_assets import (
     get_model_release_assets,
 )
 from qai_hub_models_cli.proto_helpers.tool_versions import validate_sdk_tools
-from qai_hub_models_cli.versions import (
-    MIN_MANIFEST_VERSION,
-    UnsupportedVersionError,
-    get_supported_versions,
-)
+from qai_hub_models_cli.versions import MIN_MANIFEST_VERSION, get_supported_versions
 
 
 def find_in_version(
@@ -72,11 +69,11 @@ def find_in_version(
 
     Raises
     ------
-    ValueError
+    CLIUserError
         If both *chipset* and *device* are provided.
     """
     if chipset is not None and device is not None:
-        raise ValueError("Provide at most one of 'chipset' or 'device'.")
+        raise CLIUserError("Provide at most one of 'chipset' or 'device'.")
 
     try:
         assets = get_model_release_assets(model, version)
@@ -124,7 +121,7 @@ def default_search_versions(
         and max_version is not None
         and min_version > max_version
     ):
-        raise ValueError(
+        raise CLIUserError(
             f"--min-version ({min_version}) must be <= --max-version ({max_version})."
         )
 
@@ -190,7 +187,7 @@ def find_matching_releases(
 
     Raises
     ------
-    ValueError
+    CLIUserError
         If both *chipset* and *device* are provided, or an SDK tool name is
         unknown.
     KeyError
@@ -200,7 +197,7 @@ def find_matching_releases(
     # error is raised even when no release ends up being searched (empty
     # versions), and before any per-release network work begins.
     if chipset is not None and device is not None:
-        raise ValueError("Provide at most one of 'chipset' or 'device'.")
+        raise CLIUserError("Provide at most one of 'chipset' or 'device'.")
 
     # find_in_version swallows lookup errors per release, so validate the
     # release-agnostic filters (runtime/precision tokens, SDK tool names) once up

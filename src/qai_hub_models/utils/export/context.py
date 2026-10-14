@@ -20,6 +20,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from qai_hub_models_cli.errors import CLIUserError
+
 from qai_hub_models.configs.manifest_yaml import QAIHMModelManifest
 from qai_hub_models.utils.path_helpers import MODEL_IDS, QAIHM_MODELS_ROOT
 
@@ -94,7 +96,7 @@ def resolve_recipe_dir(target: str | Path) -> Path:
     if isinstance(target, Path) or looks_like_path(str(target)):
         source_dir = Path(target).resolve()
         if not source_dir.is_dir():
-            raise ValueError(
+            raise CLIUserError(
                 f"{target!r} is not a directory. Point at a recipe folder "
                 "that contains manifest.yaml."
             )
@@ -105,9 +107,9 @@ def resolve_recipe_dir(target: str | Path) -> Path:
         elif (cwd_folder := Path(target_str)).is_dir():
             source_dir = cwd_folder.resolve()
         else:
-            raise ValueError(unknown_model_error(target_str))
+            raise CLIUserError(unknown_model_error(target_str))
     if not (source_dir / "manifest.yaml").exists():
-        raise ValueError(
+        raise CLIUserError(
             f"{source_dir} does not contain a manifest.yaml — cannot resolve "
             "as a model recipe."
         )
@@ -124,7 +126,7 @@ def looks_like_path(target: str) -> bool:
     )
 
 
-class RecipeSourceUnavailableError(Exception):
+class RecipeSourceUnavailableError(CLIUserError):
     """A recipe folder holds metadata but no Python source."""
 
 

@@ -12,6 +12,7 @@ from packaging.version import Version
 
 from qai_hub_models_cli._internal.utils import use_internal_releases
 from qai_hub_models_cli.common import STORE_URL
+from qai_hub_models_cli.errors import CLIUnknownNameError
 from qai_hub_models_cli.proto.manifest_pb2 import (
     ManifestModelEntry,
     ReleaseManifest,
@@ -32,7 +33,7 @@ def get_manifest_entry(
             normalize_label(entry.display_name),
         ):
             return entry
-    raise KeyError(
+    raise CLIUnknownNameError(
         f"No model exists with the name or ID: {model!r}. "
         "Run qai-hub-models models to see all Model IDs."
     )

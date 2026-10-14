@@ -21,6 +21,7 @@ import warnings
 from typing import Any
 
 import qai_hub as hub
+from qai_hub_models_cli.errors import CLIUserError
 
 from qai_hub_models import Precision, TargetRuntime
 from qai_hub_models.utils.args import (
@@ -85,9 +86,9 @@ def export(
     Pass ``component`` to export a single component of a collection model;
     otherwise the whole (non-collection) model is exported. Returns the local
     model together with its on-device inference job (``None`` if the export
-    skipped inferencing). Raises ``ValueError`` if ``model_id`` is a multi-graph
-    model (no on-device inference path) or if ``component`` is inconsistent with
-    the model kind.
+    skipped inferencing). Raises ``CLIUserError`` if ``model_id`` does not resolve
+    to a recipe, and ``ValueError`` if it is a multi-graph model (no on-device
+    inference path) or if ``component`` is inconsistent with the model kind.
     """
     source_dir = resolve_recipe_dir(model_id)
     model_cls: Any = resolve_model_cls(source_dir)
@@ -286,7 +287,7 @@ def main() -> None:
             precision=args.precision,
             component=args.component,
         )
-    except ValueError as e:
+    except (ValueError, CLIUserError) as e:
         print(f"Error: {e}")
         sys.exit(1)
 

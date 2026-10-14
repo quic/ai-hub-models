@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 from qai_hub_models_cli import registry
+from qai_hub_models_cli.errors import CLIUserError
 
 
 @pytest.fixture(autouse=True)
@@ -47,7 +48,7 @@ def test_register_and_resolve_roundtrip(tmp_path: Path) -> None:
 def test_register_rejects_invalid_name(tmp_path: Path) -> None:
     folder = tmp_path / "m"
     folder.mkdir()
-    with pytest.raises(ValueError, match="Invalid name"):
+    with pytest.raises(CLIUserError, match="Invalid name"):
         registry.register_alias("Bad-Name", str(folder))
 
 
@@ -72,7 +73,7 @@ def test_register_rejects_builtin_id(
         sys.modules, "qai_hub_models.utils.path_helpers", fake_path_helpers
     )
 
-    with pytest.raises(ValueError, match="built-in model id"):
+    with pytest.raises(CLIUserError, match="built-in model id"):
         registry.register_alias("mobilenet_v2", str(folder))
 
 
@@ -83,7 +84,7 @@ def test_register_requires_force_on_overwrite(tmp_path: Path) -> None:
     b.mkdir()
 
     registry.register_alias("m", str(a))
-    with pytest.raises(ValueError, match="already registered"):
+    with pytest.raises(CLIUserError, match="already registered"):
         registry.register_alias("m", str(b))
 
     stored = registry.register_alias("m", str(b), force=True)
@@ -186,7 +187,7 @@ def test_register_rejects_non_id_non_folder(tmp_path: Path) -> None:
 @pytest.mark.usefixtures("no_heavy")
 def test_register_repo_id_without_heavy_package(tmp_path: Path) -> None:
     """Lean-only installs get told what to install, not an import traceback."""
-    with pytest.raises(ValueError, match="requires the qai-hub-models package"):
+    with pytest.raises(CLIUserError, match="requires the qai-hub-models package"):
         registry.register_alias("dl", "qualcomm-ai-hub-community/yolov8_pose")
 
 
@@ -198,7 +199,7 @@ def test_register_hf_checks_force_before_downloading(
     existing.mkdir()
     registry.register_alias("dl", str(existing))
 
-    with pytest.raises(ValueError, match="already registered"):
+    with pytest.raises(CLIUserError, match="already registered"):
         registry.register_alias("dl", "qualcomm-ai-hub-community/yolov8_pose")
     assert fake_hf_pull == []
 
@@ -240,7 +241,7 @@ class TestDefaultAlias:
 
     def test_refuses_rather_than_mangling(self) -> None:
         """A name that cannot be folded is an error, not a silent rewrite."""
-        with pytest.raises(ValueError, match="--alias"):
+        with pytest.raises(CLIUserError, match="--alias"):
             registry.default_alias("owner/mod:el!")
 
     def test_derived_alias_is_registerable(self, tmp_path: Path) -> None:
@@ -314,7 +315,7 @@ class TestRegistryLock:
         folder = tmp_path / "m"
         folder.mkdir()
         registry.register_alias("taken", str(folder))
-        with pytest.raises(ValueError, match="already registered"):
+        with pytest.raises(CLIUserError, match="already registered"):
             registry.register_alias("taken", str(folder))
 
         with registry._registry_lock(timeout=0.1):

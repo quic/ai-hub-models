@@ -30,13 +30,15 @@ import importlib
 import os
 import sys
 
+from qai_hub_models_cli.errors import CLITypeError, CLIUserError
+
 from qai_hub_models.utils.base_dataset import BaseDataset
 
 
 def _resolve_class(import_path: str) -> type[BaseDataset]:
     """Resolve a dotted ``module.path.ClassName`` import path to a class."""
     if "." not in import_path:
-        raise ValueError(
+        raise CLIUserError(
             f"Target must be a dotted import path like "
             f"'package.module.ClassName' (got {import_path!r})."
         )
@@ -50,17 +52,17 @@ def _resolve_class(import_path: str) -> type[BaseDataset]:
     try:
         module = importlib.import_module(module_path)
     except ImportError as e:
-        raise ValueError(
+        raise CLIUserError(
             f"Could not import module {module_path!r} for target {import_path!r}."
         ) from e
     try:
         cls = getattr(module, class_name)
     except AttributeError as e:
-        raise ValueError(
+        raise CLIUserError(
             f"Module {module_path!r} has no attribute {class_name!r}."
         ) from e
     if not isinstance(cls, type) or not issubclass(cls, BaseDataset):
-        raise TypeError(
+        raise CLITypeError(
             f"{import_path} must be a subclass of "
             "qai_hub_models.utils.base_dataset.BaseDataset."
         )

@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 import qai_hub as hub
+from qai_hub_models_cli.errors import CLIRuntimeError, CLIUserError
 
 from qai_hub_models import Precision, TargetRuntime
 from qai_hub_models.utils.ai_hub_access import can_access_qualcomm_ai_hub
@@ -124,7 +125,7 @@ def export_model(
 
     model_id = resolve_model_id(source_dir)
     if not can_access_qualcomm_ai_hub():
-        raise RuntimeError(
+        raise CLIRuntimeError(
             "Could not find AI Hub credentials. Sign up at "
             f"{_AIHUB_URL} for free access. To use pre-released assets "
             "without AI Hub credentials, run "
@@ -149,7 +150,7 @@ def export_model(
     components = components or model.component_names
     for name in components:
         if name not in model.component_names:
-            raise ValueError(f"Invalid component {name}.")
+            raise CLIUserError(f"Invalid component {name}.")
     input_specs = model.get_input_spec(
         **filter_kwargs(model.get_input_spec, additional_model_kwargs)
     )

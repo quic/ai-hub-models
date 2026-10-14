@@ -12,6 +12,7 @@ from typing import TypeVar
 
 from packaging.version import Version
 
+from qai_hub_models_cli.errors import CLIUnknownNameError, CLIUserError
 from qai_hub_models_cli.proto.platform_pb2 import (
     ChipsetInfo,
     DeviceInfo,
@@ -147,7 +148,7 @@ def resolve_runtime(
     runtime_name = (
         runtime if isinstance(runtime, str) else runtime_proto_to_str(runtime)
     )
-    raise KeyError(f"Unknown runtime {runtime_name!r}.")
+    raise CLIUnknownNameError(f"Unknown runtime {runtime_name!r}.")
 
 
 def normalize_hw_name(name: str) -> str:
@@ -188,7 +189,7 @@ def resolve_device(devices: Iterable[DeviceInfo], device: str) -> DeviceInfo:
     for d in devices:
         if normalize_hw_name(d.name) == device_key:
             return d
-    raise KeyError(
+    raise CLIUnknownNameError(
         f"Unknown device {device!r}. "
         "Run `qai-hub-models devices` to see supported devices."
     )
@@ -227,7 +228,7 @@ def resolve_chipset(
 
     Raises
     ------
-    ValueError
+    CLIUserError
         If neither or both of *device* and *chipset* are provided.
     KeyError
         If the reference does not match any known device or chipset. When
@@ -235,7 +236,7 @@ def resolve_chipset(
         suggestion pointing at the closest known chipset name or alias.
     """
     if (device is None) == (chipset is None):
-        raise ValueError("Provide exactly one of 'device' or 'chipset'.")
+        raise CLIUserError("Provide exactly one of 'device' or 'chipset'.")
 
     chipsets_by_name = {c.name: c for c in chipsets}
 
@@ -256,7 +257,7 @@ def resolve_chipset(
             known_refs.setdefault(normalize_hw_name(candidate), candidate)
     matches = difflib.get_close_matches(chipset_key, known_refs.keys(), n=1)
     hint = f" Did you mean {known_refs[matches[0]]!r}?" if matches else ""
-    raise KeyError(
+    raise CLIUnknownNameError(
         f"Unknown chipset {chipset!r}.{hint} "
         "Run `qai-hub-models chipsets` to see supported chipsets."
     )
@@ -281,7 +282,7 @@ def device_names_for_filter(
     ``KeyError`` pointing at the ``devices``/``chipsets`` commands.
     """
     if chipset is not None and device is not None:
-        raise ValueError("Provide at most one of 'chipset' or 'device'.")
+        raise CLIUserError("Provide at most one of 'chipset' or 'device'.")
     if device is not None:
         names = [device] if isinstance(device, str) else device
         for name in names:

@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import qai_hub as hub
+from qai_hub_models_cli.errors import CLIUserError
 
 from qai_hub_models import Precision
 from qai_hub_models.utils import quantization as quantization_utils
@@ -29,7 +30,7 @@ def run_quantize(
     input_spec = input_spec or model.get_input_spec()
     print(f"Quantizing {model_name}.")
     if not precision.activations_type or not precision.weights_type:
-        raise ValueError(
+        raise CLIUserError(
             "Quantization is only supported if both weights and activations are quantized."
         )
     calibration_data = quantization_utils.get_calibration_data(
@@ -83,7 +84,7 @@ def run_collection_quantize(
             continue
         print(f"Quantizing {name}.")
         if not precision.activations_type or not precision.weights_type:
-            raise ValueError(
+            raise CLIUserError(
                 "Quantization is only supported if both weights and activations are quantized."
             )
         calibration_data = quantization_utils.get_calibration_data(

@@ -127,7 +127,7 @@ def filter_numerics(
 
     Raises
     ------
-    ValueError
+    CLIUserError
         If both *chipset* and *device* are provided.
     KeyError
         If *runtime*, *chipset*, or *device* is not known.

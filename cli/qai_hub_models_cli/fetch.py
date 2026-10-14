@@ -17,6 +17,11 @@ from qai_hub_models_cli.common import (
     model_repo_url,
     sample_command,
 )
+from qai_hub_models_cli.errors import (
+    AssetNotFoundError,
+    CLIUserError,
+    UnsupportedVersionError,
+)
 from qai_hub_models_cli.proto.shared.precision_pb2 import Precision
 from qai_hub_models_cli.proto.shared.runtime_pb2 import Runtime
 from qai_hub_models_cli.proto_helpers.info import get_model_info
@@ -30,7 +35,6 @@ from qai_hub_models_cli.proto_helpers.platform_enums import (
     runtime_proto_to_str,
 )
 from qai_hub_models_cli.proto_helpers.release_assets import (
-    AssetNotFoundError,
     filter_release_assets,
     format_fetch_commands,
     format_release_assets_table,
@@ -40,7 +44,6 @@ from qai_hub_models_cli.utils import download, get_next_free_path
 from qai_hub_models_cli.versions import (
     CURRENT_VERSION,
     MIN_MANIFEST_VERSION,
-    UnsupportedVersionError,
     version_flag,
 )
 
@@ -148,7 +151,7 @@ def get_asset_url(
 
     Raises
     ------
-    ValueError
+    CLIUserError
         If both *chipset* and *device* are provided, or if a required field
         (*runtime*, *precision*, or a *chipset*/*device* for AOT runtimes) is
         missing.
@@ -164,7 +167,7 @@ def get_asset_url(
     )
 
     if chipset is not None and device is not None:
-        raise ValueError("Provide at most one of 'chipset' or 'device'.")
+        raise CLIUserError("Provide at most one of 'chipset' or 'device'.")
 
     if version >= MIN_MANIFEST_VERSION:
         platform = get_platform(version)
@@ -288,9 +291,11 @@ def get_asset_url(
     # Legacy: No manifest was published for these releases, so we can't list
     # assets to filter; runtime and precision must be specified directly.
     if runtime is None:
-        raise ValueError(f"A runtime is required to fetch a model asset.\n{show_all}")
+        raise CLIUserError(f"A runtime is required to fetch a model asset.\n{show_all}")
     if precision is None:
-        raise ValueError(f"A precision is required to fetch a model asset.\n{show_all}")
+        raise CLIUserError(
+            f"A precision is required to fetch a model asset.\n{show_all}"
+        )
 
     def _head(url: str) -> int:
         resp = requests.head(url, timeout=10)
@@ -313,7 +318,7 @@ def get_asset_url(
         return url
 
     chipset_msg = f", chipset={chipset!r}" if chipset else ""
-    raise FileNotFoundError(
+    raise AssetNotFoundError(
         f"No asset found for model={model!r}, runtime={runtime!r}, "
         f"precision={precision!r}, version={version}{chipset_msg}.\n"
         f"  - Browse available models: {AIHUB_MODELS_URL}\n"
@@ -374,7 +379,7 @@ def fetch(
 
     Raises
     ------
-    ValueError
+    CLIUserError
         If both *chipset* and *device* are provided.
     FileNotFoundError
         If the asset does not exist on the server.

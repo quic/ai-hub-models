@@ -9,6 +9,7 @@ from pathlib import Path
 
 from packaging.version import Version
 
+from qai_hub_models_cli.errors import CLIUnknownNameError
 from qai_hub_models_cli.proto.perf_pb2 import ModelPerf
 from qai_hub_models_cli.proto.platform_pb2 import PlatformInfo
 from qai_hub_models_cli.proto.shared.precision_pb2 import Precision
@@ -130,7 +131,7 @@ def filter_perf(
 
     Raises
     ------
-    ValueError
+    CLIUserError
         If both *chipset* and *device* are provided.
     KeyError
         If *runtime*, *chipset*, *device*, or a component is not known.
@@ -150,7 +151,7 @@ def filter_perf(
         }
         if unknown := component_set - {c.lower() for c in known}:
             valid = ", ".join(sorted(known)) or "(this model has no components)"
-            raise KeyError(
+            raise CLIUnknownNameError(
                 f"Unknown component(s): {', '.join(sorted(unknown))}. "
                 f"Valid components: {valid}."
             )

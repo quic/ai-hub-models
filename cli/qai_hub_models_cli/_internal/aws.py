@@ -21,6 +21,11 @@ import tqdm
 
 from qai_hub_models_cli.common import sample_command
 from qai_hub_models_cli.envvars import AWS_SESSION_DURATION_ENVVAR, bool_envvar_value
+from qai_hub_models_cli.errors import (
+    CLIFileNotFoundError,
+    CLIRuntimeError,
+    CLIUserError,
+)
 
 try:
     import boto3
@@ -70,7 +75,7 @@ def _get_session_duration() -> int:
 SETUP_DOCS_URL = "https://qualcomm-confluence.atlassian.net/wiki/spaces/ML/pages/3188064594/Private+AWS+Access+Setup"
 
 
-class NoAWSCredsError(ValueError):
+class NoAWSCredsError(CLIUserError):
     def __init__(self) -> None:
         super().__init__(
             f"S3 credentials not found or expired. "
@@ -153,7 +158,7 @@ def qaihm_session() -> boto3.Session:
 def _load_env(name: str) -> str:
     value = os.environ.get(name, "")
     if not value:
-        raise ValueError(
+        raise CLIUserError(
             f"Missing required environment variable {name}. "
             f"See {SETUP_DOCS_URL} for setup instructions."
         )
@@ -352,7 +357,7 @@ def validate_credentials() -> None:
         return
 
     if not sys.stdin.isatty():
-        raise RuntimeError(
+        raise CLIRuntimeError(
             "This is not a TTY and hence this script cannot prompt you for your password. "
             "Please re-run this in a different, interactive terminal."
         )
@@ -378,7 +383,7 @@ def validate_credentials() -> None:
             )
 
     if shutil.which("saml2aws") is None:
-        raise FileNotFoundError(
+        raise CLIFileNotFoundError(
             "saml2aws is not installed. Install it from "
             "https://github.com/Versent/saml2aws#install and try again."
         )

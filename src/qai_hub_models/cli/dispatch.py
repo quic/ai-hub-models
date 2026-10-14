@@ -19,6 +19,8 @@ import sys
 from pathlib import Path
 from typing import cast
 
+from qai_hub_models_cli.errors import CLIUserError
+
 from qai_hub_models import Precision, TargetRuntime
 from qai_hub_models.cli.configure_dataset import main as configure_dataset_main
 from qai_hub_models.cli.generate_files import main as generate_files_main
@@ -185,7 +187,7 @@ def run_model_script(model_id: str | Path, script: str, forwarded: list[str]) ->
     except (ModuleNotFoundError, ImportError) as e:
         model_id = str(model_id)
         rerun = shlex.join(["qai-hub-models", script, model_id, *forwarded])
-        raise ValueError(
+        raise CLIUserError(
             f"{type(e).__name__} encountered during {script}:\n    {e}\n\n"
             f"You might be missing required dependencies for {model_id}. "
             f"Try running the following:\n"

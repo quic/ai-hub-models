@@ -25,6 +25,7 @@ import qai_hub as hub
 import torch
 from qai_hub.public_rest_api import DatasetEntries
 from qai_hub.util.dataset_entries_converters import dataset_entries_to_h5
+from qai_hub_models_cli.errors import CLIUserError
 from torch.utils.data import DataLoader, Dataset, random_split
 from tqdm import tqdm
 from typing_extensions import Self
@@ -261,10 +262,10 @@ def _validate_dataset_ids_path(path: Path) -> bool:
 
 def _validate_inputs(num_samples: int, dataset: BaseDataset) -> None:
     if num_samples < 1 and num_samples != -1:
-        raise ValueError("num_samples must be positive or -1.")
+        raise CLIUserError("num_samples must be positive or -1.")
 
     if num_samples > len(dataset):
-        raise ValueError(
+        raise CLIUserError(
             f"Requested {num_samples} samples when dataset only has {len(dataset)}."
         )
 
@@ -908,7 +909,7 @@ def evaluate_on_dataset(
             )
         except UnfetchableDatasetError as e:
             if e.installation_steps is None:
-                raise ValueError(
+                raise CLIUserError(
                     f"The chosen dataset for model evaluation ({e.dataset_name}) is not publicly available. If you are running `evaluate.py`, please reach out at https://github.com/quic/ai-hub-models/issues to request accuracy information."
                 ) from None
             raise

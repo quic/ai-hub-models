@@ -34,6 +34,8 @@ from functools import cache
 from pathlib import Path
 from typing import Any
 
+from qai_hub_models_cli.errors import CLIUserError
+
 from qai_hub_models.configs.manifest_yaml import PipCommand
 from qai_hub_models.utils.asset_loaders import load_yaml
 from qai_hub_models.utils.export.context import (
@@ -159,7 +161,7 @@ def _validate_dep_name(name: str, kind: NodeKind, referrer: Node) -> None:
     and run, every dep name has to be a plain folder name.
     """
     if not name or "/" in name or "\\" in name or name in {"..", "."}:
-        raise ValueError(
+        raise CLIUserError(
             f"{referrer.kind.value} {referrer.name!r} declares an invalid "
             f"{kind.value} dependency name {name!r}. Dep names must be plain "
             "folder names (no path separators, no '..')."
@@ -230,7 +232,7 @@ def build_install_order(root: Node) -> list[Node]:
         if node in visited or node in in_progress:
             return
         if node is not root and not node.folder.exists():
-            raise ValueError(
+            raise CLIUserError(
                 f"{node.kind.value} {node.name!r} is declared as a dependency "
                 f"but its folder does not exist at {node.folder}. Check for a "
                 "typo in the referencing manifest.yaml."
@@ -294,7 +296,7 @@ def _node_install_commands(node: Node, on_gpu: bool) -> list[list[str]]:
 def _folder_root(folder: Path) -> Node:
     """Build the root Node for a recipe folder, validating it holds a manifest."""
     if not (folder / "manifest.yaml").exists():
-        raise ValueError(f"{folder} has no manifest.yaml — nothing to install.")
+        raise CLIUserError(f"{folder} has no manifest.yaml — nothing to install.")
     return Node(NodeKind.MODEL, folder.name, folder_override=folder)
 
 
@@ -311,7 +313,7 @@ def _resolve_root(target: str) -> Node:
     if looks_like_path(target):
         folder = Path(target).resolve()
         if not folder.is_dir():
-            raise ValueError(
+            raise CLIUserError(
                 f"{target!r} is not a directory. Point at a recipe folder "
                 "that contains manifest.yaml."
             )
@@ -320,7 +322,7 @@ def _resolve_root(target: str) -> Node:
     if target not in MODEL_IDS:
         if (cwd_folder := Path(target)).is_dir():
             return _folder_root(cwd_folder.resolve())
-        raise ValueError(unknown_model_error(target))
+        raise CLIUserError(unknown_model_error(target))
     return Node(NodeKind.MODEL, target)
 
 

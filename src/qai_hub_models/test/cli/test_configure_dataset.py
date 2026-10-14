@@ -13,6 +13,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from qai_hub_models_cli.errors import CLIUserError
 
 from qai_hub_models.cli.configure_dataset import _resolve_class, main
 from qai_hub_models.datasets.cityscapes.cityscapes import (
@@ -69,17 +70,17 @@ def test_resolves_an_in_tree_dotted_path() -> None:
 
 def test_a_bare_name_is_rejected() -> None:
     """No dataset registry exists to resolve one against."""
-    with pytest.raises(ValueError, match="dotted import path"):
+    with pytest.raises(CLIUserError, match="dotted import path"):
         _resolve_class("cityscapes")
 
 
 def test_unimportable_module_names_the_module() -> None:
-    with pytest.raises(ValueError, match="Could not import module"):
+    with pytest.raises(CLIUserError, match="Could not import module"):
         _resolve_class("qai_hub_models.datasets.nope_missing.Thing")
 
 
 def test_missing_attribute_names_the_attribute() -> None:
-    with pytest.raises(ValueError, match="has no attribute"):
+    with pytest.raises(CLIUserError, match="has no attribute"):
         _resolve_class("qai_hub_models.datasets.cityscapes.cityscapes.NotAClass")
 
 

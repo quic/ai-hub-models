@@ -28,6 +28,12 @@ from qai_hub_models_cli.common import (
     LOCAL_STORE_DEFAULT_PATH,
     is_heavy_package_installed,
 )
+from qai_hub_models_cli.errors import (
+    CLIFileNotFoundError,
+    CLITimeoutError,
+    CLITypeError,
+    CLIUserError,
+)
 
 REGISTRY_PATH_ENVVAR = "QAIHM_CLI_REGISTRY_PATH"
 
@@ -57,7 +63,7 @@ def default_alias(target: str) -> str:
 
     Raises
     ------
-    ValueError
+    CLIUserError
         If no valid alias can be derived from *target*.
     """
     expanded = Path(target).expanduser()
@@ -68,7 +74,7 @@ def default_alias(target: str) -> str:
     )
     alias = tail.replace("-", "_").replace(".", "_").lower()
     if not _NAME_RE.fullmatch(alias):
-        raise ValueError(
+        raise CLIUserError(
             f"Cannot derive a name from {target!r}. Pass one explicitly with "
             f"--alias <name> (must match {_NAME_RE.pattern})."
         )
@@ -92,7 +98,7 @@ def load_registry() -> dict[str, str]:
     with open(path) as f:
         data = json.load(f)
     if not isinstance(data, dict):
-        raise TypeError(
+        raise CLITypeError(
             f"Registry at {path} is not a JSON object; delete it or fix by hand."
         )
     return data
@@ -133,7 +139,7 @@ def _registry_lock(timeout: float = _LOCK_TIMEOUT_SECONDS) -> Iterator[None]:
     try:
         lock.acquire()
     except Timeout as e:
-        raise TimeoutError(
+        raise CLITimeoutError(
             f"Timed out after {timeout:g}s waiting for {path}.lock. Another "
             "`qai-hub-models register` or `unregister` is still running; wait "
             "for it to finish and try again."
@@ -158,11 +164,11 @@ def _assert_name_free(name: str, entries: dict[str, str], force: bool) -> None:
 
     Raises
     ------
-    ValueError
+    CLIUserError
         If *name* is taken and *force* is False.
     """
     if name in entries and not force:
-        raise ValueError(
+        raise CLIUserError(
             f"{name!r} is already registered to {entries[name]}. "
             "Use --force to overwrite, or --alias to pick another name."
         )
@@ -197,7 +203,7 @@ def _resolve_target(name: str, target: str, revision: str | None) -> Path:
     # directory test because `looks_like_path` would claim any string with a "/".
     if _HF_REPO_ID_RE.fullmatch(target):
         if not is_heavy_package_installed():
-            raise ValueError(
+            raise CLIUserError(
                 f"Registering the HuggingFace repo {target!r} requires the "
                 "qai-hub-models package. Install it with `pip install "
                 "qai-hub-models`, or pass a local folder path instead."
@@ -210,7 +216,7 @@ def _resolve_target(name: str, target: str, revision: str | None) -> Path:
             revision=revision,
         )
 
-    raise FileNotFoundError(
+    raise CLIFileNotFoundError(
         f"{target!r} is neither a local directory nor a HuggingFace repo id "
         "of the form <owner>/<name>."
     )
@@ -234,7 +240,7 @@ def register_alias(
     and ``TimeoutError`` if another process holds the registry lock.
     """
     if not _NAME_RE.fullmatch(name):
-        raise ValueError(
+        raise CLIUserError(
             f"Invalid name {name!r}: must match {_NAME_RE.pattern} "
             "(lowercase letters, digits, and underscores only)."
         )
@@ -243,7 +249,7 @@ def register_alias(
         from qai_hub_models.utils.path_helpers import MODEL_IDS
 
         if name in MODEL_IDS:
-            raise ValueError(
+            raise CLIUserError(
                 f"{name!r} is a built-in model id; pick a different name with "
                 "--alias <name>."
             )

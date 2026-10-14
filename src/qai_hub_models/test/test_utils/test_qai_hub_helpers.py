@@ -8,6 +8,7 @@ from unittest.mock import MagicMock
 
 import pytest
 import qai_hub as hub
+from qai_hub_models_cli.errors import CLIUserError
 
 from qai_hub_models import Precision
 from qai_hub_models.utils.job_options import extract_job_options
@@ -53,5 +54,5 @@ def test_raise_if_fp_is_unsupported_quantized_is_noop() -> None:
 
 def test_raise_if_fp_is_unsupported_rejects_fp_on_no_fp16_device() -> None:
     """FP precision on a fully-resolved fp16-incapable device raises."""
-    with pytest.raises(ValueError, match="FP16 support"):
+    with pytest.raises(CLIUserError, match="FP16 support"):
         raise_if_fp_is_unsupported(_fp16_incapable(), Precision.float)

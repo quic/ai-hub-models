@@ -21,6 +21,7 @@ from qai_hub_models_cli.envvars import (
     FORCE_VERSION_ENVVAR,
     USE_INTERNAL_RELEASES_ENVVAR,
 )
+from qai_hub_models_cli.errors import UnsupportedVersionError
 
 CURRENT_VERSION = parse_version(os.environ.get(FORCE_VERSION_ENVVAR, __version__))
 
@@ -37,10 +38,6 @@ MIN_INTERNAL_REGISTRY_VERSION = Version("0.56.0")
 MIN_MODEL_FILTER_VERSION = Version("0.56.0")
 
 PYPI_VERSIONS_URL = "https://pypi.org/pypi/qai-hub-models/json"
-
-
-class UnsupportedVersionError(RuntimeError):
-    pass
 
 
 def _pip_package_name() -> str:

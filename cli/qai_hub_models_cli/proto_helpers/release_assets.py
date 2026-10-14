@@ -16,6 +16,7 @@ from qai_hub_models_cli.common import (
     model_repo_url,
     sample_command,
 )
+from qai_hub_models_cli.errors import AssetNotFoundError, CLIUserError
 from qai_hub_models_cli.proto import info_pb2
 from qai_hub_models_cli.proto.platform_pb2 import (
     ChipsetInfo,
@@ -46,12 +47,6 @@ from qai_hub_models_cli.proto_helpers.tool_versions import (
 )
 from qai_hub_models_cli.utils import build_table
 from qai_hub_models_cli.versions import CURRENT_VERSION, version_flag
-
-
-class AssetNotFoundError(FileNotFoundError):
-    def __init__(self, *args: object, model_sharing_restricted: bool = False) -> None:
-        self.model_sharing_restricted = model_sharing_restricted
-        super().__init__(*args)
 
 
 @functools.lru_cache(maxsize=1)
@@ -113,21 +108,21 @@ def get_model_release_assets(
                 == info_pb2.ModelInfo.LLMDetails.CALL_TO_ACTION_CONTACT_US
             ):
                 raise AssetNotFoundError(
-                    f"If you have interest in downloading {entry.display_name}, reach out to us at qai-hub-support@qti.qualcomm.com."
+                    f"If you have interest in downloading {entry.display_name}, reach out to us at ai-hub-support@qti.qualcomm.com."
                 )
             if (
                 info_proto.llm_details.call_to_action
                 == info_pb2.ModelInfo.LLMDetails.CALL_TO_ACTION_CONTACT_FOR_DOWNLOAD
             ):
                 raise AssetNotFoundError(
-                    f"Pre-compiled model files for {entry.display_name} are available for download. Reach out to us at qai-hub-support@qti.qualcomm.com."
+                    f"Pre-compiled model files for {entry.display_name} are available for download. Reach out to us at ai-hub-support@qti.qualcomm.com."
                 )
             if (
                 info_proto.llm_details.call_to_action
                 == info_pb2.ModelInfo.LLMDetails.CALL_TO_ACTION_CONTACT_FOR_PURCHASE
             ):
                 raise AssetNotFoundError(
-                    f"Pre-compiled model files for {entry.display_name} are available for purchase. Reach out to us at qai-hub-support@qti.qualcomm.com."
+                    f"Pre-compiled model files for {entry.display_name} are available for purchase. Reach out to us at ai-hub-support@qti.qualcomm.com."
                 )
 
         if info_proto.restrict_model_sharing:
@@ -141,7 +136,7 @@ def get_model_release_assets(
 
         raise AssetNotFoundError(
             f"No pre-compiled model files are available for {entry.display_name}. Reach out to us at"
-            " qai-hub-support@qti.qualcomm.com."
+            " ai-hub-support@qti.qualcomm.com."
         )
 
     return proto
@@ -325,13 +320,13 @@ def filter_release_assets(
 
     Raises
     ------
-    ValueError
+    CLIUserError
         If both *chipset* and *device* are provided.
     KeyError
         If *runtime*, *precision*, *chipset*, or *device* is not known.
     """
     if chipset is not None and device is not None:
-        raise ValueError("Provide at most one of 'chipset' or 'device'.")
+        raise CLIUserError("Provide at most one of 'chipset' or 'device'.")
 
     if sdk_versions:
         validate_sdk_tools(sdk_versions)
@@ -419,14 +414,14 @@ def get_model_asset_details(
 
     Raises
     ------
-    ValueError
+    CLIUserError
         If both *chipset* and *device* are provided.
     KeyError
         If no matching asset is found, if *chipset* is missing for an
         AOT-compiled runtime, or if *chipset*/*device* is not known.
     """
     if chipset is not None and device is not None:
-        raise ValueError("Provide at most one of 'chipset' or 'device'.")
+        raise CLIUserError("Provide at most one of 'chipset' or 'device'.")
 
     model = release_assets.model_id
     runtime_val = runtime_str_to_proto(runtime, platform.runtimes)

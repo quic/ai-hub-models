@@ -13,6 +13,7 @@ import pytest
 from packaging.version import Version
 
 from qai_hub_models_cli.envvars import FORCE_MANIFEST_ROOT_ENVVAR
+from qai_hub_models_cli.errors import CLIUserError
 from qai_hub_models_cli.proto.info_pb2 import (
     ModelDomain,
     ModelInfo,
@@ -499,7 +500,7 @@ class TestFilterReleaseAssets:
         assert {a.chipset for a in by_chipset.assets} == expected
         assert {a.chipset for a in by_device.assets} == expected
 
-        with pytest.raises(ValueError, match="at most one"):
+        with pytest.raises(CLIUserError, match="at most one"):
             filter_release_assets(
                 assets, platform, chipset="sd8gen3", device="Samsung Galaxy S24"
             )
@@ -554,13 +555,13 @@ class TestFilterReleaseAssets:
 
         # Bad syntax is rejected at parse time; an empty version and an unknown
         # tool at match time.
-        with pytest.raises(ValueError, match="tool=version"):
+        with pytest.raises(CLIUserError, match="tool=version"):
             parse_sdk_version_filters(["2.20"])
-        with pytest.raises(ValueError, match="is empty"):
+        with pytest.raises(CLIUserError, match="is empty"):
             filter_release_assets(
                 assets, platform, sdk_versions=parse_sdk_version_filters(["litert="])
             )
-        with pytest.raises(ValueError, match="Unknown SDK tool"):
+        with pytest.raises(CLIUserError, match="Unknown SDK tool"):
             filter_release_assets(
                 assets, platform, sdk_versions=parse_sdk_version_filters(["foo=1.0"])
             )
@@ -677,7 +678,7 @@ class TestResolveChipset:
         assert resolve_chipset(cs, dv, chipset="Snapdragon 8 Gen 3").name == expected
         assert resolve_chipset(cs, dv, chipset="sd8gen3").name == expected
 
-        with pytest.raises(ValueError, match="exactly one"):
+        with pytest.raises(CLIUserError, match="exactly one"):
             resolve_chipset(cs, dv)
         with pytest.raises(KeyError, match="qai-hub-models devices"):
             resolve_chipset(cs, dv, device="nope")

@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from qai_hub_models_cli.errors import CLIUserError
 from qai_hub_models_cli.proto.shared.tool_versions_pb2 import ToolVersions
 
 # Tool version proto fields paired with their display labels, in display order.
@@ -42,7 +43,7 @@ def format_tool_versions(tool_versions: ToolVersions) -> str:
 
 
 def validate_sdk_tools(sdk_versions: dict[str, str]) -> None:
-    """Raise ``ValueError`` if any key in *sdk_versions* is not a known SDK tool.
+    """Raise ``CLIUserError`` if any key in *sdk_versions* is not a known SDK tool.
 
     Unlike :func:`tool_versions_match` (which only validates when an asset is
     actually compared), this checks the tool names eagerly so a typo is reported
@@ -51,7 +52,7 @@ def validate_sdk_tools(sdk_versions: dict[str, str]) -> None:
     for tool in sdk_versions:
         if tool not in _SDK_FILTER_TOOLS:
             valid = ", ".join(SDK_FILTER_TOOL_NAMES)
-            raise ValueError(f"Unknown SDK tool {tool!r}. Valid tools: {valid}.")
+            raise CLIUserError(f"Unknown SDK tool {tool!r}. Valid tools: {valid}.")
 
 
 def tool_versions_match(
@@ -78,18 +79,18 @@ def tool_versions_match(
 
     Raises
     ------
-    ValueError
+    CLIUserError
         If a tool name does not match a known tool.
     """
     for tool, version in sdk_versions.items():
         field = _SDK_FILTER_TOOLS.get(tool)
         if field is None:
             valid = ", ".join(SDK_FILTER_TOOL_NAMES)
-            raise ValueError(f"Unknown SDK tool {tool!r}. Valid tools: {valid}.")
+            raise CLIUserError(f"Unknown SDK tool {tool!r}. Valid tools: {valid}.")
         if not version:
             # An empty version is a substring of everything, so without this
             # guard it would silently pass every asset.
-            raise ValueError(
+            raise CLIUserError(
                 f"SDK version filter for {tool!r} is empty. "
                 "Use 'tool=version' syntax, e.g. 'litert=1.4.4'."
             )

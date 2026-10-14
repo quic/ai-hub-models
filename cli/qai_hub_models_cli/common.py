@@ -13,12 +13,15 @@ from pathlib import Path
 import platformdirs
 from packaging.version import Version
 
+from qai_hub_models_cli.errors import CLIUserError
+
 CACHE_DIR = Path(platformdirs.user_cache_dir("qai_hub_models")) / "cli"
 STORE_URL = "https://qaihub-public-assets.s3.us-west-2.amazonaws.com"
 ASSET_FOLDER = "qai-hub-models/models/{model_id}/releases/v{version}"
 
 GITHUB_REPO_URL = "https://github.com/qualcomm/ai-hub-models"
 AIHUB_MODELS_URL = "https://aihub.qualcomm.com/models"
+SUPPORT_EMAIL = "ai-hub-support@qti.qualcomm.com"
 
 # Shared store root for both the CLI and the heavy ``qai_hub_models`` package,
 # so registry files and asset caches always land in the same place.
@@ -61,13 +64,13 @@ def parse_sdk_version_filters(queries: list[str]) -> dict[str, str]:
 
     Raises
     ------
-    ValueError
+    CLIUserError
         If any query is not of the form ``tool=version``.
     """
     parsed: dict[str, str] = {}
     for query in queries:
         if "=" not in query:
-            raise ValueError(
+            raise CLIUserError(
                 f"Invalid SDK version filter {query!r}. "
                 "Use 'tool=version' syntax, e.g. 'litert=1.4.4'."
             )

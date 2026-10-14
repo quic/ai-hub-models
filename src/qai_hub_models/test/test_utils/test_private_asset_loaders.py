@@ -11,6 +11,7 @@ from tempfile import TemporaryDirectory
 from zipfile import ZipFile
 
 import pytest
+from qai_hub_models_cli.errors import CLIUserError
 
 from qai_hub_models.utils.asset_loaders import ModelZooAssetConfig
 from qai_hub_models.utils.private_asset_loaders import (
@@ -257,7 +258,7 @@ class TestCachedPrivateAssetFetch:
                 Path(tmpdir) / "key.zip",
                 cfg,
             )
-            with pytest.raises(ValueError, match="validate_aws_credentials"):
+            with pytest.raises(CLIUserError, match="validate_aws_credentials"):
                 asset.fetch()
 
     def test_fetch_downloads_with_profile(

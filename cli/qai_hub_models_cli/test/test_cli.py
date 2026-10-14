@@ -17,6 +17,8 @@ from qai_hub_models_cli.cli import (
     _check_version_match,
     main,
 )
+from qai_hub_models_cli.common import SUPPORT_EMAIL
+from qai_hub_models_cli.errors import CLIUserError
 
 
 def _subcommand_choices(parser: argparse.ArgumentParser) -> set[str]:
@@ -27,7 +29,7 @@ def _subcommand_choices(parser: argparse.ArgumentParser) -> set[str]:
     return set(subparsers_action.choices)
 
 
-class _StubRecipeSourceUnavailableError(Exception):
+class _StubRecipeSourceUnavailableError(CLIUserError):
     """Stands in for the heavy side's ``RecipeSourceUnavailableError``."""
 
 
@@ -151,13 +153,13 @@ def test_dispatch_surfaces_source_unavailable_error(
 def test_dispatch_surfaces_user_error_message(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """A plain exception keeps its own text instead of the support-email message.
+    """A CLIUserError prints only its own text: no stack trace, no support email.
 
-    Unknown ids, bad flags and missing datasets all arrive here as ordinary
-    exceptions; wrapping them hid the one line that told the user what to fix.
+    Unknown ids, bad flags and missing datasets are the user's to fix; a stack
+    trace or bug report prompt would bury the one line that says how.
     """
     mock_run = MagicMock(
-        side_effect=ValueError("Unknown model 'typo'. Did you mean 'mobilenet_v2'?")
+        side_effect=CLIUserError("Unknown model 'typo'. Did you mean 'mobilenet_v2'?")
     )
     with (
         patch("qai_hub_models_cli.cli._check_version_match"),
@@ -169,9 +171,32 @@ def test_dispatch_surfaces_user_error_message(
         pytest.raises(SystemExit),
     ):
         main(["export", "mobilenet_v2"])
-    out = capsys.readouterr().out
-    assert "Did you mean 'mobilenet_v2'?" in out
-    assert "ai-hub-support@qti.qualcomm.com" not in out
+    captured = capsys.readouterr()
+    assert "Did you mean 'mobilenet_v2'?" in captured.out
+    assert "Traceback" not in captured.err
+    assert SUPPORT_EMAIL not in captured.out + captured.err
+
+
+def test_dispatch_unexpected_error_shows_traceback_and_support_email(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A non-CLIUserError is a bug: users need the trace and where to send it."""
+    mock_run = MagicMock(side_effect=AttributeError("'NoneType' has no attribute 'x'"))
+    with (
+        patch("qai_hub_models_cli.cli._check_version_match"),
+        patch("qai_hub_models_cli.cli.is_heavy_package_installed", return_value=True),
+        patch.dict(
+            sys.modules,
+            _stub_heavy_modules({"mobilenet_v2"}, run_model_script=mock_run),
+        ),
+        pytest.raises(SystemExit) as exc,
+    ):
+        main(["export", "mobilenet_v2"])
+    err = capsys.readouterr().err
+    assert exc.value.code == 1
+    assert "Traceback" in err
+    assert "'NoneType' has no attribute 'x'" in err
+    assert SUPPORT_EMAIL in err
 
 
 def test_dispatch_missing_model_arg_exits_with_usage_hint(

@@ -19,6 +19,7 @@ from huggingface_hub.errors import (
     RepositoryNotFoundError,
     RevisionNotFoundError,
 )
+from qai_hub_models_cli.errors import CLIUserError
 
 _MANIFEST_NAME = "manifest.yaml"
 
@@ -49,7 +50,7 @@ def download_recipe_from_hf(
 
     Raises
     ------
-    ValueError
+    CLIUserError
         If the repo does not exist, is gated, the revision is unknown, or the
         repo has no ``manifest.yaml`` at its root.
     """
@@ -60,22 +61,22 @@ def download_recipe_from_hf(
     try:
         remote_files = list_repo_files(repo_id, revision=revision, token=token)
     except GatedRepoError as e:
-        raise ValueError(
+        raise CLIUserError(
             f"{repo_id!r} is gated. Accept its terms at "
             f"https://huggingface.co/{repo_id} and make sure your HuggingFace "
             "token is configured, then try again."
         ) from e
     except RepositoryNotFoundError as e:
-        raise ValueError(
+        raise CLIUserError(
             f"No HuggingFace repo named {repo_id!r}. Check the id, or pass a "
             "local folder path instead. Private repos need a token via "
             "`huggingface-cli login` or HF_TOKEN."
         ) from e
     except RevisionNotFoundError as e:
-        raise ValueError(f"{repo_id!r} has no revision {revision!r}.") from e
+        raise CLIUserError(f"{repo_id!r} has no revision {revision!r}.") from e
 
     if _MANIFEST_NAME not in remote_files:
-        raise ValueError(
+        raise CLIUserError(
             f"{repo_id!r} has no {_MANIFEST_NAME} at its root, so it is not a "
             "recipe folder -- nothing was downloaded. Repos published with "
             "`qai-hub-models upload-to-hf` keep the recipe at the repo root."
