@@ -725,6 +725,12 @@ def process_e2e_recipe_model(
             for summary in summaries:
                 if summary.params.path.is_published:
                     summary.add_to_perf(merged, include_failures=False)
+            # The merge inherits supported_chipsets from the committed card and
+            # only ever unions onto it, so a chipset the scorecard never ran is
+            # never dropped. Skip a co-owned card: it would lose the chipsets
+            # the other writer's components establish.
+            if sync_code_gen and owned_components is None:
+                merged.drop_chipsets_without_assets(model_id)
             merged.apply_similar_devices(load_similar_devices())
             card_path = merged.to_model_yaml(model_id)
             print_with_id(f"Wrote {card_path}")

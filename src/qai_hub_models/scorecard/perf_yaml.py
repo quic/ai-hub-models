@@ -20,6 +20,7 @@ from qai_hub_models.configs.proto_helpers import precision_to_proto, runtime_to_
 from qai_hub_models.configs.tool_versions import ToolVersions
 from qai_hub_models.scorecard import ScorecardDevice, ScorecardProfilePath
 from qai_hub_models.scorecard.device import compute_peer_chipsets
+from qai_hub_models.scorecard.release_assets_yaml import QAIHMModelReleaseAssets
 from qai_hub_models.scorecard.results.chipset_helpers import (
     get_supported_devices,
     sorted_chipsets,
@@ -349,6 +350,34 @@ class QAIHMModelPerf(BaseQAIHMConfig):
                 precision_details.components.pop(name, None)
             if not precision_details.components:
                 self.precisions.pop(precision, None)
+
+    def drop_chipsets_without_assets(self, model_id: str) -> None:
+        """
+        Drop claimed chipsets this model ships no context binary for.
+
+        Subtractive only, and a no-op when the model publishes a universal
+        asset: that one file runs on any chipset via CPU fallback, so its reach
+        isn't enumerable from the asset list. Call before
+        ``apply_similar_devices``, which re-adds the borrowed devices on top.
+
+        Parameters
+        ----------
+        model_id
+            Model whose ``release-assets.yaml`` lists the published assets.
+        """
+        assets = QAIHMModelReleaseAssets.from_model(model_id, not_exists_ok=True)
+        asset_chipsets: set[str] = set()
+        for precision_details in assets.precisions.values():
+            if precision_details.universal_assets:
+                return
+            for chipset in precision_details.chipset_assets:
+                asset_chipsets |= compute_peer_chipsets(chipset)
+        if not asset_chipsets:
+            return
+
+        supported_chipsets = set(self.supported_chipsets) & asset_chipsets
+        self.supported_chipsets = sorted_chipsets(supported_chipsets)
+        self.supported_devices = get_supported_devices(supported_chipsets)
 
     @classmethod
     def from_model(

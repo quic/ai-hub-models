@@ -346,7 +346,9 @@ def remove_perf_failures(
                 if path_perf:
                     performance_metrics[device] = path_perf
                     if device.available_in_hub:
-                        supported_chipsets.update(device.extended_supported_chipsets)
+                        supported_chipsets.update(
+                            device.supported_chipsets_for_paths(path_perf)
+                        )
                     else:
                         yaml = DevicesAndChipsetsYaml.load()
                         if details := yaml.devices.get(device.reference_device_name):

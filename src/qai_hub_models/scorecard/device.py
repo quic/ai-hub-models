@@ -15,6 +15,7 @@ Adds on top of the plain ``RegisteredDevice`` identity:
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from functools import cache, cached_property
 from typing import Any
 
@@ -534,7 +535,28 @@ class ScorecardDevice(HubDeviceAttributes):
         """
         If this device can run a model, get a set of all chipsets that should also be supported.
         This device's chipset will be included in the list.
+
+        Assumes the model is compiled just in time, so the mobile proxy list
+        applies. Callers that know the runtimes involved should prefer
+        ``supported_chipsets_for_paths``, which drops the proxies for assets
+        compiled ahead of time.
         """
+        return self._extended_supported_chipsets(extend_chipsets=True)
+
+    def supported_chipsets_for_paths(
+        self, paths: Iterable[ScorecardProfilePath]
+    ) -> set[str]:
+        """
+        Chipsets to claim support for when this device passes on ``paths``.
+
+        An ahead-of-time compiled asset is a context binary built for one
+        chipset; it cannot run on an older chipset the way a JIT asset can, so
+        the mobile proxy list only applies when some path is compiled on device.
+        """
+        is_jit_asset = any(not path.runtime.is_aot_compiled for path in paths)
+        return self._extended_supported_chipsets(extend_chipsets=is_jit_asset)
+
+    def _extended_supported_chipsets(self, extend_chipsets: bool) -> set[str]:
         if self.form_factor in [
             FormFactor.PHONE,
             FormFactor.TABLET,
@@ -547,7 +569,7 @@ class ScorecardDevice(HubDeviceAttributes):
                 "qualcomm-snapdragon-8gen1",
                 "qualcomm-snapdragon-888",
             ]
-            if self.chipset in mobile_chips:
+            if extend_chipsets and self.chipset in mobile_chips:
                 idx = mobile_chips.index(self.chipset)
                 # Return this chipset and all older chipsets as proxies —
                 # we don't run older devices in the scorecard.

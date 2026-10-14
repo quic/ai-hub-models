@@ -290,7 +290,9 @@ class ScorecardExportTestSummary:
 
         new_chipsets: set[str] = set()
         if self.params.device.available_in_hub:
-            new_chipsets.update(self.params.device.extended_supported_chipsets)
+            new_chipsets.update(
+                self.params.device.supported_chipsets_for_paths([self.params.path])
+            )
         elif device_details := DevicesAndChipsetsYaml.load().devices.get(
             self.params.device.reference_device_name
         ):
