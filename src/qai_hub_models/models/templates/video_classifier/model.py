@@ -5,9 +5,12 @@
 
 from __future__ import annotations
 
+import os
+
 import torch
 
 from qai_hub_models import SampleInputsType
+from qai_hub_models.configs.model_metadata import ModelMetadata
 from qai_hub_models.datasets.kinetics400 import (
     Kinetics400Dataset,
     preprocess_video_kinetics_400,
@@ -28,6 +31,7 @@ from qai_hub_models.utils.input_spec import (
     OutputSpec,
     TensorSpec,
 )
+from qai_hub_models.utils.labels import write_labels_file
 
 MODEL_ID = "video_classifier"
 MODEL_ASSET_VERSION = 1
@@ -130,8 +134,16 @@ class KineticsClassifier(BaseModel):
             "class_probs": TensorSpec(
                 io_type=IoType.TENSOR,
                 softmax_applied=True,
+                labels_file="kinetics400_labels.txt",
             ),
         }
+
+    def write_supplementary_files(
+        self,
+        output_dir: str | os.PathLike,
+        metadata: ModelMetadata,
+    ) -> None:
+        write_labels_file("kinetics400", output_dir, metadata)
 
     def get_evaluator(self) -> BaseEvaluator:
         return VideoClassificationEvaluator(num_classes=400)
