@@ -11,7 +11,10 @@ import torch
 from torch import nn
 from typing_extensions import Self
 
-from qai_hub_models.models.hrnet_face.dataset import COFWDataset
+from qai_hub_models.models.hrnet_face.dataset import (
+    CocoFaceCalibrationDataset,
+    COFWDataset,
+)
 from qai_hub_models.models.hrnet_face.evaluator import HRNetFaceEvaluator
 from qai_hub_models.models.hrnet_face.external_repos import EXTERNAL_REPO_PATHS
 from qai_hub_models.models.hrnet_face.external_repos.hrnet_facial_landmark_detection.lib.config import (
@@ -102,7 +105,7 @@ class HRNetFace(BaseModel):
         return [COFWDataset]
 
     def get_calibration_dataset_cls(self) -> type[BaseDataset]:
-        return COFWDataset
+        return CocoFaceCalibrationDataset
 
     def get_input_spec(
         self,
