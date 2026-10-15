@@ -321,7 +321,7 @@ class PytorchWorkbenchModel(WorkbenchModel, torch.nn.Module):
                 f"torch.export failed with torch=={torch.__version__}. Different "
                 "torch versions can export different graphs; this failure may be "
                 "due to using a torch version other than the one AI Hub Models is "
-                f"tested with (torch=={get_tested_torch_version()})."
+                f"tested with (torch=={get_tested_torch_version()}). Original error: {e}"
             ) from e
         torch.export.save(exported, output_path)
         return output_path
