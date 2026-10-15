@@ -238,6 +238,7 @@ jobs:
         GENIEX_SCOPE: ${{ inputs.scope || 'perf' }}
         QAIHM_TEST_QAIRT_VERSION: ${{ inputs.qairt_version || 'qaihm_default' }}
         QAIHM_LLM_PERF_RELEASE_ASSETS: ${{ inputs.release_assets_action_id != '' && format('{0}/llm-release-assets/release-assets.yaml', github.workspace) || '' }}
+        QAIHM_LLM_PERF_UPDATES: ${{ github.workspace }}/geniex_perf_updates_${{ matrix.pool }}.jsonl
         # Lets S3 credentials self-refresh via OIDC past the 12h session cap.
         AWS_ROLE_ARN: ${{ secrets.QAIHM_CI_AWS_ROLE_ARN }}
         AWS_DEVICEFARM_PROJECT_ARN: ${{ secrets.QAIHM_AWS_DEVICEFARM_PROJECT_ARN }}
@@ -267,7 +268,6 @@ jobs:
           --plugin "$GENIEX_BENCH_PLUGIN" \
           --precisions "$GENIEX_BENCH_PRECISIONS" \
           --jobs-file "$JOBS_FILE" \
-          --perf-updates-json "$GITHUB_WORKSPACE/geniex_perf_updates_${{ matrix.pool }}.jsonl" \
           "${extra[@]}"
 
     - name: Upload geniex-bench results

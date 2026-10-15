@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import json
 import os
 import shutil
 import sys
@@ -34,6 +33,7 @@ from qai_hub_models.scorecard.device import ScorecardDevice
 from qai_hub_models.scorecard.envvars import (
     IgnoreKnownFailuresEnvvar,
     LLMPerfPrecisionsEnvvar,
+    LLMPerfUpdatesEnvvar,
     QAIRTVersionEnvvar,
     SpecialLLMPerfPrecisionSetting,
 )
@@ -520,17 +520,19 @@ def _collect_one(
     return metrics, eval_results, status, job_failure
 
 
-def _rows_and_updates_from_metrics(
+def _rows_from_metrics(
     model_id: str,
     sd: ScorecardDevice,
     plugin: str,
     precision: Precision,
     metrics: list[GenieXBenchMetrics],
     skip_perf_update: bool,
-) -> tuple[list[dict], list[dict]]:
-    """Extracted formatting so ``run`` and ``collect`` share output shape."""
+) -> list[dict]:
+    """Extracted formatting so ``run`` and ``collect`` share output shape.
+
+    Also upserts perf.yaml, which logs each metric to LLMPerfUpdatesEnvvar.
+    """
     csv_rows: list[dict] = []
-    perf_updates: list[dict] = []
     for m in metrics:
         base_plugin = m.plugin or plugin
         plugin_label = (
@@ -576,20 +578,6 @@ def _rows_and_updates_from_metrics(
                     else None
                 ),
             )
-            update_kwargs = dict(
-                model_id=model_id,
-                device_name=sd.reference_device_name,
-                precision=str(precision),
-                context_length=m.context_length,
-                tps=m.decode_tps,
-                ttft_ms=ttft_min,
-                prefill_tps=m.prefill_tps,
-                ttft_max_ms=ttft_max,
-                profile_path=profile_path.value,
-                desired_compute_unit=m.device_alias,
-                tool_versions=tool_versions.model_dump(mode="json", exclude_none=True),
-            )
-            perf_updates.append(update_kwargs)
             update_perf_yaml(
                 model_id=model_id,
                 device_name=sd.reference_device_name,
@@ -603,7 +591,7 @@ def _rows_and_updates_from_metrics(
                 desired_compute_unit=m.device_alias,
                 tool_versions=tool_versions,
             )
-    return csv_rows, perf_updates
+    return csv_rows
 
 
 def _iter_work(
@@ -715,12 +703,7 @@ def _iter_work(
                         )
 
 
-def _write_final_outputs(
-    rows: list[dict],
-    perf_updates: list[dict],
-    csv_path: str,
-    perf_updates_json: str,
-) -> int:
+def _write_final_outputs(rows: list[dict], csv_path: str) -> int:
     print(f"\n{'=' * 60}\nRESULTS SUMMARY\n{'=' * 60}")
     for r in rows:
         prec = r.get("precision", "-")
@@ -736,11 +719,6 @@ def _write_final_outputs(
 
     write_csv(rows, csv_path)
     print(f"\nResults saved to {csv_path}")
-    # JSON-lines (one update per line), matching the format emitted by
-    # update_perf_yaml so apply_llm_perf_updates.py has a single format to read.
-    with open(perf_updates_json, "w") as f:
-        f.writelines(json.dumps(u) + "\n" for u in perf_updates)
-    print(f"Wrote {len(perf_updates)} perf.yaml updates to {perf_updates_json}")
     write_summary(rows)
     # eval_only rows are successful eval-only runs (perf disabled), not failures.
     ok_statuses = {"success", "eval_only"}
@@ -855,11 +833,7 @@ def _save_eval_results(
 def _add_output_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--csv", default="geniex_bench_results.csv")
     parser.add_argument("--skip-perf-update", action="store_true")
-    parser.add_argument(
-        "--perf-updates-json",
-        default="geniex_perf_updates.jsonl",
-        help="JSON-lines log of update_perf_yaml calls; replayed by apply_llm_perf_updates.py.",
-    )
+    LLMPerfUpdatesEnvvar.add_arg(parser, default=Path("geniex_perf_updates.jsonl"))
 
 
 def _resolve_qairt_version(args: argparse.Namespace) -> str | None:
@@ -941,7 +915,6 @@ def _cmd_collect(args: argparse.Namespace) -> int:
     """
     eval_prompts = _resolve_eval_prompts(args.run_eval)
     rows: list[dict] = []
-    perf_updates: list[dict] = []
     records = load_jobs(args.jobs_file)
     for (
         plugin,
@@ -981,7 +954,7 @@ def _cmd_collect(args: argparse.Namespace) -> int:
 
         # Recorded before collection so a bucket that fails below is still
         # dropped by apply_llm_perf_updates rather than keeping stale numbers.
-        if args.run_perf:
+        if args.run_perf and not args.skip_perf_update:
             record_perf_scope(
                 model_id=model_id,
                 profile_path=(
@@ -1023,7 +996,6 @@ def _cmd_collect(args: argparse.Namespace) -> int:
 
         _record_outcome(
             rows,
-            perf_updates,
             model_id,
             sd,
             plugin,
@@ -1035,7 +1007,7 @@ def _cmd_collect(args: argparse.Namespace) -> int:
             args.skip_perf_update,
         )
 
-    return _write_final_outputs(rows, perf_updates, args.csv, args.perf_updates_json)
+    return _write_final_outputs(rows, args.csv)
 
 
 def _status_row(
@@ -1052,7 +1024,6 @@ def _status_row(
 
 def _record_outcome(
     rows: list[dict],
-    perf_updates: list[dict],
     model_id: str,
     sd: ScorecardDevice,
     plugin: str,
@@ -1063,7 +1034,7 @@ def _record_outcome(
     job_failure: str | None,
     skip_perf_update: bool,
 ) -> None:
-    """Fold one finished (model, precision, device) into the output rows/updates."""
+    """Fold one finished (model, precision, device) into the output rows."""
     _save_eval_results(eval_results, model_id, sd, precision, plugin)
 
     # Its results are applied like any other, but the extra row keeps the
@@ -1081,11 +1052,9 @@ def _record_outcome(
         rows.append(_status_row(model_id, plugin, precision, sd, status))
         return
 
-    csv_rows, updates = _rows_and_updates_from_metrics(
-        model_id, sd, plugin, precision, metrics, skip_perf_update
+    rows.extend(
+        _rows_from_metrics(model_id, sd, plugin, precision, metrics, skip_perf_update)
     )
-    rows.extend(csv_rows)
-    perf_updates.extend(updates)
 
 
 @dataclass
@@ -1143,7 +1112,6 @@ def _cmd_run(args: argparse.Namespace) -> int:
     backends: dict[str, DeviceFarm] = {}
     in_flight: list[_Case] = []
     rows: list[dict] = []
-    perf_updates: list[dict] = []
 
     def _backend(case: _Case) -> DeviceFarm:
         return backends.setdefault(case.sd.name, get_device_farm(case.sd))
@@ -1164,7 +1132,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
             run_perf=args.run_perf,
             qairt_version=qairt_version if case.plugin == "qairt" else None,
         )
-        if args.run_perf:
+        if args.run_perf and not args.skip_perf_update:
             # Like collect: only submitted buckets are scoped, so a failed
             # submit keeps its committed numbers but a failed job drops them.
             record_perf_scope(
@@ -1191,7 +1159,6 @@ def _cmd_run(args: argparse.Namespace) -> int:
     ) -> None:
         _record_outcome(
             rows,
-            perf_updates,
             case.model_id,
             case.sd,
             case.plugin,
@@ -1258,7 +1225,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
         if pending or in_flight:
             time.sleep(args.poll_interval)
 
-    return _write_final_outputs(rows, perf_updates, args.csv, args.perf_updates_json)
+    return _write_final_outputs(rows, args.csv)
 
 
 def main() -> int:
