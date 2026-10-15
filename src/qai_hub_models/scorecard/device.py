@@ -562,6 +562,7 @@ class ScorecardDevice(HubDeviceAttributes):
             FormFactor.TABLET,
         ]:
             mobile_chips = [
+                "qualcomm-snapdragon-8-elite-gen6",
                 "qualcomm-snapdragon-8-elite-gen5-for-galaxy",
                 "qualcomm-snapdragon-8-elite-for-galaxy",
                 "qualcomm-snapdragon-8gen3",
@@ -624,6 +625,11 @@ cs_8_elite_gen_5 = ScorecardDevice.from_registered(
     name="cs_8_elite_gen_5",
     reference_device_name="Samsung Galaxy S26",
     devicefarm_backend="aws",
+)
+
+cs_8_elite_gen_6 = ScorecardDevice.from_registered(
+    registered_device.cs_8_elite_gen_6,
+    name="cs_8_elite_gen_6",
 )
 
 # Compute chipsets
