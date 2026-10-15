@@ -9,6 +9,7 @@ import types
 from typing import Any, TypeVar
 
 import torch
+from qai_hub.client import Device
 from sam3 import build_sam3_image_model
 from sam3 import model_builder as sam3_model_builder
 from sam3.model import vitdet
@@ -24,6 +25,7 @@ from sam3.model.sam3_image import Sam3Image as Sam3
 from sam3.model.text_encoder_ve import VETextEncoder
 from typing_extensions import Self
 
+from qai_hub_models import Precision, TargetRuntime
 from qai_hub_models.models.sam3.model_patches import (
     SAM3Normalize,
     SplitHeadMultiheadAttention,
@@ -70,6 +72,20 @@ class SAM3VisionBackbone(BaseModel):
     @classmethod
     def from_pretrained(cls, model_device: str = DEFAULT_MODEL_DEVICE) -> Self:
         return SAM3Loader.load(vision_backbone_cls=cls, model_device=model_device)[1]
+
+    def get_hub_compile_options(
+        self,
+        target_runtime: TargetRuntime,
+        precision: Precision,
+        other_compile_options: str = "",
+        device: Device | None = None,
+        context_graph_name: str | None = None,
+    ) -> str:
+        if target_runtime == TargetRuntime.QNN_DLC:
+            other_compile_options += " -O2"
+        return super().get_hub_compile_options(
+            target_runtime, precision, other_compile_options, device, context_graph_name
+        )
 
     def forward(
         self,
