@@ -5,10 +5,8 @@
 
 from __future__ import annotations
 
-import pytest
 import torch
 
-from qai_hub_models.models.templates.wedetect.app import tokenize_class_names
 from qai_hub_models.models.wedetect.app import WeDetectModelApp
 from qai_hub_models.models.wedetect.demo import main as demo_main
 from qai_hub_models.models.wedetect.model import (
@@ -40,38 +38,6 @@ def test_task() -> None:
     assert torch.allclose(boxes[0][0], EXPECTED_BOX, atol=1.0)
     assert abs(float(scores[0][0]) - EXPECTED_SCORE) < 0.02
     assert int(class_idx[0][0]) == 0
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    """Verify that torch.export.export of the detector produces numerically consistent output."""
-    collection = WeDetectModel.from_pretrained()
-    detector = collection.detector
-    text_encoder = collection.text_encoder
-
-    input_spec = detector.get_input_spec()
-    sample_inputs = detector.sample_inputs(input_spec)
-    image = torch.from_numpy(sample_inputs["image"][0])
-    txt_feats = torch.from_numpy(sample_inputs["txt_feats"][0])
-
-    eager_out = detector(image, txt_feats)
-
-    exported = torch.export.export(detector, (image, txt_feats))
-
-    exported_out = exported.module()(image, txt_feats)
-
-    for eager_t, exported_t in zip(eager_out, exported_out, strict=False):
-        assert torch.allclose(eager_t, exported_t, atol=1e-4)
-
-    # Verify text encoder produces expected shape for a small prompt.
-    input_ids, attention_mask = tokenize_class_names(
-        text_encoder.tokenizer,
-        ["bed", "vase", "clock"],
-        num_classes=3,
-        max_seq_len=text_encoder.max_seq_len,
-    )
-    feats = text_encoder(input_ids, attention_mask)
-    assert feats.shape == (3, 768)
 
 
 def test_demo() -> None:

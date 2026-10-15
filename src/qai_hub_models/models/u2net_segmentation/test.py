@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
 from PIL import Image
 
 from qai_hub_models.models.u2net_segmentation.app import SegmentationU2NetApp
@@ -35,22 +34,6 @@ def test_task() -> None:
     assert isinstance(output, Image.Image)
     assert output.size == image.size
 
-    expected_out = load_image(OUTPUT_ADDRESS)
-    np.testing.assert_allclose(np.array(output), np.array(expected_out), atol=1)
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    """Test TorchScript tracing produces correct output matching reference."""
-    model = SegmentationU2Net.from_pretrained()
-    app = SegmentationU2NetApp(
-        model.convert_to_torchscript(),
-        model.get_input_spec(),
-    )
-    image = load_image(IMAGE_ADDRESS).convert("RGB")
-    output = app.predict(image)
-
-    assert isinstance(output, Image.Image)
     expected_out = load_image(OUTPUT_ADDRESS)
     np.testing.assert_allclose(np.array(output), np.array(expected_out), atol=1)
 

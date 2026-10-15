@@ -3,11 +3,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-import pytest
 
 from qai_hub_models.models.templates.imagenet_classifier.test_utils import (
     run_imagenet_classifier_test,
-    run_imagenet_classifier_trace_test,
 )
 from qai_hub_models.models.wideresnet50.demo import main as demo_main
 from qai_hub_models.models.wideresnet50.model import MODEL_ID, WideResNet50
@@ -15,11 +13,6 @@ from qai_hub_models.models.wideresnet50.model import MODEL_ID, WideResNet50
 
 def test_task() -> None:
     run_imagenet_classifier_test(WideResNet50.from_pretrained(), MODEL_ID)
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    run_imagenet_classifier_trace_test(WideResNet50.from_pretrained())
 
 
 def test_demo() -> None:

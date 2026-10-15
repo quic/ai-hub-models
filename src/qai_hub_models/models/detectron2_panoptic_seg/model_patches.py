@@ -47,7 +47,7 @@ def gather_roi_align(
     ROI (peak memory O(num_rois * C * out_h * out_w)), the whole pooling
     lowers to one native GridSample op, and every grid dimension stays small
     (num_rois and out_h * out_w), which quantized HTP GridSample kernels
-    require. All shapes are static, making the op safe for torch.jit.trace
+    require. All shapes are static, making the op safe for torch.export
     and QNN compilation.
 
     Parameters

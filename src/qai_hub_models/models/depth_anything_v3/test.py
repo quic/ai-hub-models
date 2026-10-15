@@ -4,7 +4,6 @@
 # ---------------------------------------------------------------------
 
 import numpy as np
-import pytest
 
 from qai_hub_models.models.depth_anything_v3.demo import INPUT_IMAGE_ADDRESS
 from qai_hub_models.models.depth_anything_v3.demo import main as demo_main
@@ -26,20 +25,6 @@ def test_task() -> None:
     model = DepthAnythingV3.from_pretrained()
     (_, _, height, width) = model.get_input_spec()["image"][0]
     app = DepthEstimationApp(model, height, width)
-    original_image = load_image(INPUT_IMAGE_ADDRESS)
-    output_image = app.estimate_depth(original_image)
-    output_image_oracle = load_image(OUTPUT_IMAGE_ADDRESS)
-
-    np.testing.assert_allclose(
-        np.asarray(output_image), np.asarray(output_image_oracle), atol=3
-    )
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    model = DepthAnythingV3.from_pretrained()
-    (_, _, height, width) = model.get_input_spec()["image"][0]
-    app = DepthEstimationApp(model.convert_to_torchscript(), height, width)
     original_image = load_image(INPUT_IMAGE_ADDRESS)
     output_image = app.estimate_depth(original_image)
     output_image_oracle = load_image(OUTPUT_IMAGE_ADDRESS)

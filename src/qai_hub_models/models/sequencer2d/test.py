@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-import pytest
 
 from qai_hub_models.models.sequencer2d.demo import main as demo_main
 from qai_hub_models.models.sequencer2d.model import (
@@ -13,7 +12,6 @@ from qai_hub_models.models.sequencer2d.model import (
 )
 from qai_hub_models.models.templates.imagenet_classifier.test_utils import (
     run_imagenet_classifier_test,
-    run_imagenet_classifier_trace_test,
 )
 
 
@@ -24,11 +22,6 @@ def test_task() -> None:
         asset_version=MODEL_ASSET_VERSION,
         probability_threshold=0.39,
     )
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    run_imagenet_classifier_trace_test(Sequencer2D.from_pretrained(), check_trace=False)
 
 
 def test_demo() -> None:

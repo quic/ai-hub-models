@@ -6,21 +6,17 @@
 from typing import cast
 
 import numpy as np
-import pytest
 import torch
 from ultralytics.models import YOLO as ultralytics_YOLO
 from ultralytics.nn.tasks import SegmentationModel
 
 from qai_hub_models.models.templates.yolo.app import YoloSegmentationApp
 from qai_hub_models.models.templates.yolo.model import yolo_segment_postprocess
-from qai_hub_models.models.yolov11_seg.demo import IMAGE_ADDRESS, OUTPUT_IMAGE_ADDRESS
+from qai_hub_models.models.yolov11_seg.demo import IMAGE_ADDRESS
 from qai_hub_models.models.yolov11_seg.demo import main as demo_main
 from qai_hub_models.models.yolov11_seg.model import YoloV11Segmentor
 from qai_hub_models.utils.asset_loaders import load_image
 from qai_hub_models.utils.image_processing import preprocess_PIL_image
-from qai_hub_models.utils.test_helpers import (
-    assert_most_close,
-)
 
 WEIGHTS = "yolo11n-seg.pt"
 
@@ -45,27 +41,6 @@ def test_task() -> None:
         qaihm_out_postprocessed = qaihm_model(processed_sample_image)
         for i in range(len(source_out_postprocessed)):
             assert np.allclose(source_out_postprocessed[i], qaihm_out_postprocessed[i])
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    net = YoloV11Segmentor.from_pretrained(WEIGHTS)
-    input_spec = net.get_input_spec()
-    trace = net.convert_to_torchscript(input_spec, check_trace=False)
-
-    # Collect output via app for traced model
-    img = load_image(IMAGE_ADDRESS)
-    app = YoloSegmentationApp(trace)
-    out_imgs = app.predict(img)
-
-    expected_out = load_image(OUTPUT_IMAGE_ADDRESS)
-    assert_most_close(
-        np.asarray(out_imgs[0], dtype=np.float32),
-        np.asarray(expected_out, dtype=np.float32),
-        0.005,
-        rtol=0.02,
-        atol=1.5,
-    )
 
 
 def test_demo() -> None:

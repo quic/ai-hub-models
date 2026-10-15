@@ -4,7 +4,6 @@
 # ---------------------------------------------------------------------
 
 import numpy as np
-import pytest
 
 from qai_hub_models.models.gear_guard_net.app import GearGuardNetApp
 from qai_hub_models.models.gear_guard_net.demo import main as demo_main
@@ -41,23 +40,6 @@ def test_task() -> None:
     assert class_idx_pd == class_idx_gt
     assert get_iou(boxes_pd, boxes_gt) > 0.5
     assert len(boxes[0]) == 2
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    app = GearGuardNetApp(
-        GearGuardNet.from_pretrained().convert_to_torchscript(), nms_score_threshold=0.9
-    )
-    image = load_image(INPUT_IMAGE_ADDRESS.fetch())
-    boxes, _, class_idx = app.predict_boxes_from_image(image, raw_output=True)
-    boxes_pd, class_idx_pd = (
-        boxes[0][1].detach().numpy().astype(int),
-        class_idx[0][1].detach().numpy().astype(int),
-    )
-    gt = np.array(load_raw_file(GROUND_TRUTH_RESULT).split(), dtype=int)
-    boxes_gt, class_idx_gt = gt[1:5], gt[0]
-    assert class_idx_pd == class_idx_gt
-    assert get_iou(boxes_pd, boxes_gt) > 0.5
 
 
 def test_demo() -> None:

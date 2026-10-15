@@ -17,7 +17,6 @@ from qai_hub_models.models.templates.ultralytics.detect_patches import (
     patch_ultralytics_detection_head,
 )
 from qai_hub_models.models.templates.yolo.model import Yolo, yolo_detect_postprocess
-from qai_hub_models.utils.base_model import SerializationSettings
 from qai_hub_models.utils.input_spec import OutputSpec
 
 MODEL_ID = __name__.split(".")[-2]
@@ -31,10 +30,7 @@ class YoloV5(Yolo):
     def __init__(
         self, model: DetectionModel, include_postprocessing: bool = True
     ) -> None:
-        super().__init__(
-            model=model,
-            serialization_settings=SerializationSettings(check_trace=False),
-        )
+        super().__init__(model=model)
         self.include_postprocessing = include_postprocessing
         patch_ultralytics_detection_head(model)
 

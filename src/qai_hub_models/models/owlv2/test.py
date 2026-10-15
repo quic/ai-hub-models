@@ -4,7 +4,6 @@
 # ---------------------------------------------------------------------
 
 import numpy as np
-import pytest
 
 from qai_hub_models.models.owlv2.app import OwlV2CollectionApp
 from qai_hub_models.models.owlv2.demo import DEFAULT_TEXT_QUERIES, IMAGE_ADDRESS
@@ -30,31 +29,6 @@ def test_task() -> None:
     text_detector = collection_model.text_detector
     app = OwlV2CollectionApp(
         vision_encoder, text_detector, HF_MODEL_ID, IMAGE_SIZE, IMAGE_SIZE
-    )
-    output_image = load_image(OUTPUT_IMAGE_ADDRESS)
-    image = load_image(IMAGE_ADDRESS)
-    assert_most_close(
-        np.asarray(app.predict_boxes_from_image(image, DEFAULT_TEXT_QUERIES)[0]),
-        np.asarray(output_image),
-        0.05,
-        0.05,
-        1,
-    )
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    collection_model = OwlV2.from_pretrained()
-    vision_encoder = collection_model.vision_encoder
-    vision_spec = vision_encoder.get_input_spec()
-    text_detector = collection_model.text_detector
-    text_spec = text_detector.get_input_spec()
-    app = OwlV2CollectionApp(
-        vision_encoder.convert_to_torchscript(vision_spec),
-        text_detector.convert_to_torchscript(text_spec),
-        HF_MODEL_ID,
-        IMAGE_SIZE,
-        IMAGE_SIZE,
     )
     output_image = load_image(OUTPUT_IMAGE_ADDRESS)
     image = load_image(IMAGE_ADDRESS)

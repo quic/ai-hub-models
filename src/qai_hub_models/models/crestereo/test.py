@@ -4,8 +4,6 @@
 # ---------------------------------------------------------------------
 
 import numpy as np
-import pytest
-import torch
 
 from qai_hub_models.models.crestereo.app import CREStereoApp
 from qai_hub_models.models.crestereo.demo import DEFAULT_LEFT_IMAGE, DEFAULT_RIGHT_IMAGE
@@ -25,7 +23,7 @@ OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 )
 
 
-def _run_test(model: CREStereo | torch.jit.ScriptModule) -> None:
+def _run_test(model: CREStereo) -> None:
     left = load_image(DEFAULT_LEFT_IMAGE)
     right = load_image(DEFAULT_RIGHT_IMAGE)
 
@@ -45,11 +43,6 @@ def _run_test(model: CREStereo | torch.jit.ScriptModule) -> None:
 
 def test_task() -> None:
     _run_test(CREStereo.from_pretrained())
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    _run_test(CREStereo.from_pretrained().convert_to_torchscript())
 
 
 def test_demo() -> None:

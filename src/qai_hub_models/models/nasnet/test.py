@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-import pytest
 
 from qai_hub_models.models.nasnet.demo import main as demo_main
 from qai_hub_models.models.nasnet.model import (
@@ -14,7 +13,6 @@ from qai_hub_models.models.nasnet.model import (
 )
 from qai_hub_models.models.templates.imagenet_classifier.test_utils import (
     run_imagenet_classifier_test,
-    run_imagenet_classifier_trace_test,
 )
 
 
@@ -24,14 +22,6 @@ def test_task() -> None:
         MODEL_ID,
         asset_version=MODEL_ASSET_VERSION,
         probability_threshold=0.39,
-        transform=NASNET_TRANSFORM,
-    )
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    run_imagenet_classifier_trace_test(
-        NASNet.from_pretrained(),
         transform=NASNET_TRANSFORM,
     )
 

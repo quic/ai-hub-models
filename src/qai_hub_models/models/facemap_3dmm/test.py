@@ -50,29 +50,5 @@ def test_task() -> None:
     )
 
 
-def test_trace() -> None:
-    app = FaceMap_3DMMApp(FaceMap_3DMM.from_pretrained().convert_to_torchscript())
-    input_image = io.imread(INPUT_IMAGE_PATH.fetch())
-
-    # Get face bounding box info (from file or face detector)
-    fbox = np.loadtxt(INPUT_FBOX_PATH.fetch())
-    x0, x1, y0, y1 = (
-        np.int32(fbox[0]),
-        np.int32(fbox[1]),
-        np.int32(fbox[2]),
-        np.int32(fbox[3]),
-    )
-
-    lmk, _ = app.landmark_prediction(input_image, x0, x1, y0, y1)
-    lmk_gt = np.loadtxt(GT_LMK_PATH.fetch())
-
-    assert (
-        np.sqrt(np.sum((lmk.detach().cpu().numpy() - lmk_gt) ** 2, 1).mean())
-        / (x1 - x0 + 1)
-        * 100
-        < 1.0
-    )
-
-
 def test_demo() -> None:
     demo_main(is_test=True)

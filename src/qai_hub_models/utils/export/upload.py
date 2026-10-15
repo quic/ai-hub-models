@@ -2,7 +2,7 @@
 # Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-"""Upload the model's source (TorchScript) to AI Hub."""
+"""Upload the model's source to AI Hub."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ from qai_hub_models.utils.input_spec import InputSpec
 
 
 def upload_source(model: BaseModel, input_spec: InputSpec | None = None) -> hub.Model:
-    """Serialize the model to TorchScript and upload it to AI Hub."""
+    """Serialize the model and upload it to AI Hub."""
     input_spec = input_spec or model.get_input_spec()
     with tempfile.TemporaryDirectory() as tmpdir:
         return hub.upload_model(str(model.serialize(tmpdir, input_spec)))
@@ -36,7 +36,7 @@ def upload_collection_source(
     input_specs: dict[str, InputSpec] | None = None,
     components: list[str] | None = None,
 ) -> ComponentGroup[hub.Model]:
-    """Serialize and upload each component's TorchScript source model."""
+    """Serialize and upload each component's source model."""
     input_specs = input_specs or model.get_input_spec()
     components = components or model.component_names
     uploaded: ComponentGroup[hub.Model] = ComponentGroup()

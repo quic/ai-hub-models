@@ -101,29 +101,3 @@ def run_imagenet_classifier_test(
     assert predicted_class == expected_class, (
         f"Model predicted class {predicted_class} when correct class was {expected_class}."
     )
-
-
-def run_imagenet_classifier_trace_test(
-    model: ImagenetClassifier,
-    diff_tol: float = 0.005,
-    rtol: float = 0.0,
-    atol: float = 1e-4,
-    is_quantized: bool = False,
-    check_trace: bool = True,
-    transform: transforms.Compose = IMAGENET_TRANSFORM,
-) -> None:
-    img = load_image(TEST_IMAGENET_IMAGE)
-    app = ImagenetClassifierApp(model, transform=transform)
-    if not is_quantized:
-        trace_app = ImagenetClassifierApp(
-            model.convert_to_torchscript(check_trace=check_trace),
-            transform=transform,
-        )
-    else:
-        trace_app = ImagenetClassifierApp(
-            model.convert_to_torchscript(),
-            transform=transform,
-        )
-    probabilities = app.predict(img)
-    trace_probs = trace_app.predict(img)
-    assert_most_close(probabilities.numpy(), trace_probs.numpy(), diff_tol, rtol, atol)

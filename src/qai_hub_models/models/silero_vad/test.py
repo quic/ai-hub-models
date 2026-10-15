@@ -8,7 +8,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
-import pytest
 import scipy.io.wavfile
 import torch
 from silero_vad import load_silero_vad
@@ -126,30 +125,6 @@ def test_task(tmp_path: Path) -> None:
         assert "start" in seg and "end" in seg
         assert seg["start"] >= 0.0
         assert seg["end"] > seg["start"]
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    """TorchScript trace produces outputs numerically identical to eager."""
-    model = SileroVAD.from_pretrained()
-    chunk, state, context = _make_inputs()
-
-    with torch.no_grad():
-        prob_eager, state_eager, ctx_eager = model(chunk, state, context)
-
-    traced = torch.jit.trace(model, (chunk, state, context))
-    with torch.no_grad():
-        prob_traced, state_traced, ctx_traced = traced(chunk, state, context)
-
-    np.testing.assert_allclose(
-        prob_eager.numpy(), prob_traced.numpy(), rtol=1e-5, atol=1e-5
-    )
-    np.testing.assert_allclose(
-        state_eager.numpy(), state_traced.numpy(), rtol=1e-5, atol=1e-5
-    )
-    np.testing.assert_allclose(
-        ctx_eager.numpy(), ctx_traced.numpy(), rtol=1e-5, atol=1e-5
-    )
 
 
 def test_demo() -> None:

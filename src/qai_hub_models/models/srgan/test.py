@@ -5,7 +5,6 @@
 
 
 import numpy as np
-import pytest
 
 from qai_hub_models.models.srgan.demo import main as demo_main
 from qai_hub_models.models.srgan.model import MODEL_ASSET_VERSION, MODEL_ID, SRGAN
@@ -25,20 +24,6 @@ def test_task() -> None:
     app = SuperResolutionApp(model=model)
     app_output_image = app.upscale_image(image)[0]
 
-    np.testing.assert_allclose(
-        np.asarray(app_output_image, dtype=np.float32) / 255,
-        np.asarray(output_image, dtype=np.float32) / 255,
-        rtol=0.02,
-        atol=0.2,
-    )
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    image = load_image(IMAGE_ADDRESS)
-    output_image = load_image(OUTPUT_IMAGE_ADDRESS)
-    app = SuperResolutionApp(SRGAN.from_pretrained().convert_to_torchscript())
-    app_output_image = app.upscale_image(image)[0]
     np.testing.assert_allclose(
         np.asarray(app_output_image, dtype=np.float32) / 255,
         np.asarray(output_image, dtype=np.float32) / 255,

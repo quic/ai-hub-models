@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from contextlib import nullcontext
 from pathlib import Path
-from typing import Any, NamedTuple, cast
+from typing import Any, cast
 
 import torch
 from qai_hub.client import Device
@@ -46,19 +46,14 @@ from qai_hub_models.utils.qai_hub_helpers import (
 from qai_hub_models.utils.transpose_channel import (
     transpose_channel_first_to_last,
 )
+from qai_hub_models.utils.version_helpers import get_tested_torch_version
 
 __all__ = [
     "BaseModel",
     "PrecompiledWorkbenchModel",
     "PytorchWorkbenchModel",
-    "SerializationSettings",
     "WorkbenchModel",
 ]
-
-
-class SerializationSettings(NamedTuple):
-    use_pt2: bool = True
-    check_trace: bool = True
 
 
 def _model_cls_name(cls_instance: Any) -> str:
@@ -284,12 +279,10 @@ class PytorchWorkbenchModel(WorkbenchModel, torch.nn.Module):
     def __init__(
         self,
         model: torch.nn.Module | None = None,
-        serialization_settings: SerializationSettings | None = None,
     ) -> None:
         torch.nn.Module.__init__(self)
         self.eval()
         self.model = cast(torch.nn.Module, model)
-        self.serialization_settings = serialization_settings or SerializationSettings()
 
     def __setattr__(self, name: str, value: Any) -> None:
         """
@@ -309,45 +302,28 @@ class PytorchWorkbenchModel(WorkbenchModel, torch.nn.Module):
         with context_fn():
             return torch.nn.Module.__call__(self, *args, **kwargs)
 
-    def convert_to_torchscript(
-        self, input_spec: InputSpec | None = None, check_trace: bool = True
-    ) -> Any:
-        """Converts the torch module to a torchscript trace."""
-        input_spec = input_spec or self.get_input_spec()
-        self.eval()
-        return torch.jit.trace(
-            self, make_torch_inputs(input_spec), check_trace=check_trace
-        )
-
     def serialize(
         self,
         output_dir: str | os.PathLike,
         input_spec: InputSpec | None = None,
     ) -> Path:
         """Serialize this model to disk. The serialized model will be uploaded to AI Hub Workbench during export."""
-        if self.serialization_settings.use_pt2:
-            if torch.torch_version.TorchVersion(torch.__version__) < "2.9":
-                raise RuntimeError(
-                    "This model does serialization using the pt2 format, which "
-                    "requires torch>=2.9; Please upgrade your torch version to proceed."
-                )
-            input_spec = input_spec or self.get_input_spec()
-            output_path = Path(output_dir) / f"{self.name}.pt2"
-            self.to("cpu").eval()
+        input_spec = input_spec or self.get_input_spec()
+        output_path = Path(output_dir) / f"{self.name}.pt2"
+        self.to("cpu").eval()
+        try:
             with torch.no_grad():
                 exported = torch.export.export(
                     self, tuple(make_torch_inputs(input_spec))
                 )
-            torch.export.save(exported, output_path)
-        else:
-            output_path = Path(output_dir) / f"{self.name}.pt"
-            input_spec = input_spec or self.get_input_spec()
-            torch.jit.save(
-                self.convert_to_torchscript(
-                    input_spec, check_trace=self.serialization_settings.check_trace
-                ),
-                output_path,
-            )
+        except Exception as e:
+            raise RuntimeError(
+                f"torch.export failed with torch=={torch.__version__}. Different "
+                "torch versions can export different graphs; this failure may be "
+                "due to using a torch version other than the one AI Hub Models is "
+                f"tested with (torch=={get_tested_torch_version()})."
+            ) from e
+        torch.export.save(exported, output_path)
         return output_path
 
 

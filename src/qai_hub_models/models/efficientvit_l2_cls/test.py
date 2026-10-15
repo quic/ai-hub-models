@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-import pytest
 import torch
 
 from qai_hub_models.models.efficientvit_l2_cls.demo import main as demo_main
@@ -14,7 +13,6 @@ from qai_hub_models.models.templates.imagenet_classifier.app import (
 from qai_hub_models.models.templates.imagenet_classifier.test_utils import (
     TEST_IMAGENET_CLASS,
     TEST_IMAGENET_IMAGE,
-    run_imagenet_classifier_trace_test,
 )
 from qai_hub_models.utils.asset_loaders import load_image
 from qai_hub_models.utils.image_processing import IMAGENET_TRANSFORM
@@ -26,11 +24,6 @@ def test_task() -> None:
     probabilities = app.predict(load_image(TEST_IMAGENET_IMAGE))
     assert torch.argmax(probabilities, dim=0) == TEST_IMAGENET_CLASS
     assert probabilities[TEST_IMAGENET_CLASS].item() > 0.39
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    run_imagenet_classifier_trace_test(EfficientViT.from_pretrained())
 
 
 def test_demo() -> None:

@@ -150,7 +150,6 @@ class LoadGrootMixin(FromPretrainedMixin):
         target_runtime: TargetRuntime,
         output_path: str | Path,
         input_spec: InputSpec | None = None,
-        check_trace: bool = True,
         external_onnx_weights: bool = False,
         output_names: list[str] | None = None,
     ) -> str:

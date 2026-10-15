@@ -4,7 +4,6 @@
 # ---------------------------------------------------------------------
 
 import numpy as np
-import pytest
 
 from qai_hub_models.models.pspnet.demo import main as demo_main
 from qai_hub_models.models.pspnet.model import (
@@ -32,24 +31,6 @@ OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 def test_task() -> None:
     model = PSPNet.from_pretrained()
     app = SegmentationApp(model)
-    h, w = model.get_input_spec()["image"][0][2:]
-    original_image = load_image(INPUT_IMAGE_ADDRESS)
-    image, scale, padding = pil_resize_pad(original_image, (h, w), pad_mode="constant")
-    output_image = app.segment_image(image)[0]
-    image_annotated = pil_undo_resize_pad(
-        output_image, original_image.size, scale, padding
-    )
-    output_image_exp = load_image(OUTPUT_IMAGE_ADDRESS)
-
-    assert_most_same(
-        np.asarray(image_annotated), np.asarray(output_image_exp), diff_tol=0.01
-    )
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    model = PSPNet.from_pretrained()
-    app = SegmentationApp(model.convert_to_torchscript())
     h, w = model.get_input_spec()["image"][0][2:]
     original_image = load_image(INPUT_IMAGE_ADDRESS)
     image, scale, padding = pil_resize_pad(original_image, (h, w), pad_mode="constant")

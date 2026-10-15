@@ -4,7 +4,7 @@ Reference this document when a model needs to be split into multiple components 
 
 ## When to Use CollectionModel
 
-Use `CollectionModel` when a model has **iterative or recurrent behavior** — loops that `torch.jit.trace` would unroll, duplicating ops and weights per iteration. This makes the traced graph many times larger than a single iteration, often causing memory failures on device.
+Use `CollectionModel` when a model has **iterative or recurrent behavior** — loops that `torch.export` would unroll, duplicating ops and weights per iteration. This makes the exported graph many times larger than a single iteration, often causing memory failures on device.
 
 Common cases:
 - **Autoregressive decoders** (e.g., Whisper, GPT-style models) — decoder runs once per output token

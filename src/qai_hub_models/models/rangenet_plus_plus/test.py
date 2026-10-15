@@ -4,7 +4,6 @@
 # ---------------------------------------------------------------------
 
 import numpy as np
-import pytest
 import torch
 
 from qai_hub_models.models.rangenet_plus_plus.app import (
@@ -37,22 +36,6 @@ def test_task() -> None:
     logits = app.segment_range_image(range_image, raw_output=True)
     mask = torch.argmax(torch.from_numpy(logits), dim=1).numpy()
 
-    expected_mask = np.load(str(OUTPUT_MASK_ADDRESS.fetch()))
-    assert_most_same(mask, expected_mask, diff_tol=0.0)
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    model = RangeNetPlusPlus.from_pretrained().convert_to_torchscript()
-    app = RangeNetApp(model)
-
-    points = np.fromfile(
-        str(SAMPLE_POINT_CLOUD_ADDRESS.fetch()), dtype=np.float32
-    ).reshape(-1, 4)
-    range_image, _, _ = project_points_to_range_image(points)
-
-    logits = app.segment_range_image(range_image, raw_output=True)
-    mask = torch.argmax(torch.from_numpy(logits), dim=1).numpy()
     expected_mask = np.load(str(OUTPUT_MASK_ADDRESS.fetch()))
     assert_most_same(mask, expected_mask, diff_tol=0.0)
 

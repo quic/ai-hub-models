@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-import pytest
 
 from qai_hub_models.models.deeplab_xception.demo import INPUT_IMAGE_ADDRESS
 from qai_hub_models.models.deeplab_xception.demo import main as demo_main
@@ -28,18 +27,6 @@ OUTPUT_IMAGE_MASK = CachedWebModelAsset.from_asset_store(
 def test_task() -> None:
     image = load_image(INPUT_IMAGE_ADDRESS)
     app = DeepLabV3App(DeeplabXception.from_pretrained(), num_classes=NUM_CLASSES)
-    output_mask = app.predict(image, True)
-    output_mask_gt = load_numpy(OUTPUT_IMAGE_MASK)
-    assert (output_mask == output_mask_gt).mean() > 0.95
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    image = load_image(INPUT_IMAGE_ADDRESS)
-    app = DeepLabV3App(
-        DeeplabXception.from_pretrained().convert_to_torchscript(),
-        num_classes=NUM_CLASSES,
-    )
     output_mask = app.predict(image, True)
     output_mask_gt = load_numpy(OUTPUT_IMAGE_MASK)
     assert (output_mask == output_mask_gt).mean() > 0.95

@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-import pytest
 
 from qai_hub_models.models.huggingface_wavlm_base_plus.app import (
     HuggingFaceWavLMBasePlusApp,
@@ -26,15 +25,6 @@ def _test_impl(app: HuggingFaceWavLMBasePlusApp) -> None:
 
 def test_task() -> None:
     _test_impl(HuggingFaceWavLMBasePlusApp(HuggingFaceWavLMBasePlus.from_pretrained()))
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    _test_impl(
-        HuggingFaceWavLMBasePlusApp(
-            HuggingFaceWavLMBasePlus.from_pretrained().convert_to_torchscript()
-        )
-    )
 
 
 def test_demo() -> None:

@@ -372,7 +372,7 @@ class BEVFusionDecoder(BaseModel):
         x = self.neck(x)
         ret_dicts = self.heads(x)
 
-        # Pack tensors into a single tensor for torch.jit.trace compatibility
+        # Pack tensors into a single tensor since torch.export requires a flat output
         tensors = []
         for task_dict in ret_dicts:
             task_dict = task_dict[0]

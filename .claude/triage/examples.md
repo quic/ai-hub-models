@@ -212,7 +212,7 @@ The czar rotates weekly. Assign to the `ai-hub-models` label and let the current
 **Issue:** tetracode#19925 "[QAIHM Nightly] Workbench Job Failures - 2026-06-19"
 - **Error:** `bert_base_uncased_hf_w8a16` and `distil_bert_base_uncased_hf_w8a16` quantize jobs failed
 - **Agent triage:** Routed to `Quantization` — AIMET w8a16 quantize regression, no bert-related code changes in commit range.
-- **Actual fix:** PR #3626 added `use_pt2=False` override for these models (the quantize jobs were failing due to PT2 export path, same root cause as sam3/zipformer).
+- **Actual fix:** PR #3626 switched these models off the PT2 export path (the quantize jobs were failing due to PT2 export, same root cause as sam3/zipformer).
 - **Score:** PARTIAL — team was wrong (actual fix was ai-hub-models, not Quantization), but noting "AIMET quantize regression" was a reasonable hypothesis without seeing the workbench job logs.
 - **Lesson:** Workbench quantize job failures can have AIMET OR model-code root causes. When quantize fails for models that just gained PT2 defaults, check whether the quantize pipeline is hitting the torch.export path. Fix may be in our serialization config, not AIMET.
 

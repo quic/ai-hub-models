@@ -273,9 +273,9 @@ class BEVFormer(BaseModel):
     ) -> Path:
         """Export the model to ONNX (opset 17).
 
-        Overrides the base-class TorchScript serialization because BEVFormer
-        uses a custom ``ScatterND`` autograd Function (with a ``symbolic``
-        method for ONNX) that TorchScript cannot trace. ONNX export via
+        Overrides the base-class serialization because BEVFormer uses a
+        custom ``ScatterND`` autograd Function (with a ``symbolic`` method
+        for ONNX) that ``torch.export`` cannot trace. ONNX export via
         ``safe_torch_onnx_export`` handles the custom op correctly through its
         registered ONNX symbolic.
 

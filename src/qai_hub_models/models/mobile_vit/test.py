@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-import pytest
 import torch
 
 from qai_hub_models.models.mobile_vit.app import MobileVITApp
@@ -78,25 +77,6 @@ def run_classifier_test(
     )
 
 
-def run_classifier_trace_test(
-    model: MobileVIT,
-    diff_tol: float = 0.005,
-    rtol: float = 0.0,
-    atol: float = 1e-4,
-    is_quantized: bool = False,
-    check_trace: bool = True,
-) -> None:
-    img = load_image(TEST_IMAGE)
-    app = MobileVITApp(model)
-    if not is_quantized:
-        trace_app = MobileVITApp(model.convert_to_torchscript(check_trace=check_trace))
-    else:
-        trace_app = MobileVITApp(model.convert_to_torchscript())
-    probabilities = app.predict(img)
-    trace_probs = trace_app.predict(img)
-    assert_most_close(probabilities.numpy(), trace_probs.numpy(), diff_tol, rtol, atol)
-
-
 def test_task() -> None:
     run_classifier_test(
         MobileVIT.from_pretrained(),
@@ -106,12 +86,6 @@ def test_task() -> None:
         atol=0.02,
         rtol=0.2,
     )
-
-
-@pytest.mark.skip("TODO: #13142 fails to trace.")
-@pytest.mark.trace
-def test_trace() -> None:
-    run_classifier_trace_test(MobileVIT.from_pretrained())
 
 
 def test_demo() -> None:

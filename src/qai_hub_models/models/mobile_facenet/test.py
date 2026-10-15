@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from qai_hub_models.models.mobile_facenet.app import MobileFaceNetApp
 from qai_hub_models.models.mobile_facenet.demo import (
@@ -37,26 +36,6 @@ def test_task() -> None:
     model = MobileFaceNet.from_pretrained()
     _, _, h, w = model.get_input_spec()["img1"][0]
     app = MobileFaceNetApp(model, h, w, DEFAULT_THRESHOLD)
-
-    img1 = load_image(INPUT_IMAGE_ADDRESS_1.fetch())
-    img2 = load_image(INPUT_IMAGE_ADDRESS_2.fetch())
-
-    preds = app.predict_features(
-        img1,
-        img2,
-    )
-    expected = load_numpy(OUTPUT.fetch())
-    same, angle, cosine = preds
-    assert bool(same) == bool(expected[0])
-    np.testing.assert_allclose(angle, expected[1], atol=0.5)
-    np.testing.assert_allclose(cosine, expected[2], atol=0.005)
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    model = MobileFaceNet.from_pretrained()
-    _, _, h, w = model.get_input_spec()["img1"][0]
-    app = MobileFaceNetApp(model.convert_to_torchscript(), h, w, DEFAULT_THRESHOLD)
 
     img1 = load_image(INPUT_IMAGE_ADDRESS_1.fetch())
     img2 = load_image(INPUT_IMAGE_ADDRESS_2.fetch())

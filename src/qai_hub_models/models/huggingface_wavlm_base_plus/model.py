@@ -9,7 +9,6 @@ import math
 import os
 import types
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 import torch
@@ -141,22 +140,11 @@ class HuggingFaceWavLMBasePlus(BaseModel):
             compile_options += " --truncate_64bit_tensors"
         return compile_options
 
-    def convert_to_torchscript(
-        self, input_spec: InputSpec | None = None, check_trace: bool = True
-    ) -> Any:
-        input_spec = input_spec or self.get_input_spec()
-        sample = self.sample_inputs(input_spec, use_channel_last_format=False)
-        inputs = tuple(torch.from_numpy(sample[name][0]) for name in input_spec)
-        self.to("cpu").eval()
-        return torch.jit.trace(self, inputs, check_trace=check_trace)
-
     def serialize(
         self,
         output_dir: str | os.PathLike,
         input_spec: InputSpec | None = None,
     ) -> Path:
-        if not self.serialization_settings.use_pt2:
-            return super().serialize(output_dir, input_spec)
         input_spec = input_spec or self.get_input_spec()
         sample = self.sample_inputs(input_spec, use_channel_last_format=False)
         inputs = tuple(torch.from_numpy(sample[name][0]) for name in input_spec)

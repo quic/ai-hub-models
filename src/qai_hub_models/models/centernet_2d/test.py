@@ -4,7 +4,6 @@
 # ---------------------------------------------------------------------
 
 import numpy as np
-import pytest
 
 from qai_hub_models.models.centernet_2d.app import CenterNet2DApp
 from qai_hub_models.models.centernet_2d.demo import main as demo_main
@@ -33,28 +32,6 @@ STABLE_COLUMNS = [0, 1, 2, 3, 4, 5]
 def test_task() -> None:
     model = CenterNet2D.from_pretrained()
     app = CenterNet2DApp(model, model.decode)
-    image = load_image(IMAGE.fetch())
-    dets = app.predict_2d_boxes_from_image(
-        image,
-        raw_output=True,
-    )
-    expected = load_numpy(OUTPUT.fetch())
-
-    assert_detections_close(
-        np.array(dets),
-        expected,
-        score_index=SCORE_INDEX,
-        stable_columns=STABLE_COLUMNS,
-    )
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    model = CenterNet2D.from_pretrained()
-    input_spec = model.get_input_spec()
-    traced_model = model.convert_to_torchscript(input_spec)
-    app = CenterNet2DApp(traced_model, model.decode)
-
     image = load_image(IMAGE.fetch())
     dets = app.predict_2d_boxes_from_image(
         image,

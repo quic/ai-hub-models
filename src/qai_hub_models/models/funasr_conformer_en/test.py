@@ -5,8 +5,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from qai_hub_models.models.funasr_conformer_en.app import FunASRConformerEnApp
 from qai_hub_models.models.funasr_conformer_en.demo import load_demo_audio, main
 from qai_hub_models.models.funasr_conformer_en.model import (
@@ -25,14 +23,6 @@ GROUND_TRUTH_RESULT = CachedWebModelAsset.from_asset_store(
 def test_transcribe() -> None:
     model = FunASRConformerEn.from_pretrained()
     app = FunASRConformerEnApp(model, model.frontend, model.token_list)
-    conformer_transcribe_test_e2e(app, load_demo_audio, GROUND_TRUTH_RESULT)
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    model = FunASRConformerEn.from_pretrained()
-    traced = model.convert_to_torchscript()
-    app = FunASRConformerEnApp(traced, model.frontend, model.token_list)
     conformer_transcribe_test_e2e(app, load_demo_audio, GROUND_TRUTH_RESULT)
 
 

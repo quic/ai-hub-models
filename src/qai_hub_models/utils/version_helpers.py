@@ -4,12 +4,16 @@
 # ---------------------------------------------------------------------
 import functools
 from importlib.metadata import version
+from pathlib import Path
 from typing import Any
 
 import requests
+from packaging.requirements import Requirement
 from packaging.version import Version
 
 from qai_hub_models._version import __version__ as qaihm_version
+
+REQUIREMENTS_PATH = Path(__file__).parent.parent / "requirements.txt"
 
 # Torch version requirements for PT2 export
 PT2_MIN_TORCH_VERSION = "2.9"
@@ -57,6 +61,25 @@ def ensure_supported_version(
             f"{package} {current_version} is not supported. "
             f"Please use {package} < {below_version}."
         )
+
+
+@functools.cache
+def get_tested_torch_version() -> str | None:
+    """
+    Latest torch version AI Hub Models is tested with: the upper bound of the
+    torch requirement in requirements.txt. None if no upper bound is declared.
+    """
+    for line in REQUIREMENTS_PATH.read_text().splitlines():
+        line = line.split("#")[0].strip()
+        if not line:
+            continue
+        req = Requirement(line)
+        if req.name != "torch":
+            continue
+        for spec in req.specifier:
+            if spec.operator in ("<=", "=="):
+                return spec.version
+    return None
 
 
 class classproperty:

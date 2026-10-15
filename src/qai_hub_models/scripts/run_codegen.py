@@ -54,7 +54,7 @@ def _get_steps(manifest: QAIHMModelManifest) -> dict[str, str]:
     else:
         add_step(
             "init",
-            "Instantiates a PyTorch model and converts it to a traced TorchScript format",
+            "Instantiates a PyTorch model and exports it to a serialized format",
         )
         if manifest.can_use_quantize_job:
             add_step(

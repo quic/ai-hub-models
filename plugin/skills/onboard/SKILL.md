@@ -185,8 +185,6 @@ Standalone folder contains everything the CLI needs. No generated files ship in 
 
    **`MODEL_ASSET_VERSION`** — models shipping test assets (sample inputs, expected outputs) declare `MODEL_ASSET_VERSION = 1` at module scope. `demo.py` and `test.py` reference it when building asset paths. Bump when uploading a new asset set.
 
-   **`SerializationSettings(use_pt2=False, check_trace=False)`** — pass when your model uses a template base whose default trace-check is too strict. Some detector-family templates require this.
-
 2. **`app.py`** — end-to-end app with pre/postprocessing. `App` class takes a `Callable` (works with torch or on-device inference), exposes `predict()`. Use `app_to_net_image_inputs()` from `image_processing.py` for standard image input conversion; `draw.py` / `bounding_box_processing.py` for postprocessing overlays. Skip this file when a template's App matches your preprocessing exactly — re-export the template's app class from `__init__.py`. Before reusing a template's App, check its `forward()` / preprocessing — templates often bake in a specific normalization or channel order. If your preprocessing diverges (different mean/std, `do_normalize=False`, different resize/interpolation), write your own `app.py` or subclass and override. New-task-shaped models with no template match — write from scratch.
 
 3. **`demo.py`** — parses args (`model_from_cli_args()` from `args.py`), loads sample input (`load_image()` from `asset_loaders.py`), runs the app, displays / saves output (`display_or_save_image()`).
@@ -211,7 +209,7 @@ Standalone folder contains everything the CLI needs. No generated files ship in 
 4. **`test.py`** — `test_task` (PyTorch accuracy on a sample input), `test_demo` (demo runs without error).
 
 5. **`manifest.yaml`** — metadata + build/export options + dependency graph, one unified schema.
-   - Website metadata (`name`, `id`, `headline`, `description`, `use_case`, `domain`, `license_type`, `research_paper`, `source_repo`, …) alongside build/export (`supported_precisions`, `is_collection_model`, `use_pt2`, `has_on_target_demo`, …).
+   - Website metadata (`name`, `id`, `headline`, `description`, `use_case`, `domain`, `license_type`, `research_paper`, `source_repo`, …) alongside build/export (`supported_precisions`, `is_collection_model`, `has_on_target_demo`, …).
    - **`has_on_target_demo`** — set `true` when `demo.py` supports `--eval-mode on-device` (see `demo.py` below). Ship `false`/omitted otherwise.
    - **Never author `disabled_paths` by hand here.** Nothing in this skill has run a device job, so there is nothing to disable yet. `validate-on-device` and `add-quantization` write it from real failures.
    - **Never author `technical_details` by hand.** Populated by `python qai_hub_models/scripts/autofill_manifest_yaml.py -m <model_id>` after the first successful compile. Omit the key entirely at onboarding time — even partial values drift.

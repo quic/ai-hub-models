@@ -1359,17 +1359,10 @@ def export_test_e2e(
         patch_inference=False,
     )
 
-    # Export will always trace the model.
-    # However, that trace goes unused during this test because we are using pre-created compile jobs.
-    # Patch over tracing / export to speed up the test.
+    # Export will always serialize the model.
+    # However, that serialization goes unused during this test because we are using pre-created compile jobs.
+    # Patch over serialization / export to speed up the test.
     mocks: list[mock._patch] = []
-    mocks.append(
-        mock.patch.object(
-            torch.jit,
-            "trace",
-            mock.MagicMock(return_value=None),
-        )
-    )
     mocks.append(
         mock.patch(
             "qai_hub.upload_model",

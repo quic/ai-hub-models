@@ -11,7 +11,6 @@ from typing_extensions import Self
 
 from qai_hub_models import Precision
 from qai_hub_models.models.templates.imagenet_classifier.model import ImagenetClassifier
-from qai_hub_models.utils.base_model import SerializationSettings
 from qai_hub_models.utils.image_processing import normalize_image_torchvision
 
 MODEL_ID = __name__.split(".")[-2]
@@ -23,10 +22,7 @@ class LeViT(ImagenetClassifier):
     """Exportable LeViT model, end-to-end."""
 
     def __init__(self, net: torch.nn.Module) -> None:
-        super().__init__(
-            net=net,
-            serialization_settings=SerializationSettings(check_trace=False),
-        )
+        super().__init__(net=net)
 
     @classmethod
     def from_pretrained(cls, ckpt_name: str = DEFAULT_WEIGHTS) -> Self:

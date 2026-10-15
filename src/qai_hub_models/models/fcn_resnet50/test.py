@@ -4,7 +4,6 @@
 # ---------------------------------------------------------------------
 
 import numpy as np
-import pytest
 
 from qai_hub_models.models.fcn_resnet50.app import FCN_ResNet50App
 from qai_hub_models.models.fcn_resnet50.demo import INPUT_IMAGE_ADDRESS
@@ -37,11 +36,6 @@ def _test_impl(app: FCN_ResNet50App) -> None:
 
 def test_task() -> None:
     _test_impl(FCN_ResNet50App(FCN_ResNet50.from_pretrained()))
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    _test_impl(FCN_ResNet50App(FCN_ResNet50.from_pretrained().convert_to_torchscript()))
 
 
 def test_demo() -> None:

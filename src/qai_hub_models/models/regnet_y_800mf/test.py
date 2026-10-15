@@ -2,7 +2,6 @@
 # Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-import pytest
 
 from qai_hub_models.models.regnet_y_800mf.demo import main as demo_main
 from qai_hub_models.models.regnet_y_800mf.model import (
@@ -12,7 +11,6 @@ from qai_hub_models.models.regnet_y_800mf.model import (
 )
 from qai_hub_models.models.templates.imagenet_classifier.test_utils import (
     run_imagenet_classifier_test,
-    run_imagenet_classifier_trace_test,
 )
 
 
@@ -25,11 +23,6 @@ def test_task() -> None:
         rtol=0.2,
         asset_version=MODEL_ASSET_VERSION,
     )
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    run_imagenet_classifier_trace_test(RegNet.from_pretrained())
 
 
 def test_demo() -> None:

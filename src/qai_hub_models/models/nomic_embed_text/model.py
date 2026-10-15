@@ -31,7 +31,7 @@ from qai_hub_models.models.nomic_embed_text.evaluator import (
 from qai_hub_models.utils.asset_loaders import PathLike
 from qai_hub_models.utils.base_dataset import BaseDataset
 from qai_hub_models.utils.base_evaluator import BaseEvaluator
-from qai_hub_models.utils.base_model import BaseModel, SerializationSettings
+from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec, IoType, OutputSpec, TensorSpec
 
 MODEL_ID = __name__.split(".")[-2]
@@ -80,10 +80,7 @@ def _patched_transformers_get_class_in_module(
 
 class NomicEmbedText(BaseModel):
     def __init__(self, model: nn.Module, model_version: str, seq_length: int) -> None:
-        super().__init__(
-            model=model,
-            serialization_settings=SerializationSettings(check_trace=False),
-        )
+        super().__init__(model=model)
         self.seq_length = seq_length
         self.model_version = model_version
         assert model_version in [DEFAULT_MODEL_VERSION, "1"]

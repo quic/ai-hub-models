@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-import pytest
 
 from qai_hub_models.models.repvit.demo import main as demo_main
 from qai_hub_models.models.repvit.model import (
@@ -13,7 +12,6 @@ from qai_hub_models.models.repvit.model import (
 )
 from qai_hub_models.models.templates.imagenet_classifier.test_utils import (
     run_imagenet_classifier_test,
-    run_imagenet_classifier_trace_test,
 )
 
 
@@ -23,14 +21,6 @@ def test_task() -> None:
         MODEL_ID,
         asset_version=RepViT.model_asset_version,
         probability_threshold=0.4,
-        transform=REPVIT_TRANSFORM,
-    )
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    run_imagenet_classifier_trace_test(
-        RepViT.from_pretrained(),
         transform=REPVIT_TRANSFORM,
     )
 

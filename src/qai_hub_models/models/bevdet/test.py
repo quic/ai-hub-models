@@ -7,7 +7,6 @@ import importlib
 import importlib.metadata
 
 import numpy as np
-import pytest
 from packaging.version import parse as parse_version
 
 from qai_hub_models.models.bevdet.app import BEVDetApp
@@ -62,67 +61,6 @@ def test_task() -> None:
         model.encoder,
         model.pooler,
         model.decoder,
-        model.bboxcoder,
-    )
-
-    cam_paths = {
-        "CAM_FRONT_LEFT": str(CAM_FRONT_LEFT.fetch()),
-        "CAM_FRONT": str(CAM_FRONT.fetch()),
-        "CAM_FRONT_RIGHT": str(CAM_FRONT_RIGHT.fetch()),
-        "CAM_BACK_LEFT": str(CAM_BACK_LEFT.fetch()),
-        "CAM_BACK": str(CAM_BACK.fetch()),
-        "CAM_BACK_RIGHT": str(CAM_BACK_RIGHT.fetch()),
-    }
-
-    inputs = load_json(INPUTS.fetch())
-
-    images_list = []
-    intrins_list = []
-    sensor2egos_list = []
-    ego2globals_list = []
-
-    for cam_name, cam_img_path in cam_paths.items():
-        images_list.append(load_image(cam_img_path))
-        intrin = np.array(inputs[cam_name]["intrins"], dtype=np.float32)
-        intrins_list.append(intrin)
-        sensor2ego = transform_to_matrix(
-            inputs[cam_name]["sensor2ego_translation"],
-            inputs[cam_name]["sensor2ego_rotation"],
-        )
-        sensor2egos_list.append(sensor2ego)
-        ego2global = transform_to_matrix(
-            inputs[cam_name]["ego2global_translation"],
-            inputs[cam_name]["ego2global_rotation"],
-        )
-        ego2globals_list.append(ego2global)
-
-    corners = app.predict_3d_boxes_from_images(
-        images_list,
-        intrins_list,
-        sensor2egos_list,
-        ego2globals_list,
-        raw_output=True,
-    )
-
-    np.testing.assert_allclose(
-        np.array(corners), _get_expected_output(), rtol=1e-03, atol=5e-04
-    )
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    model = BEVDet.from_pretrained()
-    traced_encoder = model.encoder.convert_to_torchscript(
-        model.encoder.get_input_spec()
-    )
-    traced_pooler = model.pooler.convert_to_torchscript(model.pooler.get_input_spec())
-    traced_decoder = model.decoder.convert_to_torchscript(
-        model.decoder.get_input_spec()
-    )
-    app = BEVDetApp(
-        traced_encoder,
-        traced_pooler,
-        traced_decoder,
         model.bboxcoder,
     )
 

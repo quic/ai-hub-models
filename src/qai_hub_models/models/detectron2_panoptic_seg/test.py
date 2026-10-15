@@ -5,7 +5,6 @@
 
 import cv2
 import numpy as np
-import pytest
 import torch
 import torchvision
 from detectron2.config import get_cfg
@@ -14,7 +13,7 @@ from detectron2.layers import ROIAlign
 from detectron2.model_zoo import get_checkpoint_url, get_config_file
 
 from qai_hub_models.models.detectron2_panoptic_seg.app import Detectron2PanopticSegApp
-from qai_hub_models.models.templates.detectron2.model import IMAGE_ADDRESS, Detectron2
+from qai_hub_models.models.templates.detectron2.model import IMAGE_ADDRESS
 
 # Save the original ROIAlign.forward before any from_pretrained() patches it
 # globally, so run_source_model() can restore native ROIAlign for the reference.
@@ -112,26 +111,6 @@ def test_task() -> None:
     assert sem_seg[0].argmax(dim=0).unique().numel() > 1, (
         "Semantic segmentation collapsed to a single class."
     )
-
-
-def _assert_traced_matches_eager(component: Detectron2) -> None:
-    """Trace a collection component and assert traced == eager on sample inputs."""
-    sample = component.sample_inputs(use_channel_last_format=False)
-    inputs = [torch.from_numpy(v[0]) for v in sample.values()]
-    traced = component.convert_to_torchscript(check_trace=False)
-    with torch.no_grad():
-        eager_out = component(*inputs)
-        traced_out = traced(*inputs)
-    for eager_tensor, traced_tensor in zip(eager_out, traced_out, strict=True):
-        assert torch.allclose(eager_tensor.float(), traced_tensor.float(), atol=1e-4)
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    """Both component graphs are fully static; traced outputs must match eager."""
-    wrapper = Detectron2PanopticSeg.from_pretrained()
-    _assert_traced_matches_eager(wrapper.proposal_generator)
-    _assert_traced_matches_eager(wrapper.roi_head)
 
 
 def test_demo() -> None:

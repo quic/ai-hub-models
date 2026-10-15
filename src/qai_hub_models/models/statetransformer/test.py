@@ -4,7 +4,6 @@
 # ---------------------------------------------------------------------
 
 import numpy as np
-import pytest
 
 from qai_hub_models.models.statetransformer import App
 from qai_hub_models.models.statetransformer.demo import DATA_PATH, MAP_PATH
@@ -20,7 +19,6 @@ from qai_hub_models.utils.asset_loaders import (
     load_image,
 )
 from qai_hub_models.utils.test_helpers import (
-    assert_most_close,
     assert_most_same,
 )
 
@@ -49,20 +47,3 @@ def test_task() -> None:
 
 def test_demo() -> None:
     demo_main(is_test=True)
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    model = StateTransformer.from_pretrained(MODEL_PATH).convert_to_torchscript()
-    app = App(model)
-    high_res_raster, low_res_raster, context_actions = app.extract_model_samples(
-        MODEL_PATH, DATA_PATH, MAP_PATH
-    )
-    output = app.predict(high_res_raster, low_res_raster, context_actions)
-    expected_output = load_image(TRACE_ASSET)
-    assert_most_close(
-        np.asarray(output),
-        np.asarray(expected_output),
-        diff_tol=0.01,
-        atol=1e-5,
-    )

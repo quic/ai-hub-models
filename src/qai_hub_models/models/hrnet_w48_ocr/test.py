@@ -4,7 +4,6 @@
 # ---------------------------------------------------------------------
 
 import numpy as np
-import pytest
 
 from qai_hub_models.models.hrnet_w48_ocr.demo import main as demo_main
 from qai_hub_models.models.hrnet_w48_ocr.model import (
@@ -36,25 +35,6 @@ OUTPUT_IMAGE_ASSET = CachedWebModelAsset.from_asset_store(
 def test_task() -> None:
     model = HRNET_W48_OCR.from_pretrained()
     app = CityscapesSegmentationApp(model, model.get_input_spec())
-    # fetch and load images
-    image = TEST_CITYSCAPES_LIKE_IMAGE_ASSET.fetch()
-    orig_image = load_image(image)
-    image = OUTPUT_IMAGE_ASSET.fetch()
-    output_image = load_image(image)
-    # Run and assert accuracy
-    image_annotated = app.predict(orig_image)
-    assert_most_same(
-        np.asarray(image_annotated), np.asarray(output_image), diff_tol=0.01
-    )
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    model = HRNET_W48_OCR.from_pretrained()
-    app = CityscapesSegmentationApp(
-        model.convert_to_torchscript(),
-        model.get_input_spec(),
-    )
     # fetch and load images
     image = TEST_CITYSCAPES_LIKE_IMAGE_ASSET.fetch()
     orig_image = load_image(image)

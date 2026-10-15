@@ -21,7 +21,7 @@ from qai_hub_models.models.templates.imagenet_classifier.classification_evaluato
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 from qai_hub_models.utils.base_dataset import BaseDataset
 from qai_hub_models.utils.base_evaluator import BaseEvaluator
-from qai_hub_models.utils.base_model import BaseModel, SerializationSettings
+from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.image_processing import (
     IMAGENET_DIM,
     IMAGENET_TRANSFORM,
@@ -53,7 +53,6 @@ class ImagenetClassifier(BaseModel):
         net: torch.nn.Module,
         transform_input: bool = False,
         normalize_input: bool = True,
-        serialization_settings: SerializationSettings | None = None,
     ) -> None:
         """
         Basic initializer which takes in a pretrained classifier network.
@@ -69,11 +68,8 @@ class ImagenetClassifier(BaseModel):
             Normalize input of the imagenet classifier inside the network
             instead of requiring it to be done beforehand in a preprocessing step. If set to true, the dynamic
             range of the image input is [0, 1], which is the standard mapping for floating point images.
-        serialization_settings
-            Settings controlling how this model is serialized for AI Hub Workbench. If None,
-            BaseModel's defaults are used.
         """
-        super().__init__(serialization_settings=serialization_settings)
+        super().__init__()
         self.normalize_input = normalize_input
         self.transform_input = transform_input
         self.net = net

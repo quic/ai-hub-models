@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-import pytest
 
 from qai_hub_models.models.dfine.app import DFineApp
 from qai_hub_models.models.dfine.demo import main as demo_main
@@ -29,17 +28,6 @@ def test_task() -> None:
 def test_cli_from_pretrained() -> None:
     args = get_model_cli_parser(DFine).parse_args([])
     assert model_from_cli_args(DFine, args) is not None
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    net = DFine.from_pretrained()
-    input_spec = net.get_input_spec()
-    trace = net.convert_to_torchscript(input_spec)
-
-    img = load_image(IMAGE_ADDRESS)
-    _, _, label, _ = DFineApp(trace, 640, 640).predict(img)
-    assert set(label.numpy()) == EXPECTED_OUTPUT
 
 
 def test_demo() -> None:

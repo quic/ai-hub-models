@@ -6,7 +6,6 @@
 import warnings
 
 import numpy as np
-import pytest
 
 from qai_hub_models.models.nafnet_deblur.demo import main as demo_main
 from qai_hub_models.models.nafnet_deblur.model import (
@@ -38,25 +37,6 @@ def test_task() -> None:
         np.asarray(preprocess_PIL_image(restored_image), dtype=np.float32),
         np.asarray(preprocess_PIL_image(output_image), dtype=np.float32),
         rtol=0.2,
-        atol=0.01,
-    )
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    image = load_image(IMAGE_ADDRESS)
-    output_image = load_image(OUTPUT_IMAGE_ADDRESS)
-
-    model = NafNetDeBlur.from_pretrained()
-    app = NAFNetApp(
-        model.convert_to_torchscript(),
-        model.get_input_spec(),
-    )
-    restored_image = app.restore_image(image)
-
-    np.testing.assert_allclose(
-        np.asarray(preprocess_PIL_image(restored_image), dtype=np.float32),
-        np.asarray(preprocess_PIL_image(output_image), dtype=np.float32),
         atol=0.01,
     )
 

@@ -6,8 +6,6 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
-import torch
 
 from qai_hub_models.models.superpoint.app import SuperPointApp
 from qai_hub_models.models.superpoint.demo import main as demo_main
@@ -70,38 +68,6 @@ def test_task() -> None:
     assert len(keypoints) > 0, "Expected keypoints on a real image but got none."
     norms = np.linalg.norm(descriptors, axis=1)
     assert np.allclose(norms, 1.0, atol=1e-5)
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    """Verify torchscript trace produces numerically identical outputs."""
-    image = load_image(INPUT_IMAGE_ADDRESS)
-
-    model = SuperPoint.from_pretrained()
-    (_, _, height, width) = model.get_input_spec()["image"][0]
-    image = image.resize((width, height))
-    gray = image.convert("L")
-    tensor = preprocess_PIL_image(gray)  # (1, 1, H, W)
-
-    traced = model.convert_to_torchscript()
-
-    def _run(m: torch.nn.Module) -> tuple[np.ndarray, ...]:
-        with torch.no_grad():
-            kp, sc, desc, nkp = m(tensor)
-        return (
-            kp.detach().numpy(),
-            sc.detach().numpy(),
-            desc.detach().numpy(),
-            nkp.detach().numpy(),
-        )
-
-    kp, sc, desc, nkp = _run(model)
-    kp_t, sc_t, desc_t, nkp_t = _run(traced)
-
-    np.testing.assert_allclose(kp, kp_t, atol=1e-4)
-    np.testing.assert_allclose(sc, sc_t, atol=1e-4)
-    np.testing.assert_allclose(desc, desc_t, atol=1e-4)
-    np.testing.assert_array_equal(nkp, nkp_t)
 
 
 def test_demo() -> None:

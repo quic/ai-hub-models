@@ -4,12 +4,10 @@
 # ---------------------------------------------------------------------
 
 import numpy as np
-import pytest
 import torch
 
 from qai_hub_models.models.pyannote_speaker_diarization.demo import main as demo_main
 from qai_hub_models.models.pyannote_speaker_diarization.model import (
-    BATCH_SIZE,
     SEG_DURATION_FRAMES,
     PyannoteEmbedding,
     PyannoteSegmentation,
@@ -34,25 +32,6 @@ def test_embedding_output_shape() -> None:
     with torch.no_grad():
         out = emb(fbank)
     assert out.shape == (1, 256)
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    seg = PyannoteSegmentation.from_pretrained()
-    seg.eval()
-
-    waveforms = torch.randn(BATCH_SIZE, 1, SEG_DURATION_FRAMES)
-    traced = torch.jit.trace(seg, waveforms)
-
-    with torch.no_grad():
-        out_orig = seg(waveforms)
-        out_traced = traced(waveforms)
-
-    np.testing.assert_allclose(
-        out_orig.detach().numpy(),
-        out_traced.detach().numpy(),
-        atol=1e-4,
-    )
 
 
 def test_numerics() -> None:

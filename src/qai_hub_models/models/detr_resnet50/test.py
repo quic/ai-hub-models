@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-import pytest
 
 from qai_hub_models.models.detr_resnet50.demo import main as demo_main
 from qai_hub_models.models.detr_resnet50.model import (
@@ -32,17 +31,6 @@ def test_task() -> None:
 def test_cli_from_pretrained() -> None:
     args = get_model_cli_parser(DETRResNet50).parse_args([])
     assert model_from_cli_args(DETRResNet50, args) is not None
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    net = DETRResNet50.from_pretrained()
-    input_spec = net.get_input_spec()
-    trace = net.convert_to_torchscript(input_spec)
-
-    img = load_image(IMAGE_ADDRESS)
-    _, _, label, _ = DETRApp(trace).predict(img)
-    assert set(label.numpy()) == EXPECTED_OUTPUT
 
 
 def test_demo() -> None:

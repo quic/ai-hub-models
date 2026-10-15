@@ -3,13 +3,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-import pytest
 
 from qai_hub_models.models.resnet101.demo import main as demo_main
 from qai_hub_models.models.resnet101.model import MODEL_ID, ResNet101
 from qai_hub_models.models.templates.imagenet_classifier.test_utils import (
     run_imagenet_classifier_test,
-    run_imagenet_classifier_trace_test,
 )
 
 
@@ -22,11 +20,6 @@ def test_task() -> None:
         rtol=0.02,
         atol=0.02,
     )
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    run_imagenet_classifier_trace_test(ResNet101.from_pretrained())
 
 
 def test_demo() -> None:

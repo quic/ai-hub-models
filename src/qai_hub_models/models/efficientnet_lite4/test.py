@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-import pytest
 
 from qai_hub_models.models.efficientnet_lite4.demo import main as demo_main
 from qai_hub_models.models.efficientnet_lite4.model import (
@@ -14,7 +13,6 @@ from qai_hub_models.models.efficientnet_lite4.model import (
 )
 from qai_hub_models.models.templates.imagenet_classifier.test_utils import (
     run_imagenet_classifier_test,
-    run_imagenet_classifier_trace_test,
 )
 
 
@@ -24,14 +22,6 @@ def test_task() -> None:
         MODEL_ID,
         asset_version=MODEL_ASSET_VERSION,
         probability_threshold=0.6,
-        transform=EFFICIENTNET_LITE4_TRANSFORM,
-    )
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    run_imagenet_classifier_trace_test(
-        EfficientNetLite4.from_pretrained(),
         transform=EFFICIENTNET_LITE4_TRANSFORM,
     )
 

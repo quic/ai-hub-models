@@ -16,7 +16,6 @@ from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_yaml
 from qai_hub_models.utils.base_collection_model import WorkbenchModelCollection
 from qai_hub_models.utils.base_model import (
     BaseModel,
-    SerializationSettings,
 )
 from qai_hub_models.utils.export.result import ComponentGroup
 from qai_hub_models.utils.image_processing import normalize_image_torchvision
@@ -46,10 +45,7 @@ TRACKER_CONFIG_PATH = str(
 
 class TrackAnything(BaseModel):
     def __init__(self, model: XMem) -> None:
-        super().__init__(
-            model=model,
-            serialization_settings=SerializationSettings(check_trace=False),
-        )
+        super().__init__(model=model)
         self.model: XMem
 
     @classmethod

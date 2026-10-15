@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 import numpy as np
-import pytest
 
 from qai_hub_models.models.resnet34_ssd1200 import App, Model
 from qai_hub_models.models.resnet34_ssd1200.demo import main as demo_main
@@ -35,15 +34,3 @@ def test_task() -> None:
 
 def test_demo() -> None:
     demo_main(is_test=True)
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    image = load_image(INPUT_IMAGE_ADDRESS)
-    exp_img = load_image(EXP_IMG)
-    model = Model.from_pretrained()
-    input_spec = model.get_input_spec()
-    traced_model = model.convert_to_torchscript(input_spec)
-    app = App(traced_model)
-    pred_img = app.predict_boxes_from_image(image)[0]
-    assert_most_same(np.asarray(pred_img), np.asarray(exp_img), diff_tol=0.02)

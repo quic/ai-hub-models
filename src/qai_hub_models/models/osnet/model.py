@@ -26,7 +26,7 @@ from qai_hub_models.models.templates.reid.reid_evaluator import ReIDEvaluator
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 from qai_hub_models.utils.base_dataset import BaseDataset
 from qai_hub_models.utils.base_evaluator import BaseEvaluator
-from qai_hub_models.utils.base_model import BaseModel, SerializationSettings
+from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.image_processing import normalize_image_torchvision
 from qai_hub_models.utils.input_spec import InputSpec, OutputSpec, TensorSpec
 
@@ -80,10 +80,7 @@ def _load_pretrained_weights(model: torch.nn.Module, variant: str) -> None:
 
 class OSNet(BaseModel):
     def __init__(self, model: torch.nn.Module) -> None:
-        super().__init__(
-            model=model,
-            serialization_settings=SerializationSettings(check_trace=False),
-        )
+        super().__init__(model=model)
 
     @classmethod
     def from_pretrained(

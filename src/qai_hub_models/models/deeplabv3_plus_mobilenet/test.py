@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-import pytest
 
 from qai_hub_models.models.deeplabv3_plus_mobilenet.demo import INPUT_IMAGE_ADDRESS
 from qai_hub_models.models.deeplabv3_plus_mobilenet.demo import main as demo_main
@@ -32,20 +31,6 @@ def test_task() -> None:
     )
     output_mask = app.predict(image, True)
     output_mask_gt = load_numpy(OUTPUT_IMAGE_MASK)
-    assert (output_mask == output_mask_gt).mean() > 0.95
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    image = load_image(INPUT_IMAGE_ADDRESS)
-    output_mask_gt = load_numpy(OUTPUT_IMAGE_MASK)
-    app = DeepLabV3App(
-        DeepLabV3PlusMobilenet.from_pretrained().convert_to_torchscript(),
-        num_classes=NUM_CLASSES,
-    )
-    output_mask = app.predict(image, True)
-    output_mask_gt = load_numpy(OUTPUT_IMAGE_MASK)
-
     assert (output_mask == output_mask_gt).mean() > 0.95
 
 

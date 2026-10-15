@@ -6,7 +6,6 @@
 from typing import cast
 
 import numpy as np
-import pytest
 import torch
 from ultralytics.models import YOLOWorld
 from ultralytics.nn.tasks import WorldModel
@@ -79,31 +78,6 @@ def test_numerical() -> None:
                 rtol=1e-4,
                 atol=1e-4,
             ), f"Output mismatch at index {i}"
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    """Verify that the pt2 export of the detector produces numerically correct output."""
-    _, nchw = app_to_net_image_inputs(load_image(IMAGE_ADDRESS))
-    processed_sample_image, _, _ = resize_pad(nchw, (640, 640))
-
-    wrapper = YoloWorld.from_pretrained(WEIGHTS)
-    detector = wrapper.detector
-    text_encoder = wrapper.text_encoder
-
-    input_spec = detector.get_input_spec()
-    sample_inputs = detector.sample_inputs(input_spec)
-    txt_feats = torch.from_numpy(sample_inputs["txt_feats"][0])
-
-    pytorch_out = detector(processed_sample_image, txt_feats)
-
-    # Verify text encoder produces expected shape
-    coco_feats = text_encoder.encode_classes(["bus", "person"])
-    assert coco_feats.shape == (1, 2, 512)
-
-    # Verify detector output shapes
-    assert len(pytorch_out) == 3  # boxes, scores, labels
-    assert pytorch_out[0].shape[-1] == 4  # xyxy boxes
 
 
 def test_demo() -> None:

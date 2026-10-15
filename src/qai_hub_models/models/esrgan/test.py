@@ -4,7 +4,6 @@
 # ---------------------------------------------------------------------
 
 import numpy as np
-import pytest
 
 from qai_hub_models.models.esrgan.demo import IMAGE_ADDRESS
 from qai_hub_models.models.esrgan.demo import main as demo_main
@@ -21,20 +20,6 @@ def test_task() -> None:
     image = load_image(IMAGE_ADDRESS)
     output_image = load_image(OUTPUT_IMAGE_ADDRESS)
     app = SuperResolutionApp(ESRGAN.from_pretrained())
-    app_output_image = app.upscale_image(image)[0]
-    np.testing.assert_allclose(
-        np.asarray(app_output_image, dtype=np.float32) / 255,
-        np.asarray(output_image, dtype=np.float32) / 255,
-        rtol=0.02,
-        atol=0.2,
-    )
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    image = load_image(IMAGE_ADDRESS)
-    output_image = load_image(OUTPUT_IMAGE_ADDRESS)
-    app = SuperResolutionApp(ESRGAN.from_pretrained().convert_to_torchscript())
     app_output_image = app.upscale_image(image)[0]
     np.testing.assert_allclose(
         np.asarray(app_output_image, dtype=np.float32) / 255,

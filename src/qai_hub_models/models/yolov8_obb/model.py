@@ -26,7 +26,6 @@ from qai_hub_models.models.templates.yolo.model import (
 from qai_hub_models.models.yolov8_obb.dataset import Dota128Dataset
 from qai_hub_models.utils.base_dataset import BaseDataset
 from qai_hub_models.utils.base_evaluator import BaseEvaluator
-from qai_hub_models.utils.base_model import SerializationSettings
 from qai_hub_models.utils.input_spec import OutputSpec
 from qai_hub_models.utils.labels import write_labels_file
 
@@ -52,10 +51,7 @@ class YoloV8OBB(Yolo):
         include_postprocessing: bool = True,
         split_output: bool = False,
     ) -> None:
-        super().__init__(
-            model=model,
-            serialization_settings=SerializationSettings(check_trace=False),
-        )
+        super().__init__(model=model)
         self.include_postprocessing = include_postprocessing
         self.split_output = split_output
         patch_ultralytics_obb_head(model)

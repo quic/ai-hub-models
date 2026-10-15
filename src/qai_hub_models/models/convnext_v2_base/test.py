@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-import pytest
 import torch
 
 from qai_hub_models.models.convnext_v2_base.demo import main as demo_main
@@ -15,9 +14,6 @@ from qai_hub_models.models.convnext_v2_base.model import (
 )
 from qai_hub_models.models.templates.imagenet_classifier.app import (
     ImagenetClassifierApp,
-)
-from qai_hub_models.models.templates.imagenet_classifier.test_utils import (
-    run_imagenet_classifier_trace_test,
 )
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
@@ -52,14 +48,6 @@ def test_task() -> None:
     )
     assert predicted_class == EXPECTED_CLASS, (
         f"Model predicted class {predicted_class} when correct class was {EXPECTED_CLASS}."
-    )
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    run_imagenet_classifier_trace_test(
-        ConvNextV2Base.from_pretrained(),
-        transform=CONVNEXT_V2_BASE_TRANSFORM,
     )
 
 

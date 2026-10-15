@@ -52,18 +52,6 @@ def test_variant_input_spec(variant: str) -> None:
     assert shape[2] == shape[3] == VARIANT_RESOLUTION[variant]
 
 
-@pytest.mark.trace
-def test_trace() -> None:
-    net = RF_DETR.from_pretrained(variant="base")
-    input_spec = net.get_input_spec()
-    trace = net.convert_to_torchscript(input_spec)
-
-    img = load_image(IMAGE_ADDRESS)
-    h, w = input_spec["image"][0][2:]
-    _, _, label, _ = DETRApp(trace, h, w).predict(img, threshold=0.7)
-    assert set(label.numpy()) == EXPECTED_OUTPUT
-
-
 def test_demo() -> None:
     # Run demo and verify it does not crash
     demo_main(is_test=True)

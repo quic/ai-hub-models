@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-import pytest
 
 from qai_hub_models.models.deformable_detr.demo import main as demo_main
 from qai_hub_models.models.deformable_detr.model import (
@@ -24,16 +23,6 @@ def test_task() -> None:
     img = load_image(IMAGE_ADDRESS)
     _, _, label, _ = DETRApp(net).predict(img, threshold=0.75)
     assert set(label.numpy()) == {75, 17}
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    model = DeformableDETR.from_pretrained()
-    net = model.convert_to_torchscript()
-    img = load_image(IMAGE_ADDRESS)
-    (h, w) = model.get_input_spec()["image"][0][2:]
-    _, _, label, _ = DETRApp(net, h, w).predict(img, threshold=0.75)
-    assert set(label.numpy()) == {17}
 
 
 def test_demo() -> None:

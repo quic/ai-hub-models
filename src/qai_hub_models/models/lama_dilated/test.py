@@ -4,7 +4,6 @@
 # ---------------------------------------------------------------------
 
 import numpy as np
-import pytest
 
 from qai_hub_models.models.lama_dilated.demo import IMAGE_ADDRESS, MASK_ADDRESS
 from qai_hub_models.models.lama_dilated.demo import main as demo_main
@@ -34,27 +33,6 @@ def test_task() -> None:
     expected_out = load_image(OUTPUT_ADDRESS)
     assert_most_close(
         np.asarray(out_img[0], dtype=np.float32),
-        np.asarray(expected_out, dtype=np.float32),
-        0.005,
-        rtol=0.02,
-        atol=1.5,
-    )
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    net = LamaDilated.from_pretrained()
-    input_spec = net.get_input_spec()
-    trace = net.convert_to_torchscript(input_spec)
-
-    img = load_image(IMAGE_ADDRESS)
-    mask_image = load_image(MASK_ADDRESS)
-    app = RepaintMaskApp(trace)
-
-    out_imgs = app.paint_mask_on_image(img, mask_image)
-    expected_out = load_image(OUTPUT_ADDRESS)
-    assert_most_close(
-        np.asarray(out_imgs[0], dtype=np.float32),
         np.asarray(expected_out, dtype=np.float32),
         0.005,
         rtol=0.02,

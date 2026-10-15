@@ -4,7 +4,6 @@
 # ---------------------------------------------------------------------
 
 import numpy as np
-import pytest
 
 from qai_hub_models.models.cvt.app import CVTApp
 from qai_hub_models.models.cvt.demo import CAM_METADATA, CAMERAS
@@ -33,24 +32,6 @@ def test_task() -> None:
     bev = app.predict_from_images(images_list, cam_metadata, raw_output=True)
 
     expected = load_numpy(EXPECTED_OUTPUT.fetch())
-    np.testing.assert_allclose(np.array(bev), expected, rtol=1e-02, atol=1e-02)
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    model = CVT.from_pretrained(ckpt_name="vehicles_50k")
-    input_spec = model.get_input_spec()
-    traced_model = model.convert_to_torchscript(input_spec)
-    app = CVTApp(traced_model, ckpt_name="vehicles_50k")
-
-    cam_paths = {k: str(v.fetch()) for k, v in CAMERAS.items()}
-    cam_metadata = load_json(CAM_METADATA.fetch())
-    images_list = [load_image(cam_paths[cam]) for cam in cam_paths]
-
-    bev = app.predict_from_images(images_list, cam_metadata, raw_output=True)
-
-    expected = load_numpy(EXPECTED_OUTPUT.fetch())
-
     np.testing.assert_allclose(np.array(bev), expected, rtol=1e-02, atol=1e-02)
 
 

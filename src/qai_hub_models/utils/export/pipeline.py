@@ -75,7 +75,7 @@ def export_model(
     """
     Run the eight-step export recipe end-to-end:
 
-        1. Instantiate the PyTorch model and upload its TorchScript form to AI Hub
+        1. Instantiate the PyTorch model and upload its serialized form to AI Hub
         2. Quantize the model (skipped for float)
         3. Compile the (possibly quantized) source model to the target runtime
         4. Link the compiled DLC to a context binary (AOT runtimes only)
@@ -157,7 +157,7 @@ def export_model(
 
     _, chipset = get_device_and_chipset_name(device)
 
-    # 1. Instantiate the PyTorch model and upload its TorchScript form.
+    # 1. Instantiate the PyTorch model and upload its serialized form.
     model = model_cls.from_pretrained(
         **get_model_kwargs(
             model_cls, dict(**additional_model_kwargs, precision=precision)

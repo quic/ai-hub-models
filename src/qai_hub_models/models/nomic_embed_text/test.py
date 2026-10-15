@@ -4,7 +4,6 @@
 # ---------------------------------------------------------------------
 
 import numpy as np
-import pytest
 
 from qai_hub_models.models.nomic_embed_text.app import NomicEmbedTextApp
 from qai_hub_models.models.nomic_embed_text.demo import main as demo_main
@@ -25,16 +24,6 @@ SAMPLE_TEXT = "Hello world!"
 def test_task() -> None:
     model = NomicEmbedText.from_pretrained()
     app = NomicEmbedTextApp(model, model.seq_length)
-    embeddings = app.predict(SAMPLE_TEXT)
-    np.testing.assert_allclose(
-        embeddings, load_numpy(EMBEDDINGS_GT), rtol=1e-5, atol=0.01
-    )
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    model = NomicEmbedText.from_pretrained()
-    app = NomicEmbedTextApp(model.convert_to_torchscript(), model.seq_length)
     embeddings = app.predict(SAMPLE_TEXT)
     np.testing.assert_allclose(
         embeddings, load_numpy(EMBEDDINGS_GT), rtol=1e-5, atol=0.01

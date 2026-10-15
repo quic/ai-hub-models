@@ -5,7 +5,6 @@
 
 import cv2
 import numpy as np
-import pytest
 import torch
 from detectron2.config import get_cfg
 from detectron2.engine import DefaultPredictor
@@ -47,45 +46,6 @@ def test_task() -> None:
     img = load_image(IMAGE_ADDRESS)
     input_spec = wrapper.proposal_generator.get_input_spec()
     app = Detectron2DetectionApp(proposal_generator, roi_head, input_spec=input_spec)
-    boxes, scores, labels = app.predict(img, raw_output=True)
-
-    assert_most_close(
-        np.asarray(exp_boxes, dtype=np.float32),
-        np.asarray(boxes, dtype=np.float32),
-        diff_tol=0.5,
-        rtol=0.005,
-        atol=0.005,
-    )
-    assert_most_close(
-        np.asarray(exp_scores, dtype=np.float32),
-        np.asarray(scores, dtype=np.float32),
-        diff_tol=0.005,
-        rtol=0.005,
-        atol=0.005,
-    )
-    assert_most_close(
-        np.asarray(exp_labels, dtype=np.float32),
-        np.asarray(labels, dtype=np.float32),
-        diff_tol=0.005,
-        rtol=0.005,
-        atol=0.005,
-    )
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    exp_boxes, exp_scores, exp_labels = run_source_model()
-
-    wrapper = Detectron2Detection.from_pretrained()
-    proposal_generator, roi_head = wrapper.proposal_generator, wrapper.roi_head
-    input_spec = roi_head.get_input_spec()
-    traced_roi_head = roi_head.convert_to_torchscript(input_spec)
-    input_spec = proposal_generator.get_input_spec()
-    traced_proposal_generator = proposal_generator.convert_to_torchscript(input_spec)
-    img = load_image(IMAGE_ADDRESS)
-    app = Detectron2DetectionApp(
-        traced_proposal_generator, traced_roi_head, input_spec=input_spec
-    )
     boxes, scores, labels = app.predict(img, raw_output=True)
 
     assert_most_close(

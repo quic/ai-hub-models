@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-import pytest
 
 from qai_hub_models.models.efficientnet_v2_s.demo import main as demo_main
 from qai_hub_models.models.efficientnet_v2_s.model import (
@@ -14,7 +13,6 @@ from qai_hub_models.models.efficientnet_v2_s.model import (
 )
 from qai_hub_models.models.templates.imagenet_classifier.test_utils import (
     run_imagenet_classifier_test,
-    run_imagenet_classifier_trace_test,
 )
 
 # With the correct 384x384 transform, the test image (Samoyed dog) is predicted
@@ -31,14 +29,6 @@ def test_task() -> None:
         probability_threshold=0.18,
         transform=EFFICIENTNET_V2_S_TRANSFORM,
         expected_class=EXPECTED_CLASS,
-    )
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    run_imagenet_classifier_trace_test(
-        EfficientNetV2s.from_pretrained(),
-        transform=EFFICIENTNET_V2_S_TRANSFORM,
     )
 
 

@@ -14,7 +14,6 @@ from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
     load_torch,
 )
-from qai_hub_models.utils.base_model import SerializationSettings
 from qai_hub_models.utils.image_processing import normalize_image_torchvision
 from qai_hub_models.utils.input_spec import (
     ColorFormat,
@@ -47,10 +46,7 @@ class Midas(DepthEstimationModel):
         width: int = DEFAULT_WIDTH,
         normalize_input: bool = True,
     ) -> None:
-        super().__init__(
-            model=model,
-            serialization_settings=SerializationSettings(check_trace=False),
-        )
+        super().__init__(model=model)
         self.normalize_input = normalize_input
         self.height = height
         self.width = width

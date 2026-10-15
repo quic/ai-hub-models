@@ -36,7 +36,6 @@ from qai_hub_models.utils.base_dataset import BaseDataset
 from qai_hub_models.utils.base_evaluator import BaseEvaluator
 from qai_hub_models.utils.base_model import (
     BaseModel,
-    SerializationSettings,
 )
 from qai_hub_models.utils.input_spec import (
     ColorFormat,
@@ -69,9 +68,7 @@ class YoloWorldTextEncoder(BaseModel):
     """
 
     def __init__(self, clip_model: torch.nn.Module) -> None:
-        super().__init__(
-            serialization_settings=SerializationSettings(check_trace=False)
-        )
+        super().__init__()
         self.clip_model = clip_model
 
     @classmethod
@@ -195,9 +192,7 @@ class YoloWorldDetector(Yolo):
         include_postprocessing: bool = True,
         split_output: bool = False,
     ) -> None:
-        super().__init__(
-            model=model, serialization_settings=SerializationSettings(check_trace=False)
-        )
+        super().__init__(model=model)
         self.include_postprocessing = include_postprocessing
         self.split_output = split_output
 

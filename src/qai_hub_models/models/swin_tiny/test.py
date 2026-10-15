@@ -12,7 +12,6 @@ from qai_hub_models.models.swin_tiny.model import MODEL_ID, SwinTiny
 from qai_hub_models.models.templates.imagenet_classifier.test_utils import (  # noqa: F401
     imagenet_sample_torch,
     run_imagenet_classifier_test,
-    run_imagenet_classifier_trace_test,
 )
 from qai_hub_models.utils.image_processing import normalize_image_torchvision
 
@@ -34,10 +33,6 @@ def test_task() -> None:
     run_imagenet_classifier_test(
         SwinTiny.from_pretrained(), MODEL_ID, probability_threshold=0.53
     )
-
-
-def test_trace() -> None:
-    run_imagenet_classifier_trace_test(SwinTiny.from_pretrained())
 
 
 def test_demo() -> None:

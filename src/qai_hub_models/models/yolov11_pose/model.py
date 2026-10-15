@@ -20,7 +20,6 @@ from qai_hub_models.models.templates.ultralytics.pose_patches import (
 from qai_hub_models.models.templates.yolo.model import Yolo, yolo_detect_postprocess
 from qai_hub_models.utils.base_dataset import BaseDataset
 from qai_hub_models.utils.base_evaluator import BaseEvaluator
-from qai_hub_models.utils.base_model import SerializationSettings
 from qai_hub_models.utils.input_spec import (
     BboxFormat,
     BboxMetadata,
@@ -59,10 +58,7 @@ class YoloV11PoseDetector(Yolo):
         model: PoseModel,
         include_postprocessing: bool = True,
     ) -> None:
-        super().__init__(
-            model=model,
-            serialization_settings=SerializationSettings(check_trace=False),
-        )
+        super().__init__(model=model)
         self.include_postprocessing = include_postprocessing
         patch_ultralytics_pose_head(model)
 

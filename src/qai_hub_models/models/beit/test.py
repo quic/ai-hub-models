@@ -3,13 +3,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-import pytest
 
 from qai_hub_models.models.beit.demo import main as demo_main
 from qai_hub_models.models.beit.model import MODEL_ID, Beit
 from qai_hub_models.models.templates.imagenet_classifier.test_utils import (
     run_imagenet_classifier_test,
-    run_imagenet_classifier_trace_test,
 )
 
 
@@ -22,11 +20,6 @@ def test_task() -> None:
         atol=0.02,
         rtol=0.2,
     )
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    run_imagenet_classifier_trace_test(Beit.from_pretrained())
 
 
 def test_demo() -> None:

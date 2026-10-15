@@ -4,7 +4,6 @@
 # ---------------------------------------------------------------------
 
 import numpy as np
-import pytest
 import torch
 from torchvision.models.detection import maskrcnn_resnet50_fpn_v2
 
@@ -92,64 +91,6 @@ def test_task() -> None:
     # Compare masks
     assert_most_close(
         np.asarray(exp_masks, dtype=np.float32),
-        np.asarray(masks[0], dtype=np.float32),
-        diff_tol=0.2,
-        rtol=0.01,
-        atol=0.01,
-    )
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    """Test that the traced model produces similar outputs to the original."""
-    exp_boxes, exp_scores, exp_labels, exp_masks = run_source_model()
-
-    wrapper = MaskRCNN.from_pretrained()
-    proposal_generator, roi_head = wrapper.proposal_generator, wrapper.roi_head
-
-    # Trace the models
-    input_spec = roi_head.get_input_spec()
-    traced_roi_head = roi_head.convert_to_torchscript(input_spec)
-
-    input_spec = proposal_generator.get_input_spec()
-    traced_proposal_generator = proposal_generator.convert_to_torchscript(input_spec)
-
-    img = load_image(IMAGE_ADDRESS)
-    app = MaskRCNNApp(
-        traced_proposal_generator,
-        traced_roi_head,
-        boxes_score_threshold=0.9,
-        input_spec=input_spec,
-    )
-    result = app.predict(img, raw_output=True)
-    assert isinstance(result, tuple), "Expected tuple output when raw_output=True"
-    boxes, scores, labels, masks = result
-
-    # Compare detections
-    assert_most_close(
-        np.asarray(exp_boxes, dtype=np.float32),
-        np.asarray(boxes[0], dtype=np.float32),
-        diff_tol=0.01,
-        rtol=0.01,
-        atol=0.01,
-    )
-    assert_most_close(
-        np.asarray(exp_scores, dtype=np.float32),
-        np.asarray(scores[0], dtype=np.float32),
-        diff_tol=0.01,
-        rtol=0.01,
-        atol=0.01,
-    )
-    assert_most_close(
-        np.asarray(exp_labels, dtype=np.float32),
-        np.asarray(labels[0], dtype=np.float32),
-        diff_tol=0.01,
-        rtol=0.01,
-        atol=0.01,
-    )
-    # Compare masks
-    assert_most_close(
-        np.asarray(exp_masks.squeeze(1), dtype=np.float32),
         np.asarray(masks[0], dtype=np.float32),
         diff_tol=0.2,
         rtol=0.01,

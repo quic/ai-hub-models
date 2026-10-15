@@ -8,7 +8,6 @@ import gc
 import warnings
 
 import pytest
-import torch.jit._trace
 
 from qai_hub_models.models.distil_bert_base_uncased_hf import Model
 from qai_hub_models.utils.test_helpers import make_cached_from_pretrained_fixture
@@ -17,7 +16,6 @@ from qai_hub_models.utils.test_helpers import make_cached_from_pretrained_fixtur
 def pytest_configure(config: pytest.Config) -> None:
     # pytest is unable to figure out how to silence several PyTorch warning types from pyproject.toml settings,
     # so we apply a manual warning filter here instead.
-    warnings.filterwarnings(action="ignore", category=torch.jit._trace.TracerWarning)
     warnings.filterwarnings(action="ignore", category=UserWarning, module="torch.*")
     warnings.filterwarnings(action="ignore", category=FutureWarning, module="torch.*")
     warnings.filterwarnings(

@@ -4,12 +4,10 @@
 # ---------------------------------------------------------------------
 
 import numpy as np
-import pytest
 import torch
 from torch.nn import functional as F
 from transformers import Mask2FormerForUniversalSegmentation
 
-from qai_hub_models.models.mask2former.app import Mask2FormerApp
 from qai_hub_models.models.mask2former.demo import (
     INPUT_IMAGE_ADDRESS,
 )
@@ -23,9 +21,6 @@ from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 from qai_hub_models.utils.image_processing import (
     normalize_image_torchvision,
     preprocess_PIL_image,
-)
-from qai_hub_models.utils.test_helpers import (
-    assert_most_close,
 )
 
 WEIGHTS = "facebook/mask2former-swin-tiny-coco-panoptic"
@@ -50,30 +45,6 @@ def test_task() -> None:
         qaihm_out = qaihm_model(processed_sample_image)
         for i in range(len(source_out)):
             assert np.allclose(source_out[i], qaihm_out[i], atol=0.001, rtol=0.001)
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    net = Mask2Former.from_pretrained(WEIGHTS)
-    input_spec = net.get_input_spec()
-    trace = net.convert_to_torchscript(input_spec, check_trace=False)
-
-    # Collect output via app for traced model
-    img = load_image(INPUT_IMAGE_ADDRESS)
-    (_, _, height, width) = net.get_input_spec()["image"][0]
-    img_resized = img.resize((height, width))
-    app = Mask2FormerApp(trace)
-    out_imgs = app.predict(img_resized)
-    out_img = out_imgs[0].resize(img.size)
-
-    expected_out = load_image(OUTPUT_IMAGE_ADDRESS)
-    assert_most_close(
-        np.asarray(out_img, dtype=np.float32),
-        np.asarray(expected_out, dtype=np.float32),
-        0.005,
-        rtol=0.02,
-        atol=1.5,
-    )
 
 
 def test_demo() -> None:

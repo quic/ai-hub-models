@@ -4,7 +4,6 @@
 # ---------------------------------------------------------------------
 
 import numpy as np
-import pytest
 import torch
 from PIL import Image
 from stereonet.model import StereoNet as StereoNetModel
@@ -49,7 +48,7 @@ def run_source_model(
     return pred.squeeze().numpy().astype(np.float32)
 
 
-def _run_test(model: StereoNet | torch.jit.ScriptModule, spec_model: StereoNet) -> None:
+def _run_test(model: StereoNet, spec_model: StereoNet) -> None:
     *_, height, width = spec_model.get_input_spec()["image"][0]
     left = load_image(DEFAULT_LEFT_IMAGE)
     right = load_image(DEFAULT_RIGHT_IMAGE)
@@ -70,12 +69,6 @@ def _run_test(model: StereoNet | torch.jit.ScriptModule, spec_model: StereoNet) 
 def test_task() -> None:
     model = StereoNet.from_pretrained()
     _run_test(model, model)
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    model = StereoNet.from_pretrained()
-    _run_test(model.convert_to_torchscript(), model)
 
 
 def test_demo() -> None:

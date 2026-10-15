@@ -5,8 +5,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from qai_hub_models.models.templates.conformer.test import conformer_transcribe_test_e2e
 from qai_hub_models.models.wav2vec2_conformer.app import Wav2Vec2ConformerApp
 from qai_hub_models.models.wav2vec2_conformer.demo import load_demo_audio, main
@@ -27,14 +25,6 @@ GROUND_TRUTH_RESULT = CachedWebModelAsset.from_asset_store(
 def test_transcribe() -> None:
     model = Wav2Vec2Conformer.from_pretrained()
     app = Wav2Vec2ConformerApp(model)
-    conformer_transcribe_test_e2e(app, load_demo_audio, GROUND_TRUTH_RESULT)
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    model = Wav2Vec2Conformer.from_pretrained()
-    traced = model.convert_to_torchscript()
-    app = Wav2Vec2ConformerApp(traced)
     conformer_transcribe_test_e2e(app, load_demo_audio, GROUND_TRUTH_RESULT)
 
 

@@ -112,7 +112,7 @@ class CenterPoint(BaseModel):
         - 3D bounding boxes
         - confidence scores
         - predicted class labels
-        During tracing (e.g., with TorchScript), the model returns a single raw tensor.
+        During tracing/export, the model returns a single raw tensor.
 
         Parameters
         ----------

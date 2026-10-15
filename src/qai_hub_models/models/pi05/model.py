@@ -1032,7 +1032,7 @@ class Pi05ActionExpert(LoadPolicyMixin, BaseModel):
         Compute velocity v_t and return the integrated x_{t+dt} using a
         fixed Euler step where dt = -1.0 / num_integration_steps.
 
-        All input args are listed explicitly as required by torch.jit.trace.
+        All input args are listed explicitly as required by torch.export.
 
         Parameters
         ----------

@@ -4,7 +4,6 @@
 # ---------------------------------------------------------------------
 
 import numpy as np
-import pytest
 
 from qai_hub_models.models.owl_vit.demo import DEFAULT_TEXT_QUERIES, IMAGE_ADDRESS
 from qai_hub_models.models.owl_vit.demo import main as demo_main
@@ -25,23 +24,6 @@ OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 
 def test_task() -> None:
     app = OwlApp(OwlViT.from_pretrained(), HF_MODEL_ID)
-    output_image = load_image(OUTPUT_IMAGE_ADDRESS)
-    image = load_image(IMAGE_ADDRESS)
-    assert_most_close(
-        np.asarray(app.predict_boxes_from_image(image, DEFAULT_TEXT_QUERIES)[0]),
-        np.asarray(output_image),
-        0.05,
-        0.05,
-        1,
-    )
-
-
-@pytest.mark.trace
-def test_trace() -> None:
-    net = OwlViT.from_pretrained()
-    input_spec = net.get_input_spec()
-    app = OwlApp(net.convert_to_torchscript(input_spec), HF_MODEL_ID)
-
     output_image = load_image(OUTPUT_IMAGE_ADDRESS)
     image = load_image(IMAGE_ADDRESS)
     assert_most_close(

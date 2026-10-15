@@ -215,7 +215,7 @@ def _get_seq_lens(model: DeepSpeech, input_length: torch.Tensor) -> torch.Tensor
     """Compute output sequence lengths after the conv layers.
 
     Uses int() on conv parameters so they are treated as Python constants
-    during torch.jit.trace rather than being traced as tensor operations.
+    during tracing rather than being traced as tensor operations.
     """
     seq_len = input_length
     for m in model.conv.modules():
@@ -233,7 +233,7 @@ class BatchRNNNoPack(BatchRNN):
     """
     Drop-in replacement for :class:`deepspeech_pytorch.model.BatchRNN` that
     removes ``pack_padded_sequence`` / ``pad_packed_sequence`` calls so the
-    model can be exported via ``torch.jit.trace``.
+    model can be exported via ``torch.export``.
     """
 
     def forward(
