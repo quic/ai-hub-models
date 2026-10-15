@@ -63,6 +63,10 @@ class RuntimeInfo(BaseQAIHMConfig):
     rep_penalty: float = 1.2
     model_lang: str = "en"
     scratch_mem_size_req: int = 3200000
+    pad_token_id: int
+    eos_token_id: int
+    num_layers: int
+    num_heads: int
 
 
 class T2TMetadata(BaseQAIHMConfig):
@@ -138,11 +142,11 @@ class T2TMetadata(BaseQAIHMConfig):
 
         # Categorize kwargs based on which class they belong to
         for key, value in kwargs.items():
-            if hasattr(TranslationCapabilities, key):
+            if key in TranslationCapabilities.model_fields:
                 capabilities_kwargs[key] = value
-            elif hasattr(TranslationParameters, key):
+            elif key in TranslationParameters.model_fields:
                 parameters_kwargs[key] = value
-            elif hasattr(RuntimeInfo, key):
+            elif key in RuntimeInfo.model_fields:
                 runtime_kwargs[key] = value
 
         # Create capabilities with custom values
@@ -152,7 +156,7 @@ class T2TMetadata(BaseQAIHMConfig):
         parameters = TranslationParameters(**parameters_kwargs)
 
         # Default runtime info with QNN version from tool_versions if available
-        qnn_version = {"major": 2, "minor": 33, "patch": 0}  # Default
+        qnn_version = {"major": 2, "minor": 60, "patch": 0}  # Default
         if tool_versions and tool_versions.qairt is not None:
             # Parse QNN version string like "2.33.0" into major, minor, patch
             qnn_version = {
@@ -210,6 +214,66 @@ OPUS_MT_LANGUAGE_PAIRS = {
     "Helsinki-NLP/opus-mt-zh-en": {
         "source_code": "zh",
         "source_name": "Chinese",
+        "target_code": "en",
+        "target_name": "English",
+    },
+    "Helsinki-NLP/opus-mt-ja-en": {
+        "source_code": "ja",
+        "source_name": "Japanese",
+        "target_code": "en",
+        "target_name": "English",
+    },
+    "Helsinki-NLP/opus-mt-ko-en": {
+        "source_code": "ko",
+        "source_name": "Korean",
+        "target_code": "en",
+        "target_name": "English",
+    },
+    "Helsinki-NLP/opus-mt-en-jap": {
+        "source_code": "en",
+        "source_name": "English",
+        "target_code": "ja",
+        "target_name": "Japanese",
+    },
+    "Helsinki-NLP/opus-mt-tc-big-en-ko": {
+        "source_code": "en",
+        "source_name": "English",
+        "target_code": "ko",
+        "target_name": "Korean",
+    },
+    "Helsinki-NLP/opus-mt-en-de": {
+        "source_code": "en",
+        "source_name": "English",
+        "target_code": "de",
+        "target_name": "German",
+    },
+    "Helsinki-NLP/opus-mt-de-en": {
+        "source_code": "de",
+        "source_name": "German",
+        "target_code": "en",
+        "target_name": "English",
+    },
+    "Helsinki-NLP/opus-mt-en-fr": {
+        "source_code": "en",
+        "source_name": "English",
+        "target_code": "fr",
+        "target_name": "French",
+    },
+    "Helsinki-NLP/opus-mt-fr-en": {
+        "source_code": "fr",
+        "source_name": "French",
+        "target_code": "en",
+        "target_name": "English",
+    },
+    "Helsinki-NLP/opus-mt-en-it": {
+        "source_code": "en",
+        "source_name": "English",
+        "target_code": "it",
+        "target_name": "Italian",
+    },
+    "Helsinki-NLP/opus-mt-it-en": {
+        "source_code": "it",
+        "source_name": "Italian",
         "target_code": "en",
         "target_name": "English",
     },
@@ -332,6 +396,28 @@ def create_t2t_metadata(
     display_name = f"{lang_pair['source_name']} to {lang_pair['target_name']}"
     description = f"Translation from {lang_pair['source_name']} to {lang_pair['target_name']} using Opus"
 
+    pad_token_id = 65000
+    eos_token_id = 0
+    num_layers = 6
+    num_heads = 8
+    if lang_pair["source_code"] == "en" and lang_pair["target_code"] == "ja":
+        pad_token_id = 46275
+    if lang_pair["source_code"] == "ja" and lang_pair["target_code"] == "en":
+        pad_token_id = 60715
+    if lang_pair["source_code"] == "en" and lang_pair["target_code"] == "ko":
+        pad_token_id = 32000
+        eos_token_id = 2
+        num_layers = 6
+        num_heads = 16
+    if {lang_pair["source_code"], lang_pair["target_code"]} == {"en", "de"}:
+        pad_token_id = 58100
+    if {lang_pair["source_code"], lang_pair["target_code"]} == {"en", "fr"}:
+        pad_token_id = 59513
+    if lang_pair["source_code"] == "en" and lang_pair["target_code"] == "it":
+        pad_token_id = 80034
+    if lang_pair["source_code"] == "it" and lang_pair["target_code"] == "en":
+        pad_token_id = 80378
+
     t2t_metadata = T2TMetadata.from_opus_mt_model(
         model_name=model_name,
         display_name=display_name,
@@ -344,6 +430,10 @@ def create_t2t_metadata(
         # Pass the extracted sequence lengths to override defaults
         enc_model_max_seq_len=enc_max_seq_len,
         dec_model_max_seq_len=dec_max_seq_len,
+        pad_token_id=pad_token_id,
+        eos_token_id=eos_token_id,
+        num_layers=num_layers,
+        num_heads=num_heads,
     )
     t2t_metadata.assets = assets
 

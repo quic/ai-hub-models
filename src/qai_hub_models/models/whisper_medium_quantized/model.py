@@ -61,7 +61,7 @@ class WhisperMediumEncoderQuantizable(WhisperEncoderQuantizableBase):
         return WhisperMedium.from_pretrained().encoder
 
     @classmethod
-    def get_calibrated_aimet_model(cls) -> tuple[Path, Path]:  # type: ignore[override]
+    def get_calibrated_aimet_model(cls) -> tuple[Path, Path]:  # type: ignore[override, unused-ignore]
         onnx_file = CachedWebModelAsset.from_asset_store(
             MODEL_ID,
             MODEL_ASSET_VERSION,
@@ -81,7 +81,7 @@ class WhisperMediumDecoderQuantizable(WhisperDecoderQuantizableBase):
         return WhisperMedium.from_pretrained().decoder
 
     @classmethod
-    def get_calibrated_aimet_model(cls) -> tuple[Path, Path]:  # type: ignore[override]
+    def get_calibrated_aimet_model(cls) -> tuple[Path, Path]:  # type: ignore[override, unused-ignore]
         onnx_file = CachedWebModelAsset.from_asset_store(
             MODEL_ID,
             MODEL_ASSET_VERSION,

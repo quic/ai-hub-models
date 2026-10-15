@@ -1,0 +1,128 @@
+{
+  "module_list":
+  [
+  ],
+  "name_list":[
+    {
+      "_comment": "Quantize key and value projections to 8-bit",
+      "module_name": "\\w*[kv]_proj_(\\d+_)?(Conv|MatMul|Gemm)",
+      "exceptions": {
+        "param_exceptions": null,
+        "input_exceptions": null,
+        "output_exceptions": [
+          {
+            "output_index": 0,
+            "bitwidth": 8,
+            "asymmetric": false
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Quantize past and present self attn kv-cache to 8-bit",
+      "module_name": "\\w*self_attn_(\\d+_)?Concat\\w*",
+      "exceptions": {
+        "param_exceptions": null,
+        "input_exceptions": null,
+        "output_exceptions": [
+          {
+            "output_index": 0,
+            "bitwidth": 8,
+            "asymmetric": false
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Quantize 'block_X_cross_key_states' inputs to 8-bit",
+      "module_name": "\\w+encoder_attn_(\\d+_)?Transpose",
+      "exceptions": {
+        "param_exceptions": null,
+        "input_exceptions": [
+          {
+            "input_index": 0,
+            "bitwidth": 8,
+            "asymmetric": false
+          }
+        ],
+        "output_exceptions": null
+      }
+    },
+    {
+      "_comment": "Quantize 'block_X_cross_value_states' inputs to 8-bit",
+      "module_name": "\\w+encoder_attn_(\\d+_)?MatMul_1",
+      "exceptions": {
+        "param_exceptions": null,
+        "input_exceptions": [
+          {
+            "comment": "The first input is Softmax output, so it should be asymmetric.  This Needs to be 8-bit or QNN model will force cross_value_states to 16-bit",
+            "input_index": 0,
+            "bitwidth": 8,
+            "asymmetric": true
+          },
+          {
+            "comment": "cross_value_state",
+            "input_index": 1,
+            "bitwidth": 8,
+            "asymmetric": false
+          }
+        ],
+        "output_exceptions": null
+      }
+    },
+    {
+    "_comment": "Quantize token embedding Gather weights and outputs to 8-bit",
+    "module_name": "embed_tokens_Gather",
+    "exceptions": {
+      "param_exceptions": {
+        "bitwidth": 8,
+        "asymmetric": true
+      },
+      "input_exceptions": null,
+      "output_exceptions": [
+        {
+          "output_index": 0,
+          "bitwidth": 8,
+          "asymmetric": true
+        }
+      ]
+    }
+  },
+  {
+    "_comment": "Quantize mask embedding Gather weights and outputs to 8-bit",
+    "module_name": "mask_embedding_Gather",
+    "exceptions": {
+      "param_exceptions": {
+        "bitwidth": 8,
+        "asymmetric": true
+      },
+      "input_exceptions": null,
+      "output_exceptions": [
+        {
+          "output_index": 0,
+          "bitwidth": 8,
+          "asymmetric": true
+        }
+      ]
+    }
+  },
+  {
+    "_comment": "Quantize positional embedding Gather weights and outputs to 8-bit",
+    "module_name": "embed_positions_Gather",
+    "exceptions": {
+      "param_exceptions": {
+        "bitwidth": 8,
+        "asymmetric": true
+      },
+      "input_exceptions": null,
+      "output_exceptions": [
+        {
+          "output_index": 0,
+          "bitwidth": 8,
+          "asymmetric": true
+        }
+      ]
+    }
+  }
+  ]
+}

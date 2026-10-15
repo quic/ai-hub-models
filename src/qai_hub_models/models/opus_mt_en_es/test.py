@@ -8,13 +8,13 @@ from qai_hub_models.models.opus_mt_en_es.demo import main as demo_main
 from qai_hub_models.models.opus_mt_en_es.model import (
     OpusMTEnEs,
 )
-from qai_hub_models.models.templates.opus_mt.model import (
-    get_tokenizer,
-)
 from qai_hub_models.models.templates.opus_mt.test_utils import (
     run_test_encoder_decoder_consistency,
     run_test_translation_end_to_end,
     run_test_wrapper_numerics,
+)
+from qai_hub_models.models.templates.opus_mt.utils import (
+    get_tokenizer,
 )
 
 

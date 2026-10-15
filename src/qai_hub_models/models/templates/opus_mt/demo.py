@@ -33,15 +33,25 @@ def opus_mt_demo(
     # Example sentences to translate based on source language
     if is_test:
         # Use simple sentences for testing
-        if "english" in source_lang.lower() or "en" in source_lang.lower():
+        if source_lang.lower() == "english":
             sentences = ["Hello, how are you?", "The weather is nice today."]
-        elif "chinese" in source_lang.lower() or "zh" in source_lang.lower():
+        elif source_lang.lower() == "chinese":
             sentences = ["你好,你好吗?", "今天天气很好。"]
-        elif "spanish" in source_lang.lower() or "es" in source_lang.lower():
+        elif source_lang.lower() == "spanish":
             sentences = ["Hola, ¿cómo estás?", "El clima es agradable hoy."]
+        elif source_lang.lower() == "japanese":
+            sentences = ["こんにちは お元気ですか?", "今日はいい天気です。"]
+        elif source_lang.lower() == "korean":
+            sentences = ["안녕하세요. 어떻게 지내세요?", "오늘 날씨가 좋네요."]
+        elif source_lang.lower() == "german":
+            sentences = ["Hallo, wie geht es dir?", "Das Wetter ist heute schön."]
+        elif source_lang.lower() == "italian":
+            sentences = ["Ciao, come stai?", "Il tempo è bello oggi."]
+        elif source_lang.lower() == "french":
+            sentences = ["Bonjour, comment allez-vous ?", "Il fait beau aujourd'hui."]
         else:
             sentences = ["Hello, world!", "How are you?"]
-    elif "english" in source_lang.lower() or "en" in source_lang.lower():
+    elif source_lang.lower() == "english":
         sentences = [
             "Hello, how are you?",
             "The weather is nice today.",
@@ -49,7 +59,7 @@ def opus_mt_demo(
             "Technology is changing the world.",
             "Machine translation helps people communicate.",
         ]
-    elif "chinese" in source_lang.lower() or "zh" in source_lang.lower():
+    elif source_lang.lower() == "chinese":
         sentences = [
             "你好,你好吗?",
             "今天天气很好。",
@@ -57,13 +67,53 @@ def opus_mt_demo(
             "技术正在改变世界。",
             "机器翻译帮助人们交流。",
         ]
-    elif "spanish" in source_lang.lower() or "es" in source_lang.lower():
+    elif source_lang.lower() == "spanish":
         sentences = [
             "Hola, ¿cómo estás?",
             "El clima es agradable hoy.",
             "Me encanta aprender nuevos idiomas.",
             "La tecnología está cambiando el mundo.",
             "La traducción automática ayuda a las personas a comunicarse.",
+        ]
+    elif source_lang.lower() == "japanese":
+        sentences = [
+            "こんにちは お元気ですか?",
+            "今日はいい天気です。",
+            "新しい言語を学ぶのが大好きです。",
+            "テクノロジーは世界を変えています。",
+            "機械翻訳は、人々のコミュニケーションを助けます。",
+        ]
+    elif source_lang.lower() == "korean":
+        sentences = [
+            "안녕하세요. 어떻게 지내세요?",
+            "오늘 날씨가 좋네요.",
+            "저는 새로운 언어를 배우는 것을 좋아합니다.",
+            "기술이 세상을 변화시키고 있습니다.",
+            "기계 번역은 사람들이 의사소통하는 데 도움을 줍니다.",
+        ]
+    elif source_lang.lower() == "german":
+        sentences = [
+            "Hallo, wie geht es dir?",
+            "Das Wetter ist heute schön.",
+            "Ich lerne gerne neue Sprachen.",
+            "Die Technologie verändert die Welt.",
+            "Maschinelle Übersetzung hilft Menschen bei der Kommunikation.",
+        ]
+    elif source_lang.lower() == "italian":
+        sentences = [
+            "Ciao, come stai?",
+            "Il tempo è bello oggi.",
+            "Mi piace imparare nuove lingue.",
+            "La tecnologia sta cambiando il mondo.",
+            "La traduzione automatica aiuta le persone a comunicare.",
+        ]
+    elif source_lang.lower() == "french":
+        sentences = [
+            "Bonjour, comment allez-vous ?",
+            "Il fait beau aujourd'hui.",
+            "J'adore apprendre de nouvelles langues.",
+            "La technologie change le monde.",
+            "La traduction automatique aide les gens à communiquer.",
         ]
     else:
         sentences = [

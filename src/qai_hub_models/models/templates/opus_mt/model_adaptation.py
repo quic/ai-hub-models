@@ -161,10 +161,10 @@ class QcMarianAttention(torch.nn.Module):
                     # Truncate the mask
                     attention_mask = attention_mask[..., :src_len]
                 else:
-                    # Pad the mask with -10000 (mask out additional positions)
+                    # Pad the mask with -100 (mask out additional positions)
                     pad_size = src_len - attention_mask.size(-1)
                     attention_mask = torch.nn.functional.pad(
-                        attention_mask, (0, pad_size), value=-10000.0
+                        attention_mask, (0, pad_size), value=-100.0
                     )
 
             attn_weights = attn_weights_4d + attention_mask
@@ -251,7 +251,8 @@ class QcMarianEncoder(torch.nn.Module):
         hidden_states = input_embeds + embed_pos
         bsz = encoder_attention_mask.shape[0]
         seq_len = encoder_attention_mask.shape[1]
-        extended_attention_mask = -10000.0 * (
+        # -10000 saturates the 16-bit activation range; -100 is still << any real logit.
+        extended_attention_mask = -100.0 * (
             1 - encoder_attention_mask[:, None, None, :]
         )
         extended_attention_mask = extended_attention_mask.expand(
@@ -327,7 +328,7 @@ class QcMarianDecoder(torch.nn.Module):
             max_target_positions, max_target_positions
         )
         mask_embedding_weight = torch.full(
-            [max_target_positions, max_target_positions], -10000.0, dtype=torch.float32
+            [max_target_positions, max_target_positions], -100.0, dtype=torch.float32
         )
         for idx in range(max_target_positions):
             mask_embedding_weight[idx, :idx] = 0
@@ -357,9 +358,7 @@ class QcMarianDecoder(torch.nn.Module):
         inputs_embeds = self.embed_tokens(input_ids) * self.embed_scale
         attention_mask = self.mask_embedding(position)
 
-        encoder_attention_mask = -10000.0 * (
-            1 - encoder_attention_mask[:, None, None, :]
-        )
+        encoder_attention_mask = -100.0 * (1 - encoder_attention_mask[:, None, None, :])
 
         positions = self.embed_positions(position)
 

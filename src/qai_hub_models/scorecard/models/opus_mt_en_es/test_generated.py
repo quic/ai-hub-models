@@ -31,8 +31,6 @@ from qai_hub_models.scorecard.execution_helpers import (
     get_export_parameterized_pytest_config,
     get_link_parameterized_pytest_config,
     get_profile_parameterized_pytest_config,
-    get_quantize_parameterized_pytest_config,
-    needs_pre_quantize_compile,
     pytest_device_idfn,
 )
 from qai_hub_models.scorecard.utils.testing import skip_invalid_runtime_device
@@ -42,9 +40,7 @@ from qai_hub_models.scorecard.utils.testing_export_eval import (
     export_test_e2e,
     inference_via_export,
     link_via_export,
-    pre_quantize_compile_via_export,
     profile_via_export,
-    quantize_via_export,
 )
 from qai_hub_models.utils.args import get_model_kwargs
 from qai_hub_models.utils.export.compile import run_collection_compile as compile_model
@@ -55,9 +51,6 @@ from qai_hub_models.utils.export.inference import (
 )
 from qai_hub_models.utils.export.link import run_collection_link as link_model
 from qai_hub_models.utils.export.profile import run_collection_profile as profile_model
-from qai_hub_models.utils.export.quantize import (
-    run_collection_quantize as quantize_model,
-)
 from qai_hub_models.utils.export.upload import upload_collection_source as upload_model
 from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.validation import perform_runtime_model_validation
@@ -83,46 +76,13 @@ def test_runtime_model_validation() -> None:
     )
 
 
-@pytest.mark.pre_quantize_compile
-@pytest.mark.skipif(
-    not needs_pre_quantize_compile(
-        MODEL_ID, ENABLED_PRECISION_RUNTIMES, PASSING_PRECISION_RUNTIMES
-    ),
-    reason="Model does not require pre-quantize compile step",
-)
-def test_pre_quantize_compile() -> None:
-    pre_quantize_compile_via_export(
-        compile_model,
-        MODEL_ID,
-        Model.from_pretrained(),
-        upload_model,
-    )
-
-
-@pytest.mark.parametrize(
-    "precision",
-    get_quantize_parameterized_pytest_config(
-        MODEL_ID, ENABLED_PRECISION_RUNTIMES, PASSING_PRECISION_RUNTIMES
-    ),
-    ids=pytest_device_idfn,
-)
-@pytest.mark.quantize
-def test_quantize(precision: Precision) -> None:
-    try:
-        quantize_via_export(
-            quantize_model,
-            MODEL_ID,
-            Model.from_pretrained(),
-            precision,
-        )
-    except CachedScorecardJobError as e:
-        pytest.skip(str(e))
-
-
 @pytest.mark.parametrize(
     ("precision", "scorecard_path", "device"),
     get_compile_parameterized_pytest_config(
-        MODEL_ID, ENABLED_PRECISION_RUNTIMES, PASSING_PRECISION_RUNTIMES
+        MODEL_ID,
+        ENABLED_PRECISION_RUNTIMES,
+        PASSING_PRECISION_RUNTIMES,
+        can_use_quantize_job=False,
     ),
     ids=pytest_device_idfn,
 )
@@ -139,6 +99,7 @@ def test_compile(
             precision,
             scorecard_path,
             device,
+            is_aimet=True,
             upload_model=upload_model,
         )
     except CachedScorecardJobError as e:
@@ -148,7 +109,10 @@ def test_compile(
 @pytest.mark.parametrize(
     ("precision", "scorecard_path", "device"),
     get_link_parameterized_pytest_config(
-        MODEL_ID, ENABLED_PRECISION_RUNTIMES, PASSING_PRECISION_RUNTIMES
+        MODEL_ID,
+        ENABLED_PRECISION_RUNTIMES,
+        PASSING_PRECISION_RUNTIMES,
+        can_use_quantize_job=False,
     ),
     ids=pytest_device_idfn,
 )
@@ -173,7 +137,10 @@ def test_link(
 @pytest.mark.parametrize(
     ("precision", "scorecard_path", "device"),
     get_profile_parameterized_pytest_config(
-        MODEL_ID, ENABLED_PRECISION_RUNTIMES, PASSING_PRECISION_RUNTIMES
+        MODEL_ID,
+        ENABLED_PRECISION_RUNTIMES,
+        PASSING_PRECISION_RUNTIMES,
+        can_use_quantize_job=False,
     ),
     ids=pytest_device_idfn,
 )
@@ -202,6 +169,7 @@ def test_profile(
         EVAL_DEVICE,
         ENABLED_PRECISION_RUNTIMES,
         PASSING_PRECISION_RUNTIMES,
+        can_use_quantize_job=False,
     ),
     ids=pytest_device_idfn,
 )
@@ -252,6 +220,7 @@ def torch_evaluate_mock_outputs(
         EVAL_DEVICE,
         ENABLED_PRECISION_RUNTIMES,
         PASSING_PRECISION_RUNTIMES,
+        can_use_quantize_job=False,
     ),
     ids=pytest_device_idfn,
 )
@@ -283,6 +252,7 @@ def test_val_accuracy(
         EVAL_DEVICE,
         ENABLED_PRECISION_RUNTIMES,
         PASSING_PRECISION_RUNTIMES,
+        can_use_quantize_job=False,
         requires_aot_prepare=True,
     ),
     ids=pytest_device_idfn,

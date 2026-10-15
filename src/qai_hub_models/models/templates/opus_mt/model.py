@@ -5,39 +5,83 @@
 
 from __future__ import annotations
 
+import logging
 import os
-import struct
 from abc import abstractmethod
-from pathlib import Path
-from typing import cast
+from functools import lru_cache
+from typing import TypeVar, cast
 
-import torch
-from transformers import MarianMTModel, MarianTokenizer
+from aimet_onnx.common.defs import QuantScheme
+from aimet_onnx.cross_layer_equalization import equalize_model
+from aimet_onnx.quantsim import QuantizationSimModel, load_encodings_to_sim
+from onnxsim import simplify
+from qai_hub.client import Device
+from qai_hub_models_cli.common import LOCAL_STORE_DEFAULT_PATH
+from torch import Tensor
+from transformers import MarianMTModel
 from typing_extensions import Self
 
+from qai_hub_models import Precision, TargetRuntime
+from qai_hub_models.configs.model_metadata import ModelMetadata
+from qai_hub_models.datasets.common_voice import CommonVoiceText, TTSLanguage
+from qai_hub_models.models.templates.llm._utils import _set_matmul_second_input_to_8b
+from qai_hub_models.models.templates.opus_mt.mixed_precision_overrides import (
+    ManualQuantsimMixedPrecisionConfig,
+)
 from qai_hub_models.models.templates.opus_mt.model_adaptation import (
     QcMarianDecoder,
     QcMarianEncoder,
     apply_model_adaptations,
 )
+from qai_hub_models.models.templates.opus_mt.utils import (
+    write_opus_mt_supplementary_files,
+)
+from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, qaihm_temp_dir
 from qai_hub_models.utils.base_collection_model import WorkbenchModelCollection
+from qai_hub_models.utils.base_dataset import BaseDataset
 from qai_hub_models.utils.base_model import BaseModel
-from qai_hub_models.utils.export.result import ComponentGroup
-from qai_hub_models.utils.input_spec import InputSpec, OutputSpec, TensorSpec
+from qai_hub_models.utils.dataset_util import dataset_entries_to_dataloader
+from qai_hub_models.utils.input_spec import (
+    InputSpec,
+    OutputSpec,
+    TensorSpec,
+    make_torch_inputs,
+)
+from qai_hub_models.utils.onnx.helpers import ONNXBundle, safe_torch_onnx_export
+from qai_hub_models.utils.quantization_aimet_onnx import (
+    AIMETOnnxQuantizableMixin,
+    aimet_quant_types,
+    set_aimet_log_level,
+)
 
-MODEL_ID = "opus_mt_shared"
-MODEL_ASSET_VERSION = 1
-
-# Model configuration constants
 MAX_SEQ_LEN_ENC = 256
 MAX_SEQ_LEN_DEC = 256
-TOKENIZER_ENCODE_NAME = "tokenizer_encode.bin"
-TOKENIZER_DECODE_NAME = "tokenizer_decode.bin"
+NUM_CALIBRATION_SAMPLES = 100
+
+
+@lru_cache(maxsize=1)
+def get_opus_model(mt_version: str) -> tuple[QcMarianEncoder, QcMarianDecoder]:
+    """Download OpusMT model from HuggingFace or aihub-public-assets.s3 and apply adaptations."""
+    if mt_version == "Helsinki-NLP/opus-mt-en-jap":
+        mt_version = CachedWebModelAsset.from_asset_store(
+            "opus_mt_en_ja",
+            1,
+            "en_jp_torch_model.zip",
+        ).fetch(extract=True)  # Download QC trained en_jp model
+        print(f"pt_model_path = {mt_version}")
+
+    orig_model = cast(
+        MarianMTModel,
+        MarianMTModel.from_pretrained(mt_version),
+    )
+    orig_model.eval()
+    # Apply model adaptations to optimize for QNN inference
+    return apply_model_adaptations(orig_model)
 
 
 class OpusMTEncoder(BaseModel):
     """
-    OpusMT Encoder optimized for export and inference.
+    Float Encoder optimized for export and inference.
 
     It takes text input (input_ids) and produces cross attention
     key-value cache for the decoder.
@@ -48,14 +92,12 @@ class OpusMTEncoder(BaseModel):
         self.encoder = model
 
     @classmethod
-    def from_pretrained(
-        cls, opus_mt_version: str = "Helsinki-NLP/opus-mt-en-es"
-    ) -> Self:
-        return cls(OpusMT.get_opus_model(opus_mt_version)[0])
+    def from_pretrained(cls, mt_version: str) -> Self:
+        return cls(get_opus_model(mt_version)[0])
 
     def forward(
-        self, input_ids: torch.Tensor, encoder_attention_mask: torch.Tensor
-    ) -> tuple[torch.Tensor, ...]:
+        self, input_ids: Tensor, encoder_attention_mask: Tensor
+    ) -> tuple[Tensor, ...]:
         """
         Parameters
         ----------
@@ -66,7 +108,7 @@ class OpusMTEncoder(BaseModel):
 
         Returns
         -------
-        tuple[torch.Tensor, ...]
+        tuple[Tensor, ...]
             Cross attention key and value cache tensors
         """
         return self.encoder(input_ids, encoder_attention_mask)
@@ -87,7 +129,7 @@ class OpusMTEncoder(BaseModel):
             ),
         }
 
-    def get_output_spec(self, num_layers: int = 6) -> OutputSpec:
+    def get_output_spec(self) -> OutputSpec:
         """Returns the output names for the encoder."""
         output_names = []
         for layer_idx in range(len(self.encoder.decoder_layers)):
@@ -98,8 +140,7 @@ class OpusMTEncoder(BaseModel):
 
 class OpusMTDecoder(BaseModel):
     """
-    OpusMT Decoder optimized for export and inference.
-
+    Float Decoder optimized for export and inference.
     Wraps MarianDecoderMod to facilitate export.
     """
 
@@ -111,18 +152,16 @@ class OpusMTDecoder(BaseModel):
         self.head_dim = model.layers[0].self_attn.head_dim
 
     @classmethod
-    def from_pretrained(
-        cls, opus_mt_version: str = "Helsinki-NLP/opus-mt-en-es"
-    ) -> Self:
-        return cls(OpusMT.get_opus_model(opus_mt_version)[1])
+    def from_pretrained(cls, mt_version: str) -> Self:
+        return cls(get_opus_model(mt_version)[1])
 
     def forward(
         self,
-        input_ids: torch.Tensor,
-        encoder_attention_mask: torch.Tensor,
-        position: torch.Tensor,
-        *past_key_values: torch.Tensor,
-    ) -> tuple[torch.Tensor, ...]:
+        input_ids: Tensor,
+        encoder_attention_mask: Tensor,
+        position: Tensor,
+        *past_key_values: Tensor,
+    ) -> tuple[Tensor, ...]:
         """
         Parameters
         ----------
@@ -137,7 +176,7 @@ class OpusMTDecoder(BaseModel):
 
         Returns
         -------
-        tuple[torch.Tensor, ...]
+        tuple[Tensor, ...]
             Logits and updated key-value states
         """
         return self.decoder(
@@ -145,10 +184,6 @@ class OpusMTDecoder(BaseModel):
         )
 
     def get_input_spec(self) -> InputSpec:
-        """
-        Returns the input specification (name -> (shape, type)). This can be
-        used to submit profiling job on Qualcomm AI Hub.
-        """
         specs: InputSpec = {
             "input_ids": TensorSpec(shape=(1, 1), dtype="int32"),
             "encoder_attention_mask": TensorSpec(
@@ -178,7 +213,7 @@ class OpusMTDecoder(BaseModel):
 
         return specs
 
-    def get_output_spec(self, num_layers: int = 6) -> OutputSpec:
+    def get_output_spec(self) -> OutputSpec:
         """Returns the output names for the decoder."""
         output_names = ["logits"]
         for layer_idx in range(self.num_layers):
@@ -187,271 +222,304 @@ class OpusMTDecoder(BaseModel):
         return {name: TensorSpec() for name in output_names}
 
 
-class OpusMT(WorkbenchModelCollection):
-    """
-    Base OpusMT translation model.
+QuantizableComponentT = TypeVar(
+    "QuantizableComponentT", bound=AIMETOnnxQuantizableMixin
+)
 
-    This model consists of an encoder and decoder that work together
-    to translate text between languages.
+
+def quantize_component(
+    quantizable_cls: type[QuantizableComponentT],
+    fp_collection: OpusMT,
+    precision: Precision,
+    component_name: str,
+) -> QuantizableComponentT:
     """
+    Calibrate an OpusMT encoder/decoder from scratch.
+
+    Parameters
+    ----------
+    quantizable_cls
+        The concrete quantizable class to instantiate.
+    fp_collection
+        Float OpusMT collection for the desired language variant; supplies
+        the float encoder/decoder to export to ONNX and the calibration data.
+    precision
+        the precision used for quantization.
+    component_name
+        "encoder" or "decoder".
+
+    Returns
+    -------
+    QuantizableComponentT
+        The calibrated quantizable component.
+    """
+    # Local import to avoid a circular import: app.py imports from this
+    # module, so importing OpusMTApp at module scope would form a cycle.
+    from qai_hub_models.models.templates.opus_mt.app import OpusMTApp
+
+    fp_module: OpusMTEncoder | OpusMTDecoder
+    qc_module: QcMarianEncoder | QcMarianDecoder
+    if component_name == "encoder":
+        fp_module = fp_collection.encoder
+        qc_module = fp_collection.encoder.encoder
+    else:
+        fp_module = fp_collection.decoder
+        qc_module = fp_collection.decoder.decoder
+
+    # Export the float module to ONNX.
+    specs = fp_module.get_input_spec()
+    dummy_input = tuple(make_torch_inputs(specs))
+    with qaihm_temp_dir() as tempdir:
+        temp_model_path = os.path.join(tempdir, "model.onnx")
+        safe_torch_onnx_export(
+            fp_module,
+            dummy_input,
+            temp_model_path,
+            export_params=True,
+            input_names=list(specs.keys()),
+            output_names=list(fp_module.get_output_spec()),
+        )
+        onnx_model, _ = simplify(temp_model_path)
+        equalize_model(onnx_model)  # Apply cross-layer equalization to the ONNX model.
+
+    # Build the QuantizationSimModel and apply the OpusMT mixed-precision
+    # overrides. Also done identically when rebuilding a sim to
+    # load cached encodings, since load_encodings_to_sim requires the
+    # quantizer configuration to match what was originally exported.
+    param_type, act_type = aimet_quant_types(precision)
+    sim = QuantizationSimModel(
+        model=onnx_model,
+        param_type=param_type,
+        activation_type=act_type,
+        quant_scheme=QuantScheme.min_max,
+        config_file="default",
+    )
+    _set_matmul_second_input_to_8b(sim)
+    sim._tie_quantizers_for_op_types(["Concat"])  # pylint: disable=protected-access
+    sim._rebuild_session()  # pylint: disable=protected-access
+    exceptions_path = os.path.join(os.path.dirname(__file__), "exceptions.json")
+    mixed_precision_cfg = ManualQuantsimMixedPrecisionConfig(exceptions_path)
+    mixed_precision_cfg.apply_exceptions(sim)
+
+    # Calibrate the quantizers, otherwise they are left uninitialized and will
+    # produce garbage words on-device.
+    component = quantizable_cls(qc_module, sim)
+    calibration_data = OpusMTApp.get_calibration_data(
+        fp_collection, component_name, num_samples=NUM_CALIBRATION_SAMPLES
+    )
+    data_loader = dataset_entries_to_dataloader(calibration_data)
+    component.quantize(data_loader, num_samples=len(data_loader))
+    return component
+
+
+def load_or_quantize_component(
+    quantizable_cls: type[QuantizableComponentT],
+    fp_collection: OpusMT,
+    precision: Precision,
+    component_name: str,
+) -> QuantizableComponentT:
+    """
+    Return a calibrated OpusMT component, using a local disk
+    cache to avoid re-quantizing on every call.
+
+    Parameters
+    ----------
+    quantizable_cls
+        The concrete quantizable class to instantiate.
+    fp_collection
+        Float OpusMT collection for the desired language variant; supplies
+        the float encoder/decoder, the calibration data.
+    precision
+        the precision used for quantization.
+    component_name
+        "encoder" or "decoder".
+
+    Returns
+    -------
+    QuantizableComponentT
+        The calibrated component, loaded from the disk cache if
+        present, otherwise built from scratch.
+    """
+    model_name = fp_collection.hf_source.split("/")[-1]
+    cache_dir = os.path.join(
+        LOCAL_STORE_DEFAULT_PATH, model_name, f"{component_name}_{precision!s}"
+    )
+    onnx_path = os.path.join(cache_dir, "model.onnx")
+    encodings_path = os.path.join(cache_dir, "model.encodings")
+    # calibrate once, load forever
+    if os.path.exists(onnx_path) and os.path.exists(encodings_path):
+        print(f"Loading onnx + encodings from disk: \033[38;5;206m{cache_dir}\033[0m\n")
+        bundle = ONNXBundle.from_bundle_path(cache_dir, model_name="model")
+        onnx_model = bundle.load_onnx_model()
+        param_type, act_type = aimet_quant_types(precision)
+        sim = QuantizationSimModel(
+            model=onnx_model,
+            param_type=param_type,
+            activation_type=act_type,
+            quant_scheme=QuantScheme.min_max,
+            config_file="default",
+        )
+        # load_encodings_to_sim func requires sim to be the same as quantizing from scratch
+        _set_matmul_second_input_to_8b(sim)
+        sim._tie_quantizers_for_op_types(["Concat"])  # pylint: disable=protected-access
+        sim._rebuild_session()  # pylint: disable=protected-access
+        exceptions_path = os.path.join(os.path.dirname(__file__), "exceptions.json")
+        mixed_precision_cfg = ManualQuantsimMixedPrecisionConfig(exceptions_path)
+        mixed_precision_cfg.apply_exceptions(sim)
+
+        with set_aimet_log_level(logging.WARN):
+            load_encodings_to_sim(sim, str(bundle.aimet_encodings_path), strict=False)
+
+        qc_module: QcMarianEncoder | QcMarianDecoder
+        if component_name == "encoder":
+            qc_module = fp_collection.encoder.encoder
+        else:
+            qc_module = fp_collection.decoder.decoder
+        return quantizable_cls(qc_module, sim)
+
+    print(f"Saving onnx + encodings to disk: \033[38;5;206m{cache_dir}\033[0m\n")
+    component = quantize_component(
+        quantizable_cls, fp_collection, precision, component_name
+    )  # time-consuming, calibrate component_name from scratch
+    assert component.quant_sim is not None
+    os.makedirs(cache_dir, exist_ok=True)
+    # remember to save it to cache before return
+    component.quant_sim.export(cache_dir, "model")
+    return component
+
+
+# For the purpose of using AIMETOnnxQuantizableMixin.forward and quantize methods
+class OpusMTEncoderQuantizable(AIMETOnnxQuantizableMixin, OpusMTEncoder):  # type: ignore[misc]
+    """A class that represents a quantizable OpusMT encoder."""
+
+    def __init__(self, model: QcMarianEncoder, sim_model: QuantizationSimModel) -> None:
+        OpusMTEncoder.__init__(self, model)
+        AIMETOnnxQuantizableMixin.__init__(self, sim_model)
+
+    @classmethod
+    def from_pretrained(cls, fp_collection: OpusMT, precision: Precision) -> Self:  # type: ignore[override]
+        """
+        Creates a calibrated OpusMTEncoderQuantizable instance, reusing a
+        cached calibration from disk if one already exists.
+
+        Parameters
+        ----------
+        fp_collection
+            Float OpusMT collection (encoder + decoder) for the desired
+            language variant. Supplies fp encoder and calibration data.
+        precision
+            the precision used for quantization.
+
+        Returns
+        -------
+        Self
+            The created instance.
+        """
+        return load_or_quantize_component(cls, fp_collection, precision, "encoder")
+
+    def get_hub_compile_options(
+        self,
+        target_runtime: TargetRuntime,
+        precision: Precision,
+        other_compile_options: str = "",
+        device: Device | None = None,
+        context_graph_name: str | None = None,
+    ) -> str:
+        return super().get_hub_compile_options(
+            target_runtime,
+            precision,
+            other_compile_options,
+            device,
+            context_graph_name,
+        )
+
+
+# For the purpose of using AIMETOnnxQuantizableMixin.forward and quantize methods
+class OpusMTDecoderQuantizable(AIMETOnnxQuantizableMixin, OpusMTDecoder):  # type: ignore[misc]
+    """A class that represents a quantizable OpusMT decoder."""
+
+    def __init__(self, model: QcMarianDecoder, sim_model: QuantizationSimModel) -> None:
+        OpusMTDecoder.__init__(self, model)
+        AIMETOnnxQuantizableMixin.__init__(self, sim_model)
+
+    @classmethod
+    def from_pretrained(cls, fp_collection: OpusMT, precision: Precision) -> Self:  # type: ignore[override]
+        """
+        Creates a calibrated OpusMTDecoderQuantizable instance, reusing a
+        cached calibration from disk if already exists.
+
+        Parameters
+        ----------
+        fp_collection
+            Float OpusMT collection (encoder + decoder) for the desired
+            language variant. Supplies fp decoder and calibration data.
+        precision
+            the precision used for quantization.
+
+        Returns
+        -------
+        Self
+            The created instance.
+        """
+        return load_or_quantize_component(cls, fp_collection, precision, "decoder")
+
+    def get_hub_compile_options(
+        self,
+        target_runtime: TargetRuntime,
+        precision: Precision,
+        other_compile_options: str = "",
+        device: Device | None = None,
+        context_graph_name: str | None = None,
+    ) -> str:
+        return super().get_hub_compile_options(
+            target_runtime,
+            precision,
+            other_compile_options,
+            device,
+            context_graph_name,
+        )
+
+
+class OpusMT(WorkbenchModelCollection):
+    """Base quantized and float OpusMT translation model."""
 
     def __init__(
-        self,
-        encoder: OpusMTEncoder,
-        decoder: OpusMTDecoder,
-        hf_source: str,
+        self, encoder: OpusMTEncoder, decoder: OpusMTDecoder, hf_source: str
     ) -> None:
         super().__init__({"encoder": encoder, "decoder": decoder})
         self.encoder = encoder
         self.decoder = decoder
         self.hf_source = hf_source
 
-    def get_input_spec(self) -> ComponentGroup[InputSpec]:
-        return super().get_input_spec()
+    @classmethod
+    def from_pretrained(cls, precision: Precision = Precision.float) -> Self:
+        """Load an OpusMT collection for the requested precision."""
+        if precision == Precision.float:
+            encoder = OpusMTEncoder.from_pretrained(cls.get_opus_mt_version())
+            decoder = OpusMTDecoder.from_pretrained(cls.get_opus_mt_version())
+        else:
+            # Quantization needs to base on float components
+            fp_collection = cls.from_pretrained(Precision.float)
+            encoder = OpusMTEncoderQuantizable.from_pretrained(fp_collection, precision)
+            decoder = OpusMTDecoderQuantizable.from_pretrained(fp_collection, precision)
+        return cls(encoder, decoder, cls.get_opus_mt_version())
+
+    def get_calibration_dataset_cls(self) -> type[BaseDataset]:
+        return CommonVoiceText
 
     @classmethod
     @abstractmethod
     def get_opus_mt_version(cls) -> str:
-        """Return the HuggingFace model identifier for this OpusMT variant."""
+        pass
 
     @classmethod
-    def get_opus_model(
-        cls, opus_mt_version: str | None = None
-    ) -> tuple[QcMarianEncoder, QcMarianDecoder]:
-        # Load the pretrained model - this downloads pytorch_model.bin and other files
-        orig_model = cast(
-            MarianMTModel,
-            MarianMTModel.from_pretrained(opus_mt_version or cls.get_opus_mt_version()),
+    @abstractmethod
+    def get_language(cls) -> TTSLanguage:
+        pass
+
+    def write_supplementary_files(
+        self, output_dir: str | os.PathLike, metadata: ModelMetadata
+    ) -> None:
+        write_opus_mt_supplementary_files(
+            self.get_opus_mt_version(), output_dir, metadata
         )
-        orig_model.eval()
-
-        # Apply model adaptations to optimize for QNN inference
-        return apply_model_adaptations(orig_model)
-
-    @classmethod
-    def from_pretrained(cls) -> Self:
-        """
-        Load OpusMT model from pretrained weights.
-
-        This will download the model files (including pytorch_model.bin) from HuggingFace Hub
-        if they are not already cached locally.
-        """
-        # Load the original Marian model
-        encoder_qc, decoder_qc = cls.get_opus_model()
-        opus_mt_version = cls.get_opus_mt_version()
-
-        # Wrap in our model classes
-        encoder = OpusMTEncoder(encoder_qc)
-        decoder = OpusMTDecoder(decoder_qc)
-        return cls(encoder, decoder, opus_mt_version)
-
-
-def get_tokenizer(hf_model_name: str) -> MarianTokenizer:
-    """Get the tokenizer for the specified OpusMT model."""
-    return MarianTokenizer.from_pretrained(hf_model_name)
-
-
-def generate_tokenizer_bins(
-    hf_model_name: str, output_dir: str | os.PathLike
-) -> tuple[Path, Path]:
-    """
-    Generate optimized tokenizer encode and decode binaries for an Opus-MT model.
-
-    This function extracts tokenizer information from a HuggingFace model and generates
-    two binary files:
-    1. tokenizer_encode.bin - optimized lookup table for text encoding
-    2. tokenizer_decode.bin - lookup table for token ID decoding
-
-    Parameters
-    ----------
-    hf_model_name
-        HuggingFace model ID, e.g. "Helsinki-NLP/opus-mt-zh-en"
-    output_dir
-        Output directory path for storing the generated binary files
-
-    Returns
-    -------
-    tuple[Path, Path]
-        Tuple of (encode_bin_path, decode_bin_path) containing relative paths to generated binaries
-    """
-    # 1. Load tokenizer and get vocabulary
-    tokenizer = MarianTokenizer.from_pretrained(hf_model_name)
-    opus_vocab_dict = tokenizer.get_vocab()  # Get token -> id mapping
-
-    # 2. Create output directory and file paths
-    out_dir = Path(output_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    encode_path = out_dir / TOKENIZER_ENCODE_NAME
-    decode_path = out_dir / TOKENIZER_DECODE_NAME
-
-    # ========== Generate encode binary file ==========
-    # 3. Prepare data for encoding
-    special_token_list = ["</s>", "<unk>", "<pad>"]  # Special token list
-    spm_model = tokenizer.spm_source  # Get SentencePiece model
-
-    # 4. Build vocabulary dictionary with score information
-    vocab_dict = {}
-    for opus_vocab_token, opus_vocab_id in opus_vocab_dict.items():
-        if opus_vocab_token in special_token_list:
-            continue  # Skip special tokens
-
-        # Get token score from SentencePiece model
-        spm_id = spm_model.piece_to_id(opus_vocab_token)
-        score = float("-inf") if spm_id == 0 else spm_model.get_score(spm_id)
-        vocab_dict[opus_vocab_token] = [score, opus_vocab_id, len(opus_vocab_token)]
-
-    # 5. Build DAG (Directed Acyclic Graph) for efficient encoding
-    def create_node(text: str, c_len: int = 0) -> dict:
-        """Create DAG node"""
-        return {
-            "len": c_len,
-            "score": 0.0,
-            "token_id": 0,
-            "entry_id": 0,
-            "is_leaf": 0,
-            "num_children": 0,
-            "offset": 0,
-            "text": text,
-            "children": [],
-        }
-
-    root = create_node("", 0)  # Create root node
-    dump_pos_idx = 1
-
-    # 6. Build character-level DAG paths for each token
-    for key, val in vocab_dict.items():
-        if key in special_token_list:
-            continue
-
-        token_str, score, token_id, num_chars = (
-            str(key),
-            float(val[0]),
-            int(val[1]),
-            int(val[2]),
-        )
-        current = root
-        chars = []
-
-        # Build path character by character
-        for char in token_str:
-            chars.append(char)
-            chars_str = "".join(chars)
-
-            # Find or create child node
-            curr_node = None
-            for child in current["children"]:
-                if child["text"] == chars_str:
-                    curr_node = child
-                    break
-
-            if curr_node is None:
-                # Create new child node
-                curr_node = create_node(chars_str, len(chars_str.encode("utf-8")))
-                current["children"].append(curr_node)
-                current["num_children"] += 1
-                dump_pos_idx += 1
-
-            current = curr_node
-            # Mark as leaf node if we've reached the end of the token
-            if len(chars) == num_chars:
-                current.update({"score": score, "is_leaf": 1, "token_id": token_id})
-
-    # 7. Assign unique entry IDs to all nodes
-    node_stack, entry_id = [root], 0
-    while node_stack:
-        curr_node = node_stack.pop(0)
-        curr_node["entry_id"] = entry_id
-        entry_id += 1
-        node_stack.extend(curr_node["children"])
-
-    # 8. Collect all nodes and calculate offsets
-    all_nodes = []
-    node_stack = [root]
-    while node_stack:
-        curr_node = node_stack.pop(0)
-        all_nodes.append(curr_node)
-        node_stack.extend(curr_node["children"])
-
-    # 9. Calculate offset for each node in the binary file
-    for i, node in enumerate(all_nodes):
-        if i == 0:
-            node["offset"] = 0
-        else:
-            prev_node = all_nodes[i - 1]
-            # Calculate aligned offset (4-byte alignment)
-            node["offset"] = (
-                prev_node["offset"]
-                + ((prev_node["len"] + 1 + 3) & ~0x03)
-                + prev_node["num_children"] * 4
-            )
-
-    # 10. Write encode binary file
-    with open(encode_path, "wb") as bin_file:
-        num_entries = len(all_nodes)
-        packed_data_fixed = b""  # Fixed-length data
-        packed_data_variable = b""  # Variable-length data
-        size_data_fixed = 0
-        size_data_variable = 0
-
-        # Pack data for each node
-        for curr_node in all_nodes:
-            # Fixed-length part: length, score, token_id, is_leaf, num_children, offset
-            struct_format = "I f I B I I"
-            # Variable-length part: text content + child node ID list
-            variable_format = f"{curr_node['len'] + 1}s {curr_node['num_children']}I"
-            children_ids = [child["entry_id"] for child in curr_node["children"]]
-
-            packed_data_fixed += struct.pack(
-                struct_format,
-                curr_node["len"],
-                curr_node["score"],
-                curr_node["token_id"],
-                curr_node["is_leaf"],
-                curr_node["num_children"],
-                curr_node["offset"],
-            )
-            packed_data_variable += struct.pack(
-                variable_format, curr_node["text"].encode(), *children_ids
-            )
-
-            size_data_fixed += struct.calcsize(struct_format)
-            size_data_variable += struct.calcsize(variable_format)
-
-        # Write file header (num_entries, fixed_data_size, variable_data_size) and data
-        bin_file.write(
-            struct.pack("III", num_entries, size_data_fixed, size_data_variable)
-        )
-        bin_file.write(packed_data_fixed + packed_data_variable)
-
-    # ========== Generate decode binary file ==========
-    # 11. Build decode lookup table
-    vocab_final = [""] * len(opus_vocab_dict)
-    for token, token_id in opus_vocab_dict.items():
-        vocab_final[token_id] = token  # Sort by token_id
-    vocab_final.append("<pad>")  # Add padding token
-
-    # 12. Write decode binary file
-    with open(decode_path, "wb") as bin_file:
-        lookups_bytes, offsets = b"", [0]
-
-        # Encode all tokens as UTF-8 byte strings
-        for token in vocab_final:
-            token_bytes = token.encode("utf-8") + b"\0"  # Add null terminator
-            lookups_bytes += token_bytes
-            offsets.append(offsets[-1] + len(token_bytes))
-
-        # Calculate lookup table parameters
-        lookups_size = offsets[-1] + 1
-        offsets = offsets[:-1]  # Remove last offset
-        lookups_count = len(offsets)
-
-        # Write decode file: lookup_count, total_size, offset_array, string_data
-        struct_format = f"II{lookups_count}I{lookups_size}s"
-        bin_file.write(
-            struct.pack(
-                struct_format, lookups_count, lookups_size, *offsets, lookups_bytes
-            )
-        )
-
-    return encode_path, decode_path

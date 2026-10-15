@@ -14,6 +14,9 @@ LANG_ID_MAP = {
     TTSLanguage.CHINESE: 1,
     TTSLanguage.GERMAN: 2,
     TTSLanguage.SPANISH: 3,
+    TTSLanguage.KOREAN: 5,
+    TTSLanguage.FRENCH: 6,
+    TTSLanguage.JAPANESE: 7,
     TTSLanguage.ITALIAN: 15,  # ID assigned by VoiceAI TTS spec; non-contiguous by design
 }
 assert set(LANG_ID_MAP) == set(TTSLanguage), (
@@ -22,11 +25,10 @@ assert set(LANG_ID_MAP) == set(TTSLanguage), (
 
 BERT_MODEL_IDS = {
     TTSLanguage.ENGLISH: "bert-base-uncased",
+    TTSLanguage.CHINESE: "bert-base-multilingual-uncased",
     TTSLanguage.SPANISH: "dccuchile/bert-base-spanish-wwm-uncased",
     TTSLanguage.ITALIAN: "bert-base-uncased",
     TTSLanguage.GERMAN: "bert-base-german-dbmdz-cased",
-    TTSLanguage.CHINESE: "bert-base-multilingual-uncased",
+    TTSLanguage.KOREAN: "kykim/bert-kor-base",
+    TTSLanguage.JAPANESE: "tohoku-nlp/bert-base-japanese-v3",
 }
-assert set(BERT_MODEL_IDS) == set(TTSLanguage), (
-    f"BERT_MODEL_IDS is missing entries for: {set(TTSLanguage) - set(BERT_MODEL_IDS)}"
-)

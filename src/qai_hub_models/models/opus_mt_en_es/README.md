@@ -22,7 +22,7 @@ qai-hub-models perf OpusMT-En-Es
 qai-hub-models numerics OpusMT-En-Es
 
 # Download a ready-to-deploy asset
-qai-hub-models fetch OpusMT-En-Es --runtime voice_ai --precision float
+qai-hub-models fetch OpusMT-En-Es --runtime voice_ai --precision w8a16
 ```
 See the [CLI README](../../../../cli/README.md)
 for the full list of commands and filters.

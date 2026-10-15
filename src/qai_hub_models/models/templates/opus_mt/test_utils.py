@@ -8,7 +8,8 @@ import torch
 from transformers import MarianMTModel, MarianTokenizer
 
 from qai_hub_models.models.templates.opus_mt.app import OpusMTApp
-from qai_hub_models.models.templates.opus_mt.model import OpusMT, get_tokenizer
+from qai_hub_models.models.templates.opus_mt.model import OpusMT
+from qai_hub_models.models.templates.opus_mt.utils import get_tokenizer
 
 
 def load_sample_text_input(
@@ -36,6 +37,16 @@ def load_sample_text_input(
         "Helsinki-NLP/opus-mt-zh-en": "你好,你今天好吗?",
         "Helsinki-NLP/opus-mt-en-es": "Hello, how are you today?",
         "Helsinki-NLP/opus-mt-es-en": "Hola, ¿cómo estás hoy?",
+        "Helsinki-NLP/opus-mt-tc-big-en-ko": "Hello, how are you today?",
+        "Helsinki-NLP/opus-mt-ko-en": "안녕하세요, 오늘 기분은 어떠신가요?",
+        "Helsinki-NLP/opus-mt-en-jap": "Hello, how are you today?",
+        "Helsinki-NLP/opus-mt-ja-en": "こんにちは、今日はご機嫌いかがですか?",
+        "Helsinki-NLP/opus-mt-en-de": "Hello, how are you today?",
+        "Helsinki-NLP/opus-mt-de-en": "Hallo, wie geht es dir heute?",
+        "Helsinki-NLP/opus-mt-en-fr": "Hello, how are you today?",
+        "Helsinki-NLP/opus-mt-fr-en": "Bonjour, comment allez-vous aujourd'hui ?",
+        "Helsinki-NLP/opus-mt-en-it": "Hello, how are you today?",
+        "Helsinki-NLP/opus-mt-it-en": "Ciao, come stai oggi?",
     }
 
     sample_text = sample_texts.get(opus_mt_version, "Hello, how are you today?")
@@ -146,9 +157,10 @@ def run_test_wrapper_numerics(
         if not isinstance(encoder_outputs, (tuple, list)):
             encoder_outputs = (encoder_outputs,)
 
-        # Initialize decoder inputs - use 65000 as starting token
+        # Initialize decoder inputs with the model's actual decoder-start token
+        # (varies per language pair's vocab, e.g. 60715 for ja-en vs 65000 for ko-en)
         decoder_input_ids = torch.zeros([1, 1], dtype=torch.int32)
-        token = 65000
+        token = hf_model.config.decoder_start_token_id
         decoder_input_ids[0, 0] = token
 
         # Initialize past key values for decoder

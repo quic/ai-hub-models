@@ -187,14 +187,17 @@ class OptimizedDurationPredictor(nn.Module):
         if g is not None:
             g = g.detach()
             x = x + self.cond(g)
-
+        # A Conv + Relu op fusion bug described in this JIRA
+        # https://jira-dc.qualcomm.com/jira/browse/AISW-177186
         x = self.conv_1(x * x_mask)
-        x = torch.relu(x)  # Inplace operation
+        # x = torch.relu(x)  # Inplace operation
+        x = torch.maximum(x, torch.tensor(0))
         x = self.norm_1(x)
         x = self.drop(x)
 
         x = self.conv_2(x * x_mask)
-        x = torch.relu(x)
+        # x = torch.relu(x)
+        x = torch.maximum(x, torch.tensor(0))
         x = self.norm_2(x)
         x = self.drop(x)
 

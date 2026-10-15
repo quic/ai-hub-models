@@ -2,6 +2,7 @@
 # Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+import csv
 import os
 import random
 from pathlib import Path
@@ -43,7 +44,7 @@ class CommonVoiceText(BaseDataset):
         )
         super().__init__(self.common_voice_text.path, split, input_spec)
 
-        df = pd.read_csv(self.dataset_path, sep="\t")
+        df = pd.read_csv(self.dataset_path, sep="\t", quoting=csv.QUOTE_NONE)
         texts_list = df["sentence"].head(n=self.default_samples_per_job()).tolist()
         examples = []
         random_sample = 4

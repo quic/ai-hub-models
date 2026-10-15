@@ -72,6 +72,7 @@ DEC_SEQ_OVERLAP = 12
 UPSAMPLE_FACTOR = 512
 MAX_BERT_TOKENS = 200
 UPSAMPLED_MAX_SEQ_LEN = MAX_SEQ_LEN * FLOW_LENGTH_FACTOR
+LANG_CODE_TO_TTS_CODE = {"KO": "KR", "JA": "JP"}
 
 
 @lru_cache(maxsize=1)
@@ -81,7 +82,8 @@ def get_tts_object(language: TTSLanguage) -> "TTS":
     import melo
     from melo.api import TTS
 
-    tts = TTS(LANG_CODE_MAP[language], device="cpu")
+    lang_code = LANG_CODE_MAP[language]
+    tts = TTS(LANG_CODE_TO_TTS_CODE.get(lang_code, lang_code), device="cpu")
 
     # Monkeypatch melo.attentions.FFN to replace torch.relu with torch.maximum.
     # This avoids the Conv2D+Relu op fusion bug in Qairt, which incorrectly converts
