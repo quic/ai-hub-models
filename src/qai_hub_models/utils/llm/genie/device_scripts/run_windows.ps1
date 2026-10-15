@@ -55,9 +55,19 @@ function Invoke-GenieRetry {
 
 Set-Location C:\Temp\TestContent\
 
+# A job QDC killed mid-run skips the finally below, leaving its SDK on disk and
+# possibly an orphaned process holding it (and its logs) locked against deletion.
+Stop-Process -Name genie-t2t-run, geniex-bench -Force -ErrorAction SilentlyContinue
+Start-Sleep -Seconds 2
+
 # Drop stale logs from a prior job on this shared device.
 Remove-Item -Recurse -Force -ErrorAction SilentlyContinue "C:\Temp\{DEVICE_LOGS_DIR}"
 New-Item -ItemType Directory -Force -Path "C:\Temp\{DEVICE_LOGS_DIR}" | Out-Null
+
+Remove-Item -Recurse -Force -ErrorAction SilentlyContinue "C:\Temp\TestContent\qairt"
+if (Test-Path "C:\Temp\TestContent\qairt") {
+    throw "Stale QAIRT SDK at C:\Temp\TestContent\qairt could not be removed; device needs manual cleanup."
+}
 
 try {
 
@@ -67,10 +77,9 @@ Write-Host "Pinging google.com before QAIRT SDK download..."
 $prePing = Test-Connection -ComputerName google.com -Count 1 -Quiet
 if ($prePing) { Write-Host "Pre-download ping: SUCCESS" } else { Write-Host "Pre-download ping: FAILED" }
 
-# Always re-download: dedicated-pool devices are reused, so a partial extract
-# from a previous job would otherwise silently corrupt this run.
+# Always re-download (the stale SDK was removed above) so a partial extract
+# from a previous job can't silently corrupt this run.
 $qairtHome = "C:\Temp\TestContent\qairt\{QAIRT_VERSION}"
-Remove-Item -Recurse -Force -ErrorAction SilentlyContinue "C:\Temp\TestContent\qairt"
 $source = "https://softwarecenter.qualcomm.com/api/download/software/sdks/Qualcomm_AI_Runtime_Community/All/{QAIRT_VERSION}/v{QAIRT_VERSION}.zip"
 $output = "C:\Temp\TestContent\qairt.zip"
 (New-Object System.Net.WebClient).DownloadFile($source, $output)

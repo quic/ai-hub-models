@@ -23,6 +23,9 @@ cleanup_device() {
     rm -f /data/local/tmp/matrix-*.tsv 2>/dev/null || true
 }
 trap cleanup_device EXIT
+# A job QDC killed mid-run skips the EXIT trap; drop its bundle up front so the
+# glob below can't pick a stale geniex-bench version.
+rm -rf "$TC"/geniex-bench-linux-arm64-* 2>/dev/null || true
 
 # QDC reuses device cells across jobs; wipe stale cell JSONs from a prior
 # run so compute_metrics doesn't ingest another model/plugin's results.

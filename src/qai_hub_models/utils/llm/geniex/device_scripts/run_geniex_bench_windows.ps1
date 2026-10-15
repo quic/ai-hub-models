@@ -12,6 +12,11 @@ $OUT = "$LOG\results"
 $MM_CACHE = "C:\Temp\geniex-cache"
 $TC = "C:\Temp\TestContent"
 
+# A job QDC killed mid-run skips the finally below and can leave geniex-bench
+# running with script.log open, which makes Start-Transcript fail outright.
+Stop-Process -Name geniex-bench, genie-t2t-run -Force -ErrorAction SilentlyContinue
+Start-Sleep -Seconds 2
+
 # QDC reuses device cells across jobs; wipe stale cell JSONs from a prior
 # run so compute_metrics doesn't ingest another model/plugin's results.
 Remove-Item -Recurse -Force $OUT -ErrorAction SilentlyContinue
@@ -19,6 +24,13 @@ New-Item -ItemType Directory -Force -Path $LOG, $OUT, $MM_CACHE | Out-Null
 Start-Transcript -Path "$LOG\script.log" -Force | Out-Null
 
 try {
+
+# A stale bundle would otherwise win the 'Select-Object -First 1' pick below.
+Get-ChildItem -Path $TC -Directory -Filter 'geniex-bench-windows-arm64-*' -ErrorAction SilentlyContinue |
+    Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+if (Get-ChildItem -Path $TC -Directory -Filter 'geniex-bench-windows-arm64-*' -ErrorAction SilentlyContinue) {
+    throw "Stale geniex-bench bundle under $TC could not be removed; device needs manual cleanup."
+}
 
 # geniex-bench.exe writes informational lines to stderr even on success.
 # Called via the bare `&` operator, every such line becomes a NativeCommandError
