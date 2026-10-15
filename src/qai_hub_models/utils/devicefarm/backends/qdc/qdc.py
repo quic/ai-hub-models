@@ -73,6 +73,7 @@ HUB_DEVICE_TO_QDC_DEVICE_MAP = {
 # download would then block until the job timeout. read/write are per-chunk and
 # generous because log archives reach ~90MB (screen recordings).
 QDC_HTTP_TIMEOUT = httpx.Timeout(connect=30.0, read=300.0, write=300.0, pool=60.0)
+JOBS_LIST_PAGE_SIZE = 20
 # Default timeout for job status polling (in seconds)
 DEFAULT_JOB_TIMEOUT = 21600  # 6 hours
 
@@ -446,6 +447,28 @@ class QDCDeviceFarm(DeviceFarm):
             f"get_job_status({job_id})",
         )
         return job_status not in _RUNNING_STATES
+
+    def _unfinished_jobs(self) -> list[Job]:
+        # Newest first; the account's unfinished jobs always fit in one page.
+        page = _call_with_retry(
+            lambda: qdc_api.get_jobs_list(self.client, 0, JOBS_LIST_PAGE_SIZE),
+            "get_jobs_list",
+        )
+        if page is None:
+            raise ValueError("Failure in `get_jobs_list`.")
+        return [j for j in (page.data or []) if j and j.state in _RUNNING_STATES]
+
+    def count_waiting_jobs(self, hub_device_name: str) -> int:
+        chipset = HUB_DEVICE_TO_QDC_DEVICE_MAP[hub_device_name]
+        return sum(
+            1
+            for j in self._unfinished_jobs()
+            if j.state == JobState.SUBMITTED
+            and any(t and t.chipset == chipset for t in (j.targets or []))
+        )
+
+    def count_unfinished_jobs(self) -> int:
+        return len(self._unfinished_jobs())
 
     def result(self, job_id: str) -> str | None:
         """Return the terminal result of a job (e.g. "Successful"/"Unsuccessful").

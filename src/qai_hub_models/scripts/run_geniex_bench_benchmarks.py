@@ -29,7 +29,7 @@ from qai_hub_models.models.templates.llm.perf_collection import (
     update_perf_yaml,
 )
 from qai_hub_models.scorecard import ScorecardProfilePath
-from qai_hub_models.scorecard.device import ScorecardDevice
+from qai_hub_models.scorecard.device import ScorecardDevice, cs_ventuno_q, cs_x_elite
 from qai_hub_models.scorecard.envvars import (
     IgnoreKnownFailuresEnvvar,
     LLMPerfPrecisionsEnvvar,
@@ -92,6 +92,9 @@ _EVAL_NUM_PROMPTS = 100
 # picks up the next job immediately, small enough that nothing waits for hours.
 DEFAULT_MAX_WAITING = 2
 DEFAULT_RUN_POLL_INTERVAL = 60
+# QDC rejects submits (400 "already has N pending jobs") past this many of our
+# jobs not yet finished, per account and across every device on it.
+QDC_MAX_UNFINISHED_JOBS = 15
 
 
 def _qairt_precisions(model_id: str) -> list[Precision]:
@@ -1074,12 +1077,20 @@ class _Case:
         return f"{self.model_id}/{self.plugin}/{self.precision}@{self.sd.name}"
 
 
+def _is_capped_qdc(sd: ScorecardDevice) -> bool:
+    # Mirrors qdc.DEDICATED_POOL_DEVICES (not imported: it pulls in the QDC SDK).
+    # That pool's private account isn't subject to the shared cap.
+    return sd.devicefarm_backend == "qdc" and sd not in (cs_x_elite, cs_ventuno_q)
+
+
 def _cmd_run(args: argparse.Namespace) -> int:
     """Submit and collect in one loop, keeping a bounded backlog per device.
 
     A new job is submitted only while fewer than ``--max-waiting`` jobs are
     queued for that device (across every submitter on the account), so phones
     never idle and no job waits long enough for its presigned URL to lapse.
+    Shared-pool QDC jobs are further capped at ``QDC_MAX_UNFINISHED_JOBS``
+    unfinished at once across the whole account.
     """
     eval_prompts = _resolve_eval_prompts(args.run_eval)
     qairt_version = _resolve_qairt_version(args)
@@ -1202,8 +1213,15 @@ def _cmd_run(args: argparse.Namespace) -> int:
 
         # One fresh queue count per device per pass, bumped locally as we submit.
         waiting: dict[str, int | None] = {}
+        qdc_unfinished: int | None = None
         for case in list(pending):
             device = case.sd.name
+            if _is_capped_qdc(case.sd):
+                if qdc_unfinished is None:
+                    qdc_unfinished = _backend(case).count_unfinished_jobs()
+                # Wait for an account slot to free rather than eating the 400.
+                if qdc_unfinished is None or qdc_unfinished >= QDC_MAX_UNFINISHED_JOBS:
+                    continue
             if device not in waiting:
                 waiting[device] = _backend(case).count_waiting_jobs(
                     case.sd.reference_device_name
@@ -1219,6 +1237,8 @@ def _cmd_run(args: argparse.Namespace) -> int:
                 _finish(case, "not_submitted", [], [], None)
                 continue
             in_flight.append(case)
+            if _is_capped_qdc(case.sd) and qdc_unfinished is not None:
+                qdc_unfinished += 1
             if count is not None:
                 waiting[device] = count + 1
 

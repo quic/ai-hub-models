@@ -337,6 +337,13 @@ class DeviceFarm(ABC):
         """
         return None
 
+    def count_unfinished_jobs(self) -> int | None:
+        """Jobs this account has queued or running, across every device.
+
+        None means the backend can't tell.
+        """
+        return None
+
     @abstractmethod
     def result(self, job_id: str) -> str | None:
         """
