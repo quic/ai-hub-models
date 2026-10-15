@@ -386,6 +386,9 @@ cs_8_elite = RegisteredDevice(
 cs_7_gen_4 = RegisteredDevice(device_name="Snapdragon 7 Gen 4 QRD")
 cs_8_elite_gen_5 = RegisteredDevice(device_name="Samsung Galaxy S26 (Family)")
 cs_8_elite_gen_6 = RegisteredDevice(device_name="Snapdragon 8 Elite Gen 6 QRD")
+cs_8_elite_extreme_gen_6 = RegisteredDevice(
+    device_name="Snapdragon 8 Elite Extreme Gen 6 QRD"
+)
 
 # Compute chipsets
 cs_x_elite = RegisteredDevice(device_name="Snapdragon X Elite CRD")
