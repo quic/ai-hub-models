@@ -1,11 +1,62 @@
-name: Open PR Review Digest
+name: Open PR Digest
 
 on:
+  schedule:
+    - cron: '0 8 * * *'
+      timezone: America/Los_Angeles
+
   workflow_dispatch:
+    inputs:
+      channel_id:
+        description: Slack channel ID to post to (default is the SLACK_CHANNEL_ID secret)
+        type: string
+        required: false
 
 jobs:
   digest:
-    name: Open PR review digest (placeholder)
+    name: Open PR Digest
     runs-on: ubuntu-latest
+    env:
+      SLACK_CHANNEL: ${{ inputs.channel_id || secrets.SLACK_CHANNEL_ID }}
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
-      - run: echo "Placeholder so this workflow can be dispatched from a branch."
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: src/qai_hub_models/scripts/pr_review_digest.py
+          sparse-checkout-cone-mode: false
+          fetch-depth: 1
+
+      - name: Build digest
+        env:
+          # Needs org team read access, which github.token lacks.
+          GH_TOKEN: ${{ secrets.STAGING_GH_TOKEN }}
+        run: |
+          # Run by path: the script is stdlib-only plus the preinstalled `gh`.
+          python3 src/qai_hub_models/scripts/pr_review_digest.py \
+            --full-report-file "$RUNNER_TEMP/pr_digest_full.md" \
+            --slack-message-file "$RUNNER_TEMP/slack_message.json"
+
+      - name: Build Slack payload
+        run: |
+          jq --arg channel "$SLACK_CHANNEL" '. + {channel: $channel}' \
+            "$RUNNER_TEMP/slack_message.json" > "$RUNNER_TEMP/slack_payload.json"
+
+      - name: Post summary to Slack
+        uses: slackapi/slack-github-action@v4
+        with:
+          method: chat.postMessage
+          token: ${{ secrets.SLACK_NOTIFIER_TOKEN }}
+          payload-file-path: ${{ runner.temp }}/slack_payload.json
+
+      - name: Upload full report to Slack
+        uses: slackapi/slack-github-action@v4
+        with:
+          method: files.uploadV2
+          token: ${{ secrets.SLACK_NOTIFIER_TOKEN }}
+          payload: |
+            channel_id: "${{ env.SLACK_CHANNEL }}"
+            initial_comment: "The above tables exclude PRs that have no action item for ML Tech. View the full report below."
+            file: "${{ runner.temp }}/pr_digest_full.md"
+            filename: "pr_digest_full.md"
