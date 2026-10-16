@@ -16,11 +16,13 @@ GROUP. A PR goes in the first group that fits:
   3. Onboarding - Non-GenAI  has that label
   4. Onboarding - Robotics   has that label
   5. Other                   no onboarding label, author not in tetra-developers
+                             or tetra-nexa-developers-china
 
 STATUS. First match wins:
   1. Draft                      the PR is a draft
   2. Approved                   ai-hub-models-reviewers approved the PR; there are no requested changes
-  3. WIP                        the Issues column has anything other than "CI running" or "changes requested"
+  3. WIP                        the Issues column has anything other than "CI running" or "changes requested", and
+                                  the PR author has not re-requested a review from everyone
   4. Needs Review (India Team)  (Non-GenAI group only) no India reviewer has approved
   5. Needs Review               everything else
 
@@ -32,11 +34,11 @@ ISSUES.
   CI running                 CI still running
   required checks not run    a CI check required to merge never ran
 
-REVIEWER(S). "Reviewers" are the members of ai-hub-models-reviewers and
+REVIEWER(S). "AIHM reviewers" are the members of ai-hub-models-reviewers and
 ai-hub-models-non-genai-reviewers (India Reviewer Team); everyone else is ignored.
-  Approved PR      the reviewers who approved
-  Any other PR     the reviewers who commented; if none have, the reviewers who
-                   were asked to review
+  Approved PR      the AIHM reviewers who approved
+  Any other PR     the AIHM reviewers who commented; if none have, the ones who
+                   were asked to review or are assigned to the PR
 Non-GenAI PRs adjust that first:
   an India reviewer approved         leave the India reviewers out
   no India approval yet              if an India reviewer was asked to review,
@@ -71,7 +73,7 @@ from typing import Any
 
 REVIEWERS_TEAM = "ai-hub-models-reviewers"
 NON_GENAI_REVIEWERS_TEAM = "ai-hub-models-non-genai-reviewers"
-DEVELOPERS_TEAM = "tetra-developers"
+DEVELOPER_TEAMS = ["tetra-developers", "tetra-nexa-developers-china"]
 BOT_AUTHORS = {"qaihm-bot_QCOM"}
 BASE_BRANCH = "main"
 STALE_DAYS = 14
@@ -155,7 +157,7 @@ class PR:
 class Context:
     """What is shared by every PR in a run."""
 
-    reviewers: set[str]  # both reviewer teams; nobody else counts
+    aihm_reviewers: set[str]  # both reviewer teams; nobody else counts
     india_reviewers: set[str]  # non-GenAI team, minus anyone also in the main team
     developers: set[str]
     required_checks: set[str]
@@ -164,11 +166,10 @@ class Context:
 
 @dataclass
 class Activity:
-    """When the author and reviewers last acted on a PR."""
+    """When the author and AIHM reviewers last acted on a PR."""
 
     last_author_update: datetime
     last_review: datetime | None
-    reviewers_who_acted: list[str]
     has_unanswered_thread: bool
 
 
@@ -176,10 +177,10 @@ class Activity:
 # 3. FETCH (all the network code)
 #
 # We use GraphQL rather than the REST API because REST is far too slow here.
-# Per PR we need the reviews, comments, review threads, commits, labels, CI
-# status and merge state. REST needs about 5 requests per PR, one after another
-# (and has no flag for whether a review thread is resolved), while one GraphQL
-# request returns all of that for 30 PRs at once.
+# Per PR we need each reviewer's latest review, comments, review threads,
+# commits, labels, CI status and merge state. REST needs about 5 requests per PR,
+# one after another (and has no flag for whether a review thread is resolved),
+# while one GraphQL request returns all of that for 30 PRs at once.
 # =====================================================================
 
 # Threads fetch only the first and last comments, to stay well under GitHub's
@@ -213,11 +214,15 @@ query($owner: String!, $repo: String!, $base: String!, $pageSize: Int!, $cursor:
         lastEditedAt
         author { login }
         labels(first: 20) { nodes { name } }
+        assignees(first: 10) { nodes { login } }
         reviewRequests(first: 20) {
           nodes { requestedReviewer { ... on User { login } } }
         }
-        reviews(first: 100) {
+        latestOpinionatedReviews(first: 100) {
           nodes { author { login } state submittedAt }
+        }
+        latestReviews(first: 100) {
+          nodes { author { login } state }
         }
         comments(last: 100) {
           nodes { author { login } createdAt }
@@ -367,7 +372,7 @@ def fetch_remaining_threads(owner: str, repo: str, gql_pr: dict[str, Any]) -> No
 def fetch_open_prs(owner: str, repo: str) -> list[dict[str, Any]]:
     """Every open PR, as the dicts that GraphQL returns (named `gql_pr` below).
 
-    A `gql_pr` has the fields requested in PR_QUERY (reviews, comments, review
+    A `gql_pr` has the fields requested in PR_QUERY (latest reviews, comments, review
     threads, commits, labels, ...) exactly as GitHub sends them. The rest of the
     script turns each one into a `PR`.
     """
@@ -420,11 +425,10 @@ def thread_comments(thread: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def activity_events(gql_pr: dict[str, Any]) -> list[tuple[str, datetime]]:
-    """(login, time) of every review, PR comment and review-thread comment."""
+    """(login, time) of each approval or change request, PR comment and thread comment."""
     events = [
         (login(review), parse_ts(review["submittedAt"]))
-        for review in gql_pr["reviews"]["nodes"]
-        if review["submittedAt"]
+        for review in gql_pr["latestOpinionatedReviews"]["nodes"]
     ]
     events += [
         (login(comment), parse_ts(comment["createdAt"]))
@@ -455,7 +459,7 @@ def awaits_author(thread: dict[str, Any], author: str) -> bool:
 
 
 def collect_activity(
-    gql_pr: dict[str, Any], author: str, reviewers: set[str]
+    gql_pr: dict[str, Any], author: str, listed_reviewers: set[str]
 ) -> Activity:
     events = activity_events(gql_pr)
     author_times = [
@@ -465,32 +469,48 @@ def collect_activity(
         *(parse_ts(t["createdAt"]) for t in gql_pr["timelineItems"]["nodes"]),
         *(when for who, when in events if who == author),
     ]
-    reviewer_events = [(who, when) for who, when in events if who in reviewers]
+    reviewer_times = [when for who, when in events if who in listed_reviewers]
     return Activity(
         last_author_update=max(author_times),
-        last_review=max((when for _, when in reviewer_events), default=None),
-        reviewers_who_acted=list(dict.fromkeys(who for who, _ in reviewer_events)),
+        last_review=max(reviewer_times, default=None),
         has_unanswered_thread=any(
             awaits_author(t, author) for t in gql_pr["reviewThreads"]["nodes"]
         ),
     )
 
 
-def latest_review_states(gql_pr: dict[str, Any], reviewers: set[str]) -> dict[str, str]:
-    """Each reviewer's latest approval, change request or dismissal."""
-    reviews = sorted(gql_pr["reviews"]["nodes"], key=lambda r: r["submittedAt"] or "")
-    return {
-        login(review): review["state"]
-        for review in reviews
-        if login(review) in reviewers
-        and review["state"] not in ("PENDING", "COMMENTED")
+def latest_review_states(
+    gql_pr: dict[str, Any], aihm_reviewers: set[str]
+) -> dict[str, str]:
+    """Each reviewer's current review state: approval, change request or comment.
+
+    GitHub tracks this per reviewer, so PRs with hundreds of reviews don't need
+    paging. A later comment doesn't override an earlier approval or change request.
+    """
+    states = {
+        login(r): r["state"]
+        for r in gql_pr["latestReviews"]["nodes"]
+        if login(r) in aihm_reviewers
     }
+    states.update(
+        (login(r), r["state"])
+        for r in gql_pr["latestOpinionatedReviews"]["nodes"]
+        if login(r) in aihm_reviewers
+    )
+    return states
 
 
-def requested_reviewers(gql_pr: dict[str, Any], reviewers: set[str]) -> list[str]:
-    """Reviewers with a pending review request."""
+def pending_requests(gql_pr: dict[str, Any], aihm_reviewers: set[str]) -> list[str]:
+    """Reviewers with a pending review request. Team requests aren't included."""
     requested = (n["requestedReviewer"] for n in gql_pr["reviewRequests"]["nodes"])
-    return [r["login"] for r in requested if r and r["login"] in reviewers]
+    return [r["login"] for r in requested if r and r["login"] in aihm_reviewers]
+
+
+def requested_reviewers(gql_pr: dict[str, Any], aihm_reviewers: set[str]) -> list[str]:
+    """AIHM reviewers with a pending review request or assigned to the PR."""
+    assigned = [a["login"] for a in gql_pr["assignees"]["nodes"]]
+    logins = [*pending_requests(gql_pr, aihm_reviewers), *assigned]
+    return [who for who in dict.fromkeys(logins) if who in aihm_reviewers]
 
 
 # =====================================================================
@@ -554,17 +574,22 @@ def find_issues(
 
 
 def pick_status(
-    is_draft: bool, approvers: set[str], issues: list[str], awaiting_india: bool
+    is_draft: bool,
+    approvers: set[str],
+    issues: list[str],
+    awaiting_india: bool,
+    rerequested: bool,
 ) -> str:
     """`approvers` are the approvals that count; `awaiting_india` is Non-GenAI
     with no India approval yet. CI running and changes requested don't make a PR
-    WIP.
+    WIP, and neither do open threads once every reviewer was re-requested.
     """
     if is_draft:
         return DRAFT
     if approvers:
         return APPROVED
-    if set(issues) - NOT_WIP_ISSUES:
+    ignored = NOT_WIP_ISSUES | ({ISSUE_COMMENTS} if rerequested else set())
+    if set(issues) - ignored:
         return WIP
     return NEEDS_REVIEW_INDIA if awaiting_india else NEEDS_REVIEW
 
@@ -575,20 +600,19 @@ def pick_status(
 
 
 def pick_reviewers(
-    acted: list[str],
+    submitted: list[str],
     requested: list[str],
     is_non_genai: bool,
     approvers: set[str],
     india: set[str],
 ) -> list[str]:
-    listed = list(dict.fromkeys([*acted, *requested]))
+    listed = list(dict.fromkeys([*submitted, *requested]))
     if is_non_genai:
         if approvers & india:
             listed = [r for r in listed if r not in india]
         elif india & set(requested):
             listed = [r for r in listed if r in india]
-    commenters = [r for r in listed if r in acted]
-    return commenters or listed
+    return listed
 
 
 # =====================================================================
@@ -599,30 +623,51 @@ def pick_reviewers(
 def analyze(gql_pr: dict[str, Any], ctx: Context) -> PR:
     author = (gql_pr["author"] or {}).get("login", "ghost")
     labels = {label["name"] for label in gql_pr["labels"]["nodes"]}
-    reviewers = ctx.reviewers - {author}
-    activity = collect_activity(gql_pr, author, reviewers)
-    states = latest_review_states(gql_pr, reviewers)
-    approvers = {who for who, state in states.items() if state == "APPROVED"}
+    # Members of the two reviewer teams, excluding the PR author.
+    aihm_reviewers = ctx.aihm_reviewers - {author}
+    # Reviewers currently requested in the UI's Reviewers list (team requests excluded).
+    pending = set(pending_requests(gql_pr, aihm_reviewers))
+    # Each reviewer's latest review state: approved, changes requested or commented.
+    states = latest_review_states(gql_pr, aihm_reviewers)
+    # Reviewers who have submitted a review of any kind.
+    submitted = set(states)
+    # "Last review" only counts activity from pending or submitted reviewers.
+    activity = collect_activity(gql_pr, author, pending | submitted)
     changes_requested = "CHANGES_REQUESTED" in states.values()
     issues = find_issues(gql_pr, activity, changes_requested, ctx.required_checks)
+
+    # An approver who is asked to review again no longer counts as approved.
+    approvers = {
+        who
+        for who, state in states.items()
+        if state == "APPROVED" and who not in pending
+    }
+    # Every reviewer who left a non-approving review (change request or comment)
+    # is asked again: the PR is back with the reviewers, so open threads stop
+    # making it WIP (they still show in Issues).
+    awaiting_rereview = submitted - {
+        who for who, s in states.items() if s == "APPROVED"
+    }
+    rerequested = bool(pending) and awaiting_rereview <= pending
 
     is_non_genai = NON_GENAI in labels
     # On Non-GenAI an India approval only hands the PR on; it doesn't approve it.
     counted = approvers - ctx.india_reviewers if is_non_genai else approvers
-    # Outstanding change requests cancel every approval.
+    # Outstanding change requests cancel every approval, even if re-requested.
     final_approvers = set() if changes_requested else counted
     status = pick_status(
         gql_pr["isDraft"],
         final_approvers,
         issues,
         awaiting_india=is_non_genai and not approvers,
+        rerequested=rerequested,
     )
     if status == APPROVED:
         shown = sorted(final_approvers)
     else:
-        requested = requested_reviewers(gql_pr, reviewers)
+        requested = requested_reviewers(gql_pr, aihm_reviewers)
         shown = pick_reviewers(
-            activity.reviewers_who_acted,
+            sorted(submitted),
             requested,
             is_non_genai,
             approvers,
@@ -651,9 +696,11 @@ def build_groups(owner: str, repo: str) -> dict[str, list[PR]]:
     main_reviewers = fetch_team_members(owner, REVIEWERS_TEAM)
     non_genai_reviewers = fetch_team_members(owner, NON_GENAI_REVIEWERS_TEAM)
     ctx = Context(
-        reviewers=main_reviewers | non_genai_reviewers,
+        aihm_reviewers=main_reviewers | non_genai_reviewers,
         india_reviewers=non_genai_reviewers - main_reviewers,
-        developers=fetch_team_members(owner, DEVELOPERS_TEAM),
+        developers=set().union(
+            *(fetch_team_members(owner, team) for team in DEVELOPER_TEAMS)
+        ),
         required_checks=fetch_required_checks(owner, repo),
         now=datetime.now(timezone.utc),
     )
@@ -709,7 +756,7 @@ def fmt_age(days: float | None) -> str:
 
 
 def sort_prs(group: str, prs: list[PR]) -> list[PR]:
-    """Stale by age; other groups by status, then age (oldest first)."""
+    """Longest since the last update first; non-stale groups sort by status first."""
     if group == STALE:
         return sorted(prs, key=lambda p: -p.days_since_update)
     return sorted(
