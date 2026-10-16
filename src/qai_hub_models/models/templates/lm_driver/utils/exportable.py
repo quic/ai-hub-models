@@ -7,6 +7,7 @@ import torch
 from transformers import PreTrainedModel, DynamicCache
 
 from .compat import _patch_sdpa_mask  # noqa: F401 — triggers the patch on import
+from .compat import linear_attention_states
 from .layer_cache import (
     AttentionType,
     build_layer_cache_descriptors,
@@ -27,6 +28,7 @@ class ONNXExportableModuleWithCache(torch.nn.Module):
         "position_ids",
         "past_key_",
         "past_value_",
+        "conv_state_",
         "recurrent_state_",
     )
 
@@ -210,7 +212,9 @@ class ONNXExportableModuleWithCache(torch.nn.Module):
         kv_pairs = [
             v
             for k, v in inputs.items()
-            if k.startswith(("past_key_", "past_value_", "recurrent_state_"))
+            if k.startswith(
+                ("past_key_", "past_value_", "conv_state_", "recurrent_state_")
+            )
         ]
         extra_kwargs = {k: v for k, v in inputs.items() if k in self.extra_input_names}
         extra_kwargs = self._collect_indexed_extras(extra_kwargs)
@@ -258,8 +262,7 @@ class ONNXExportableModuleWithCache(torch.nn.Module):
             cache_layer = new_past_key_values.layers[layer_idx]
             if layer_types and layer_types[layer_idx] == "linear_attention":
                 # Linear attention: extract conv_state and recurrent_state.
-                flat_output_past_key_values.append(cache_layer.conv_states)
-                flat_output_past_key_values.append(cache_layer.recurrent_states)
+                flat_output_past_key_values.extend(linear_attention_states(cache_layer))
             else:
                 flat_output_past_key_values.append(cache_layer.keys)
                 flat_output_past_key_values.append(cache_layer.values)

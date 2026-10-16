@@ -257,7 +257,9 @@ class Qwen_3_VL(VLM):
         return ("pixel_values", "image_grid_thw", "mask")
 
     @staticmethod
-    def get_visual_dynamic_axes() -> dict[str, dict[int, str]]:
+    def get_visual_dynamic_axes(
+        layer_cache_descriptors: list[LayerCacheDescriptor] | None = None,
+    ) -> dict[str, dict[int, str]]:
         axes: dict[str, dict[int, str]] = {
             "mask": {1: "sequence_length"},
         }

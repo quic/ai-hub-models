@@ -13,9 +13,9 @@ try:
 except ImportError:
     modeling_gemma3 = None
 
-from GenAILab.qai_hub_lm.models.base import VLM
-from GenAILab.qai_hub_lm.models.generator import Generator, VLM_Generator
-from GenAILab.qai_hub_lm.models.utils.layer_cache import (
+from .base import VLM
+from .generator import Generator, VLM_Generator
+from .utils.layer_cache import (
     AttentionType,
     LayerCacheDescriptor,
     attention_mask_input_names,
@@ -146,8 +146,9 @@ class Gemma3_VLM_Generator(VLM_Generator):
         token_type_ids: torch.Tensor | None = None,
         **kwargs,
     ):
-        if self._visual_quantization_mode:
-            yield from self._prefill_visual(
+        if self._quantization_mode:
+            yield from self._prefill_component(
+                self._quantization_mode,
                 input_ids=input_ids,
                 pixel_values=pixel_values,
                 **kwargs,
@@ -251,7 +252,7 @@ class Gemma3_VLM(VLM):
         layer_cache_descriptors: list[LayerCacheDescriptor] | None = None,
         **kwargs,
     ) -> tuple[str, ...]:
-        from GenAILab.qai_hub_lm.models.utils.layer_cache import cache_state_names
+        from .utils.layer_cache import cache_state_names
 
         return tuple(
             ["inputs_embeds"]

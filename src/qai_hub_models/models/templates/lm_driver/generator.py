@@ -12,7 +12,9 @@ from collections import OrderedDict
 import typing
 from typing import Any, Union
 import types
+import warnings
 
+import numpy as np
 import torch
 import transformers
 from transformers import PretrainedConfig
@@ -20,6 +22,7 @@ from transformers.cache_utils import Cache, DynamicCache
 from transformers.generation import GenerationMixin
 from transformers.modeling_outputs import CausalLMOutputWithPast
 
+from .components import AUDIO, COMPONENTS, VISUAL, prefill_only_keys, spec
 from .utils.attention_mask import (
     convert_2d_attention_mask_to_4d,
     convert_2d_attention_mask_to_4d_sliding_window,
@@ -31,6 +34,19 @@ from .utils.layer_cache import (
     _resolve_text_config,
 )
 from .utils.rope_embedding import RopeEmbedding, RopeEmbeddingProtocol
+
+try:
+    from ..schema.components import require_component
+except ImportError:  # copied into AI Hub Models, where the schema is ``lm_schema``
+    from ..lm_schema.components import require_component
+
+
+#: Fallback mel-frame hop, in samples, when a processor's feature extractor
+#: doesn't expose its own ``hop_length`` -- 10 ms at 16 kHz, the convention
+#: both Qwen3-ASR and Gemma4's mel extractors use. Only used to estimate a
+#: safe waveform pad/truncate point for a fixed ``audio_frames`` export; see
+#: ``VLM_Generator.fit_audio_waveform``.
+DEFAULT_AUDIO_HOP_LENGTH = 160
 
 
 def ordered_dict_replace(
@@ -379,18 +395,15 @@ class Generator(GenerationMixin, torch.nn.Module):
         # Forward VLM-specific kwargs so they reach VLM_Generator.forward().
         # Do NOT forward all kwargs — HF's generate adds internal keys like
         # cache_position that would be misinterpreted as extra model inputs.
-        # Only forward image/video data during prefill (multiple tokens remaining).
-        # During autoregressive decode only a single new token is passed and it is
-        # never an image token, so re-running the vision encoder would be wasteful.
+        # Only forward modality data (image/video/audio) during prefill (multiple
+        # tokens remaining). During autoregressive decode only a single new token
+        # is passed and it is never a modality placeholder token, so re-running an
+        # input encoder would be wasteful.
         # This handles multi-turn chat: a new generate() call with prior KV cache
-        # still prefills multiple new tokens (including new images).
-        _VLM_KEYS = {
-            "pixel_values",
-            "pixel_values_videos",
-            "image_grid_thw",
-            "video_grid_thw",
-            "image_position_ids",
-        }
+        # still prefills multiple new tokens (including new images/audio).
+        # The key set is owned by the component registry so a new modality does
+        # not need an edit here.
+        _VLM_KEYS = prefill_only_keys()
         remaining_input = inputs.get("input_ids", inputs.get("inputs_embeds"))
         is_prefill = remaining_input.shape[1] > 1
         vlm_kwargs = (
@@ -624,10 +637,8 @@ class Generator(GenerationMixin, torch.nn.Module):
         for i, desc in enumerate(layer_cache_descriptors):
             li = desc.layer_idx
             if desc.attention_type == AttentionType.LINEAR:
-                prepared[f"recurrent_state_k_{li}_in"] = padded_past_key_values[i * 2]
-                prepared[f"recurrent_state_v_{li}_in"] = padded_past_key_values[
-                    i * 2 + 1
-                ]
+                prepared[f"conv_state_{li}_in"] = padded_past_key_values[i * 2]
+                prepared[f"recurrent_state_{li}_in"] = padded_past_key_values[i * 2 + 1]
             else:
                 prepared[f"past_key_{li}_in"] = padded_past_key_values[i * 2]
                 prepared[f"past_value_{li}_in"] = padded_past_key_values[i * 2 + 1]
@@ -646,7 +657,7 @@ class Generator(GenerationMixin, torch.nn.Module):
         for desc in layer_cache_descriptors:
             i = desc.layer_idx
             if desc.attention_type == AttentionType.LINEAR:
-                names += [f"recurrent_state_k_{i}_out", f"recurrent_state_v_{i}_out"]
+                names += [f"conv_state_{i}_out", f"recurrent_state_{i}_out"]
             else:
                 names += [f"past_key_{i}_out", f"past_value_{i}_out"]
         return names
@@ -1008,16 +1019,19 @@ class VLM_Generator(Generator):
     def __init__(
         self,
         backbone_model,
-        vision_model,
-        embedding,
         tokenizer: transformers.PreTrainedTokenizer,
         sequence_length: int | list[int],
         context_length: int,
+        vision_model=None,
+        embedding=None,
         position_id_processor=None,
         config: Union[PretrainedConfig | None] = None,
         attention_mask_min: int = -100,
         visual_output_names: tuple[str, ...] = ("image_embeddings",),
         image_size: tuple[int, int] | None = None,
+        audio_model=None,
+        audio_output_names: tuple[str, ...] = AUDIO.default_output_names,
+        audio_frames: int | None = None,
         *args,
         **kwargs,
     ):
@@ -1033,9 +1047,15 @@ class VLM_Generator(Generator):
         )
 
         self.vision_model = vision_model
+        self.audio_model = audio_model
         self.embedding = embedding
         self.image_size = image_size
-        self._visual_quantization_mode = False
+        self.audio_frames = audio_frames
+        self.audio_output_names = audio_output_names
+        # Name of the component whose inputs prefill should yield instead of the
+        # backbone's, or None for normal operation. See
+        # :meth:`component_quantization_mode`.
+        self._quantization_mode: str | None = None
         self.position_id_processor = (
             types.MethodType(position_id_processor, self)
             if position_id_processor
@@ -1047,21 +1067,84 @@ class VLM_Generator(Generator):
             if proc is not None:
                 self.position_id_processor = types.MethodType(proc, self)
 
-    @contextlib.contextmanager
-    def visual_quantization_mode(self):
-        """Rewire prefill to yield vision model inputs instead of backbone inputs.
+    # ---- component plumbing -------------------------------------------------
+    def component_model(self, component: str):
+        """The encoder module for a component, or ``None`` if this model lacks it."""
+        return getattr(self, spec(require_component(component)).model_attr, None)
 
-        When active, :meth:`prefill` iterates over per-image pixel data and
-        yields the input tuples that would normally be passed to
-        ``self.vision_model()``.  This allows recipes like Calibration and
-        SeqMSE to operate on the vision encoder without any changes to their
-        own code.
+    def has_component(self, component: str) -> bool:
+        return self.component_model(component) is not None
+
+    def _prefill_component(
+        self, component: str, **modality_kwargs
+    ) -> typing.Generator[OrderedDict[str, torch.Tensor], None, None]:
+        """Yield one encoder's input tuples instead of the backbone's.
+
+        Every modality kwarg is forwarded; each hook absorbs what it does not
+        take, so a new component needs only a ``prefill_hook`` on its spec.
         """
-        self._visual_quantization_mode = True
+        yield from getattr(self, spec(require_component(component)).prefill_hook)(
+            **modality_kwargs
+        )
+
+    def fit_audio_waveform(self, waveform, audio_frames: int):
+        """Pad/truncate a raw waveform to land within ``audio_frames`` mel frames.
+
+        Pads with real silence before the processor runs, so the extractor
+        computes genuine silence mels. Zero-padding the extracted mels instead
+        gives the encoder values outside its input space, and since the mask marks
+        every frame valid it transcribes them -- that was the torch/ONNX WER gap.
+
+        Only an estimate: the waveform -> frame ratio is the processor's own.
+        """
+        feature_extractor = getattr(self.tokenizer, "feature_extractor", None)
+        hop_length = getattr(feature_extractor, "hop_length", DEFAULT_AUDIO_HOP_LENGTH)
+        margin_frames = 4
+        target_samples = max(0, audio_frames - margin_frames) * hop_length
+        num_samples = len(waveform)
+        if num_samples > target_samples:
+            return waveform[:target_samples]
+        if num_samples < target_samples:
+            pad = target_samples - num_samples
+            if isinstance(waveform, torch.Tensor):
+                return torch.nn.functional.pad(waveform, (0, pad))
+            return np.pad(waveform, (0, pad))
+        return waveform
+
+    def pad_audio_item(self, item: dict, audio_frames: int) -> dict:
+        """Pad ``input_features``/``input_features_mask`` to a fixed mel-frame
+        count, for a statically-shaped (ONNX) export.
+
+        Deliberately unimplemented: ``input_features`` has no agreed layout
+        (Qwen3-ASR ``[B, mel, time]``, Gemma4 ``[B, time, mel]``) and padding the
+        wrong axis fails only inside onnxruntime, so each model states its own.
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} has an audio component but does not "
+            "implement pad_audio_item, so the mel-frame axis of its "
+            "input_features is unknown. Implement it on this Generator subclass."
+        )
+
+    def present_components(self) -> tuple[str, ...]:
+        """Live input-encoder components, in canonical registry order."""
+        return tuple(n for n in COMPONENTS if self.has_component(n))
+
+    @contextlib.contextmanager
+    def component_quantization_mode(self, component: str):
+        """Rewire prefill to yield one component's encoder inputs.
+
+        When active, :meth:`prefill` yields the input tuples that would normally
+        be passed to that component's encoder instead of the backbone's inputs.
+        This lets recipes like Calibration and SeqMSE operate on an encoder
+        without any changes to their own code.
+        """
+        require_component(component)
+        previous = self._quantization_mode
+        self._quantization_mode = component
         try:
             yield
         finally:
-            self._visual_quantization_mode = False
+            self._quantization_mode = previous
 
     def fuse_text_image_video(
         self,
@@ -1165,6 +1248,78 @@ class VLM_Generator(Generator):
 
         return inputs_embeds, mm_token_type_ids, extra_kwargs
 
+    def fuse_audio(
+        self,
+        inputs_embeds: torch.Tensor,
+        input_ids: torch.Tensor,
+        input_features: torch.Tensor | None = None,
+        input_features_mask: torch.Tensor | None = None,
+    ) -> torch.Tensor:
+        """Scatter audio-encoder embeddings into the token sequence.
+
+        Structurally identical to the image scatter: the encoder returns
+        embeddings already at the post-merge audio-token count, and they are
+        written into ``inputs_embeds`` at every ``audio_token_id`` position.
+        The mel/feature extraction stays in the HF processor, outside this graph.
+        """
+        if input_features is None:
+            return inputs_embeds
+
+        audio_output = self.audio_model(
+            input_features=input_features,
+            input_features_mask=input_features_mask,
+        )
+        audio_embeddings = (
+            audio_output[0] if isinstance(audio_output, tuple) else audio_output
+        )
+        audio_embeddings = audio_embeddings.to(
+            device=inputs_embeds.device, dtype=inputs_embeds.dtype
+        )
+        audio_mask = (
+            (input_ids == self.config.audio_token_id)
+            .unsqueeze(-1)
+            .expand_as(inputs_embeds)
+            .to(inputs_embeds.device)
+        )
+        return inputs_embeds.masked_scatter(audio_mask, audio_embeddings)
+
+    def fuse_multimodal(
+        self,
+        input_ids: torch.Tensor | None = None,
+        **modality_kwargs,
+    ) -> tuple[torch.Tensor, torch.Tensor, dict]:
+        """Fuse every present input encoder's embeddings into the sequence.
+
+        Vision keeps its own :meth:`fuse_text_image_video` (model-specific, and
+        widely overridden); audio scatters on top. An audio-only model never
+        touches the vision path, so it never reads the ``image_token_id`` it lacks.
+
+        ``mm_token_type_ids`` is not annotated for audio: 1=image/2=video are read
+        by position-id processors, and a third value would change their behaviour.
+        """
+        if self.has_component(VISUAL.name):
+            inputs_embeds, mm_token_type_ids, extra_kwargs = self.fuse_text_image_video(
+                input_ids=input_ids,
+                pixel_values=modality_kwargs.get("pixel_values"),
+                pixel_values_videos=modality_kwargs.get("pixel_values_videos"),
+                image_grid_thw=modality_kwargs.get("image_grid_thw"),
+                video_grid_thw=modality_kwargs.get("video_grid_thw"),
+            )
+        else:
+            inputs_embeds = self.embedding(input_ids)
+            mm_token_type_ids = torch.zeros_like(input_ids)
+            extra_kwargs = {}
+
+        if self.has_component(AUDIO.name):
+            inputs_embeds = self.fuse_audio(
+                inputs_embeds,
+                input_ids,
+                input_features=modality_kwargs.get("input_features"),
+                input_features_mask=modality_kwargs.get("input_features_mask"),
+            )
+
+        return inputs_embeds, mm_token_type_ids, extra_kwargs
+
     def forward(
         self,
         input_ids: torch.Tensor | None = None,
@@ -1174,6 +1329,8 @@ class VLM_Generator(Generator):
         pixel_values_videos: torch.Tensor | None = None,
         image_grid_thw: torch.Tensor | None = None,
         video_grid_thw: torch.Tensor | None = None,
+        input_features: torch.Tensor | None = None,
+        input_features_mask: torch.Tensor | None = None,
         **kwargs,
     ) -> CausalLMOutputWithPast:
         # Remove mm_token_type_ids from kwargs — it is consumed by
@@ -1181,13 +1338,15 @@ class VLM_Generator(Generator):
         # propagate to the backbone model.
         kwargs.pop("mm_token_type_ids", None)
 
-        # 1) Obtain fused input embeddings and extra vision outputs
-        inputs_embeds, mm_token_type_ids, extra_kwargs = self.fuse_text_image_video(
+        # 1) Obtain fused input embeddings and extra encoder outputs
+        inputs_embeds, mm_token_type_ids, extra_kwargs = self.fuse_multimodal(
             input_ids=input_ids,
             pixel_values=pixel_values,
             pixel_values_videos=pixel_values_videos,
             image_grid_thw=image_grid_thw,
             video_grid_thw=video_grid_thw,
+            input_features=input_features,
+            input_features_mask=input_features_mask,
         )
 
         # 2) Process position_ids through position processor
@@ -1203,7 +1362,7 @@ class VLM_Generator(Generator):
             else None
         )
 
-        # 3) call super().forward() with concatenated embeddings and extra vision outputs
+        # 3) call super().forward() with concatenated embeddings and extra encoder outputs
         return super().forward(
             input_ids=None,
             attention_mask=attention_mask,
@@ -1271,6 +1430,28 @@ class VLM_Generator(Generator):
                 ]
             )
 
+    def _prefill_audio(
+        self,
+        input_ids: torch.Tensor | None = None,
+        input_features: torch.Tensor | None = None,
+        input_features_mask: torch.Tensor | None = None,
+        **kwargs,
+    ) -> typing.Generator[OrderedDict[str, torch.Tensor], None, None]:
+        """Yield audio-encoder input tuples.
+
+        The audio-quantization counterpart of :meth:`_prefill_visual`. Unlike
+        images there is no per-item split: one utterance is one encoder call, so
+        this yields at most one tuple per sample.
+        """
+        if input_features is None:
+            return
+        yield OrderedDict(
+            [
+                ("input_features", input_features),
+                ("input_features_mask", input_features_mask),
+            ]
+        )
+
     def prefill(
         self,
         input_ids: torch.Tensor | None = None,
@@ -1282,24 +1463,31 @@ class VLM_Generator(Generator):
         pixel_values_videos: torch.Tensor | None = None,
         image_grid_thw: torch.Tensor | None = None,
         video_grid_thw: torch.Tensor | None = None,
+        input_features: torch.Tensor | None = None,
+        input_features_mask: torch.Tensor | None = None,
         **kwargs,
     ) -> typing.Generator[OrderedDict[str, torch.Tensor], None, None]:
-        if self._visual_quantization_mode:
-            yield from self._prefill_visual(
+        if self._quantization_mode:
+            yield from self._prefill_component(
+                self._quantization_mode,
                 input_ids=input_ids,
                 pixel_values=pixel_values,
                 image_grid_thw=image_grid_thw,
+                input_features=input_features,
+                input_features_mask=input_features_mask,
                 **kwargs,
             )
             return
 
-        # 1) Obtain fused input embeddings and extra vision outputs
-        inputs_embeds, mm_token_type_ids, extra_kwargs = self.fuse_text_image_video(
+        # 1) Obtain fused input embeddings and extra encoder outputs
+        inputs_embeds, mm_token_type_ids, extra_kwargs = self.fuse_multimodal(
             input_ids=input_ids,
             pixel_values=pixel_values,
             pixel_values_videos=pixel_values_videos,
             image_grid_thw=image_grid_thw,
             video_grid_thw=video_grid_thw,
+            input_features=input_features,
+            input_features_mask=input_features_mask,
         )
 
         # 2) Process position_ids through position processor

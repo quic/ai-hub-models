@@ -6,7 +6,6 @@
 import types
 from abc import abstractmethod, ABC
 import torch
-from dataclasses import dataclass
 from transformers import (
     PreTrainedTokenizerBase,
     PreTrainedModel,
@@ -17,6 +16,7 @@ from transformers import (
 )
 from transformers.cache_utils import DynamicCache
 
+from .components import AUDIO, COMPONENTS, VISUAL, spec
 from .generator import Generator, VLM_Generator
 from .utils.layer_cache import (
     LayerCacheDescriptor,
@@ -27,19 +27,23 @@ from .utils.layer_cache import (
 )
 
 
-@dataclass
 class SimCollection:
-    """Dataclass to hold QuantSim models for different parts of the LLM"""
+    """Holds the QuantSim models for the components of an LLM.
 
-    backbone: "QuantizationSimModel"
-    visual: "QuantizationSimModel"
-    embedding: torch.nn.Module
-    config: PretrainedConfig
+    Each modality component is an optional field, ``None`` when absent -- the
+    same shape as :class:`ModelCacheEntry` and :class:`ResolvedRecipe`, plus a
+    :meth:`component` accessor for code generic over the registry.
+
+    Keyword-only after ``backbone``, so adding a component cannot shift an
+    existing positional argument.
+    """
 
     def __init__(
         self,
         backbone: "QuantizationSimModel",
+        *,
         visual: "QuantizationSimModel" = None,
+        audio: "QuantizationSimModel" = None,
         embedding: torch.nn.Module = None,
         config: PretrainedConfig = None,
         position_id_processor: types.FunctionType = None,
@@ -47,13 +51,40 @@ class SimCollection:
     ):
         self.backbone = backbone
         self.visual = visual
+        self.audio = audio
         self.embedding = embedding
         self.config = config
         self.position_id_processor = position_id_processor
         self.extras = extras or {}
 
+    def component(self, name: str) -> "QuantizationSimModel":
+        """The sim for a modality component, or ``None`` if this model lacks it."""
+        spec(name)  # raises KeyError for an unknown component
+        return getattr(self, name)
+
+    def has(self, name: str) -> bool:
+        """Whether this model has a live sim for the named component."""
+        return self.component(name) is not None
+
+    def iter_members(self):
+        """Yield the backbone, every modality component, and the embedding.
+
+        The placeable sims/modules the collection owns -- what device placement
+        and quantizer sweeps iterate. ``config``, ``position_id_processor`` and
+        ``extras`` are excluded: they are not sims, and extras are placed by the
+        generator that consumes them.
+        """
+        yield self.backbone
+        for name in COMPONENTS:
+            yield getattr(self, name)
+        yield self.embedding
+
+    def present_components(self) -> tuple[str, ...]:
+        """Names of the live modality components, in canonical registry order."""
+        return tuple(n for n in COMPONENTS if self.has(n))
+
     def is_vlm(self) -> bool:
-        return self.visual is not None
+        return self.has(VISUAL.name)
 
 
 class LLM(ABC):
@@ -169,6 +200,13 @@ class LLM(ABC):
 
         Marks the sequence_length and kv_cache_length dimensions as dynamic so
         that a single ONNX graph can be used with varying sequence lengths.
+
+        This is the single declaration of *which* dims are dynamic, for both
+        export paths: the TorchScript tracer consumes it as-is, and the dynamo
+        path lowers it to ``dynamic_shapes`` (see
+        ``dynamic_axes_to_dynamic_shapes``). Dims sharing a symbol name are the
+        same dim; the dynamo lowering leaves the relationships between them to
+        torch.export, which recovers them from the traced guards.
         """
         axes: dict[str, dict[int, str]] = {
             "input_ids": {1: "sequence_length"},
@@ -193,12 +231,56 @@ class LLM(ABC):
         override this to return True."""
         return False
 
+    @classmethod
+    def use_dynamo_export_for(cls, component: str | None = None) -> bool:
+        """Export path for one component, defaulting to the model-wide setting.
+
+        The tracer's limits belong to the sub-graph, not the model: Gemma4's audio
+        tower needs dynamo while its backbone and vision tower trace fine.
+        """
+        return cls.use_dynamo_export()
+
     @staticmethod
     def get_generator_cls() -> type[Generator]:
         return Generator
 
 
+def _unimplemented(cls, hook: str):
+    """The error every unimplemented component hook raises.
+
+    One message shape, so a model that declares a component but misses one of
+    its hooks fails the same way whichever hook it is.
+    """
+    return NotImplementedError(
+        f"{cls.__name__} declares COMPONENTS={getattr(cls, 'COMPONENTS', ())} "
+        f"but does not implement {hook}."
+    )
+
+
 class VLM(LLM):
+    """Base for multi-modal LLMs -- those whose backbone consumes ``inputs_embeds``
+    because an upstream encoder's embeddings are scattered into the sequence.
+
+    Subclasses declare their components via ``COMPONENTS`` and implement only
+    those hooks; the rest stay concrete-but-unimplemented so an audio-only model
+    need not supply vision hooks.
+    """
+
+    #: Names of the modality components this model has, from
+    #: :data:`.components.COMPONENTS`. Defaults to
+    #: vision, which is what every subclass was before audio existed.
+    COMPONENTS: tuple[str, ...] = (VISUAL.name,)
+
+    @classmethod
+    def supports_component(cls, component: str, config: PretrainedConfig) -> bool:
+        """Whether a *specific checkpoint* actually has a declared component.
+
+        ``COMPONENTS`` is per class, but a modality can be optional per checkpoint
+        (Gemma4 ships variants with ``audio_config=None``), so those classes
+        override this to consult the config.
+        """
+        return component in cls.COMPONENTS
+
     @classmethod
     @abstractmethod
     def instantiate_position_processor(cls):
@@ -220,10 +302,9 @@ class VLM(LLM):
         return cls.get_language_model(model).get_input_embeddings()
 
     @classmethod
-    @abstractmethod
     def build_vision_wrapper(cls, model: PreTrainedModel) -> torch.nn.Module:
         """Return a traceable vision wrapper module for quantization/export."""
-        pass
+        raise _unimplemented(cls, "build_vision_wrapper")
 
     @classmethod
     def get_extras(cls, model: PreTrainedModel) -> dict:
@@ -231,7 +312,6 @@ class VLM(LLM):
         return {}
 
     @classmethod
-    @abstractmethod
     def get_sample_vision_inputs(
         cls,
         config: PretrainedConfig,
@@ -240,7 +320,7 @@ class VLM(LLM):
         **kwargs,
     ) -> tuple[torch.Tensor, ...]:
         """Get sample inputs for visual model QuantSim instantiation or ONNX export"""
-        pass
+        raise _unimplemented(cls, "get_sample_vision_inputs")
 
     @staticmethod
     def get_backbone_input_names(
@@ -280,17 +360,96 @@ class VLM(LLM):
     ) -> dict[str, dict[int, str]]:
         return {}
 
-    @staticmethod
-    @abstractmethod
-    def get_visual_input_names() -> tuple[str, ...]:
+    @classmethod
+    def get_visual_input_names(cls) -> tuple[str, ...]:
         """Get input names for the visual model"""
-        pass
+        raise _unimplemented(cls, "get_visual_input_names")
+
+    @classmethod
+    def get_visual_output_names(cls, **kwargs) -> tuple[str, ...]:
+        """Get output names for the visual model"""
+        raise _unimplemented(cls, "get_visual_output_names")
+
+    # ---- audio component ----------------------------------------------------
+    # Mel extraction stays in the HF processor, outside these wrappers, as image
+    # resizing sits outside the vision sim. ``audio_frames`` always means padded
+    # mel frames (the analogue of ``image_size``), never waveform samples; the
+    # encoder subsamples it further to the audio-token count.
+
+    @classmethod
+    def validate_audio_frames(cls, config: PretrainedConfig, audio_frames: int) -> int:
+        """Check a padded mel-frame count against this encoder, and return it.
+
+        No constraint by default. An encoder that chunks the time axis overrides
+        this so a bad ``model.audio_frames`` fails naming the knob.
+        """
+        return audio_frames
+
+    @classmethod
+    def build_audio_wrapper(cls, model: PreTrainedModel) -> torch.nn.Module:
+        """Return a traceable audio-encoder wrapper for quantization/export."""
+        raise _unimplemented(cls, "build_audio_wrapper")
+
+    @classmethod
+    def get_sample_audio_inputs(
+        cls,
+        config: PretrainedConfig,
+        audio_frames: int | None = None,
+        *args,
+        **kwargs,
+    ) -> tuple[torch.Tensor, ...]:
+        """Get sample inputs for audio model QuantSim instantiation or ONNX export.
+
+        ``audio_frames`` is the padded mel-frame count and fixes the traced shape.
+        """
+        raise _unimplemented(cls, "get_sample_audio_inputs")
+
+    @classmethod
+    def get_audio_input_names(cls) -> tuple[str, ...]:
+        """Get input names for the audio model"""
+        raise _unimplemented(cls, "get_audio_input_names")
 
     @staticmethod
-    @abstractmethod
-    def get_visual_output_names(**kwargs) -> tuple[str, ...]:
-        """Get output names for the visual model"""
-        pass
+    def get_audio_output_names(**kwargs) -> tuple[str, ...]:
+        """Get output names for the audio model"""
+        return AUDIO.default_output_names
+
+    @staticmethod
+    def get_audio_dynamic_axes(
+        layer_cache_descriptors: list[LayerCacheDescriptor] | None = None,
+    ) -> dict[str, dict[int, str]]:
+        return {}
+
+    # ---- generic component dispatch -----------------------------------------
+    @classmethod
+    def build_component_wrapper(
+        cls, component: str, model: PreTrainedModel
+    ) -> torch.nn.Module:
+        """Build the traceable wrapper for any declared component."""
+        return getattr(cls, COMPONENTS[component].build_wrapper)(model)
+
+    @classmethod
+    def get_sample_component_inputs(
+        cls, component: str, config: PretrainedConfig, **kwargs
+    ) -> tuple[torch.Tensor, ...]:
+        """Sample inputs for any declared component."""
+        return getattr(cls, COMPONENTS[component].sample_inputs)(config, **kwargs)
+
+    @classmethod
+    def get_component_input_names(cls, component: str) -> tuple[str, ...]:
+        return getattr(cls, COMPONENTS[component].input_names)()
+
+    @classmethod
+    def get_component_output_names(cls, component: str, **kwargs) -> tuple[str, ...]:
+        return getattr(cls, COMPONENTS[component].output_names)(**kwargs)
+
+    @classmethod
+    def get_component_dynamic_axes(
+        cls,
+        component: str,
+        layer_cache_descriptors: list[LayerCacheDescriptor] | None = None,
+    ) -> dict[str, dict[int, str]]:
+        return getattr(cls, COMPONENTS[component].dynamic_axes)(layer_cache_descriptors)
 
     @staticmethod
     def get_generator_cls() -> type[VLM_Generator]:
