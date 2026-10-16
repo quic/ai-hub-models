@@ -7,11 +7,13 @@
 from typing import cast
 
 import numpy as np
+import pytest
 import torch
 from mobile_sam import SamPredictor
 from mobile_sam.utils.onnx import SamOnnxModel
 from mobile_sam.utils.transforms import ResizeLongestSide
 
+from qai_hub_models.datasets.coco.coco_sam_point import mask_center_point
 from qai_hub_models.models.mobilesam.demo import IMAGE_ADDRESS
 from qai_hub_models.models.mobilesam.demo import main as demo_main
 from qai_hub_models.models.mobilesam.model import (
@@ -20,6 +22,7 @@ from qai_hub_models.models.mobilesam.model import (
     MobileSAMLoader,
 )
 from qai_hub_models.models.templates.sam.app import SAMApp, SAMInputImageLayout
+from qai_hub_models.models.templates.sam.evaluator import SAMMaskIoUEvaluator
 from qai_hub_models.utils.asset_loaders import load_image
 from qai_hub_models.utils.test_helpers import assert_most_close
 
@@ -124,3 +127,51 @@ def test_e2e_numerical() -> None:
 
 def test_demo() -> None:
     demo_main(is_test=True)
+
+
+def test_mask_center_point_of_square() -> None:
+    mask = np.zeros((64, 64), dtype=np.uint8)
+    mask[10:50, 10:50] = 1
+    x, y = mask_center_point(mask)
+    assert 28 <= x <= 31 and 28 <= y <= 31
+
+
+def test_mask_center_point_is_inside_non_convex_mask() -> None:
+    # L-shape whose bounding-box center (32, 32) is outside the mask.
+    mask = np.zeros((64, 64), dtype=np.uint8)
+    mask[10:54, 10:20] = 1
+    mask[44:54, 10:54] = 1
+    x, y = mask_center_point(mask)
+    assert mask[y, x] == 1
+
+
+def test_mask_center_point_treats_image_border_as_boundary() -> None:
+    # Without border padding the distance is flat from x=0 and argmax returns x=0.
+    mask = np.zeros((64, 64), dtype=np.uint8)
+    mask[10:30, 0:40] = 1
+    x, _ = mask_center_point(mask)
+    assert x >= 5
+
+
+def test_mask_iou_evaluator() -> None:
+    gt = torch.zeros(2, 8, 8, dtype=torch.uint8)
+    gt[:, :4, :] = 1
+    logits = torch.full((2, 1, 8, 8), -1.0)
+    logits[0, :, :4, :] = 1.0  # perfect match: IoU 1.0
+    logits[1, :, :2, :] = 1.0  # half of the gt mask: IoU 0.5
+    evaluator = SAMMaskIoUEvaluator()
+    evaluator.add_batch((logits, torch.zeros(2, 1)), (gt,))
+    assert evaluator.get_accuracy_score() == pytest.approx(75.0)
+
+
+def test_mask_iou_evaluator_accepts_batched_tensor_gt() -> None:
+    # The evaluate pipeline passes gt as a [B, H, W] tensor, not a 1-tuple.
+    gt = torch.zeros(2, 8, 8, dtype=torch.uint8)
+    gt[0, :4, :] = 1
+    gt[1, 4:, :] = 1
+    logits = torch.full((2, 1, 8, 8), -1.0)
+    logits[0, :, :4, :] = 1.0
+    logits[1, :, 4:, :] = 1.0
+    evaluator = SAMMaskIoUEvaluator()
+    evaluator.add_batch((logits, torch.zeros(2, 1)), gt)
+    assert evaluator.get_accuracy_score() == pytest.approx(100.0)

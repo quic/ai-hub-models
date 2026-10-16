@@ -5,22 +5,59 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Generator, Sequence
 from enum import Enum
-from typing import Any
+from typing import Any, ClassVar, cast
 
 import numpy as np
 import torch
 import torch.nn.functional as F
 from PIL.Image import Image
+from typing_extensions import Self
 
+from qai_hub_models.datasets.coco.coco_sam_point import SAM_PIXEL_MEAN
+from qai_hub_models.models.protocols import ExecutableModelProtocol
 from qai_hub_models.models.templates.sam.model_patches import (
     mask_postprocessing as upscale_masks,
+)
+from qai_hub_models.utils.base_app import (
+    CollectionAppEvaluateProtocol,
+    CollectionModelEvalGenerator,
 )
 from qai_hub_models.utils.image_processing import (
     numpy_image_to_torch,
     preprocess_PIL_image,
 )
+from qai_hub_models.utils.inference import AsyncOnDeviceModel, AsyncOnDeviceResult
+
+ENCODER_IMG_SIZE = 1024
+MASK_THRESHOLD = 0.0
+NO_POINT_LABEL = -1.0
+
+ChunkedTensor = torch.Tensor | tuple[torch.Tensor, ...]
+
+
+def map_chunks(
+    x: ChunkedTensor, fn: Callable[[torch.Tensor], torch.Tensor]
+) -> ChunkedTensor:
+    """Apply fn to a tensor, or to each per-job chunk if given a tuple of tensors."""
+    if isinstance(x, tuple):
+        return tuple(fn(chunk) for chunk in x)
+    return fn(x)
+
+
+def pad_prompt_points(
+    point_coords: ChunkedTensor, point_labels: ChunkedTensor, num_points: int
+) -> tuple[ChunkedTensor, ChunkedTensor]:
+    """Pad prompts with "no point" entries (label -1) up to num_points."""
+
+    def pad_coords(x: torch.Tensor) -> torch.Tensor:
+        return F.pad(x, (0, 0, 0, max(num_points - x.shape[1], 0)), value=0.0)
+
+    def pad_labels(x: torch.Tensor) -> torch.Tensor:
+        return F.pad(x, (0, max(num_points - x.shape[1], 0)), value=NO_POINT_LABEL)
+
+    return map_chunks(point_coords, pad_coords), map_chunks(point_labels, pad_labels)
 
 
 class SAMInputImageLayout(Enum):
@@ -28,14 +65,19 @@ class SAMInputImageLayout(Enum):
     BGR = 1
 
 
-class SAMApp:
+class SAMApp(CollectionAppEvaluateProtocol):
     """
     This class consists of light-weight "app code" that is required to perform end to end inference with Segment-Anything Model.
 
     The app uses 2 models:
         * encoder (Given input image, emits image embeddings to be used by decoder)
         * decoder (image embeddings --> predicted segmentation masks)
+
+    Per-model subclasses set ``resize_longest_side`` to the transform class of
+    their SAM package, which ``from_components`` needs.
     """
+
+    resize_longest_side: ClassVar[Callable]
 
     def __init__(
         self,
@@ -274,3 +316,54 @@ class SAMApp:
             upscaled_masks = upscaled_masks > self.mask_threshold
 
         return upscaled_masks, scores
+
+    @classmethod
+    def from_components(
+        cls,
+        models: Sequence[ExecutableModelProtocol] | Sequence[AsyncOnDeviceModel],
+    ) -> Self:
+        """Build from collection components ordered [encoder part(s)..., decoder]."""
+        return cls(
+            ENCODER_IMG_SIZE,
+            MASK_THRESHOLD,
+            SAMInputImageLayout.RGB,
+            list(models[:-1]),  # type: ignore[arg-type]
+            models[-1],  # type: ignore[arg-type]
+            cls.resize_longest_side,
+            SAM_PIXEL_MEAN.view(3, 1, 1),
+        )
+
+    def run_model_for_eval(
+        self,
+        model_input: Generator[AsyncOnDeviceResult] | tuple[torch.Tensor, ...],
+        model_batch_size: int,
+    ) -> CollectionModelEvalGenerator:
+        point_coords: ChunkedTensor
+        point_labels: ChunkedTensor
+        # On device, each input arrives as a chunk tuple from successive next() calls.
+        if isinstance(model_input, tuple):
+            image, point_coords, point_labels = model_input
+        else:
+            image, point_coords, point_labels = cast(
+                tuple[torch.Tensor, ...], tuple(next(model_input) for _ in range(3))
+            )
+        decoder_spec = cast(Any, self.sam_decoder).get_input_spec()
+        point_coords, point_labels = pad_prompt_points(
+            point_coords, point_labels, decoder_spec["point_coords"][0][1]
+        )
+
+        features: Any = image
+        for part in self.sam_encoder_splits:
+            features = part(features)
+            if isinstance(features, AsyncOnDeviceResult):
+                yield features
+                features = features.wait()
+                features = features[0] if isinstance(features, tuple) else features
+                features = cast(torch.Tensor, features).split(1, dim=0)
+            else:
+                yield (features,)
+
+        # The decoder may be an on-device model taking per-job chunk tuples.
+        output = cast(Any, self.sam_decoder)(features, point_coords, point_labels)
+        yield output if isinstance(output, AsyncOnDeviceResult) else tuple(output)
+        return output if isinstance(output, AsyncOnDeviceResult) else tuple(output)

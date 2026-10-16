@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import functools
+from collections.abc import Sequence
 from typing import TypeVar, cast
 
 import torch
@@ -21,9 +22,11 @@ from segment_anything.modeling.transformer import (
 from segment_anything.utils.onnx import SamOnnxModel
 from typing_extensions import Self
 
+from qai_hub_models.datasets.coco import CocoSamPointDataset
 from qai_hub_models.models.sam.model_patches import (
     SplitHeadSAMEncoderAttention,
 )
+from qai_hub_models.models.templates.sam.evaluator import SAMMaskIoUEvaluator
 from qai_hub_models.models.templates.sam.model_patches import (
     Conv2DInplaceLinearSAMMaskDecoderMLP,
     Conv2DInplaceLinearSAMTransformerMLPBlock,
@@ -32,6 +35,8 @@ from qai_hub_models.models.templates.sam.model_patches import (
 )
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 from qai_hub_models.utils.base_collection_model import WorkbenchModelCollection
+from qai_hub_models.utils.base_dataset import BaseDataset
+from qai_hub_models.utils.base_evaluator import BaseEvaluator
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.export.result import ComponentGroup
 from qai_hub_models.utils.input_spec import (
@@ -535,6 +540,13 @@ class SAM(WorkbenchModelCollection):
             has_mask_input=has_mask_input,
             num_of_points=num_of_points,
         )
+
+    def get_evaluator(self) -> BaseEvaluator:
+        return SAMMaskIoUEvaluator(self.sam.mask_threshold)
+
+    @classmethod
+    def get_eval_dataset_classes(cls) -> Sequence[type[BaseDataset]]:
+        return [CocoSamPointDataset]
 
     @staticmethod
     def from_pretrained(

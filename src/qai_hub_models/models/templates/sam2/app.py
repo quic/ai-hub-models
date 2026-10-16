@@ -5,9 +5,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Generator, Sequence
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import torch
@@ -15,9 +15,22 @@ from PIL.Image import Image
 from qai_hub.client import DatasetEntries
 from torch.utils.data import DataLoader
 from torchvision.transforms.functional import resize
+from typing_extensions import Self
 
 from qai_hub_models.datasets import DatasetSplit, instantiate_dataset
+from qai_hub_models.models.protocols import ExecutableModelProtocol
+from qai_hub_models.models.templates.sam.app import (
+    ENCODER_IMG_SIZE,
+    MASK_THRESHOLD,
+    ChunkedTensor,
+    map_chunks,
+    pad_prompt_points,
+)
 from qai_hub_models.models.templates.sam2.model_patches import mask_postprocessing
+from qai_hub_models.utils.base_app import (
+    CollectionAppEvaluateProtocol,
+    CollectionModelEvalGenerator,
+)
 from qai_hub_models.utils.base_collection_model import WorkbenchModelCollection
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.evaluate.helpers import sample_dataset
@@ -25,8 +38,11 @@ from qai_hub_models.utils.image_processing import (
     numpy_image_to_torch,
     preprocess_PIL_image,
 )
+from qai_hub_models.utils.inference import AsyncOnDeviceModel, AsyncOnDeviceResult
 from qai_hub_models.utils.input_spec import InputSpec, get_batch_size
 from qai_hub_models.utils.qai_hub_helpers import make_hub_dataset_entries
+
+IMAGE_EMBEDDINGS, HIGH_RES_1, HIGH_RES_2, SPARSE_EMBEDDING, PIX_FEAT = range(5)
 
 
 class SAM2InputImageLayout(Enum):
@@ -34,7 +50,7 @@ class SAM2InputImageLayout(Enum):
     BGR = 1
 
 
-class SAM2App:
+class SAM2App(CollectionAppEvaluateProtocol):
     """
     This class consists of light-weight "app code" that is required to perform end to end inference with Segment-Anything-2 Model.
 
@@ -42,6 +58,10 @@ class SAM2App:
       * encoder (Given input image, emits image embeddings, high-resolution features to be used by decoder)
       * decoder (image embeddings and high-resolution features --> predicted segmentation masks and scores)
     """
+
+    # In eval, feed the decoder pix_feat (embeddings + no_mem_embed), as
+    # predict_embeddings does for SAM2.1 configs with directly_add_no_mem_embed.
+    use_pix_feat = True
 
     def __init__(
         self,
@@ -315,6 +335,64 @@ class SAM2App:
             upscaled_masks = upscaled_masks > self.mask_threshold
 
         return upscaled_masks, scores
+
+    @classmethod
+    def from_components(
+        cls,
+        models: Sequence[ExecutableModelProtocol] | Sequence[AsyncOnDeviceModel],
+    ) -> Self:
+        """Build from collection components ordered [encoder, decoder]."""
+        return cls(
+            ENCODER_IMG_SIZE,
+            MASK_THRESHOLD,
+            SAM2InputImageLayout.RGB,
+            models[0],  # type: ignore[arg-type]
+            models[1],  # type: ignore[arg-type]
+        )
+
+    def run_model_for_eval(
+        self,
+        model_input: Generator[AsyncOnDeviceResult] | tuple[torch.Tensor, ...],
+        model_batch_size: int,
+    ) -> CollectionModelEvalGenerator:
+        point_coords: ChunkedTensor
+        point_labels: ChunkedTensor
+        # On device, each input arrives as a chunk tuple from successive next() calls.
+        if isinstance(model_input, tuple):
+            image, point_coords, point_labels = model_input
+        else:
+            image, point_coords, point_labels = cast(
+                tuple[torch.Tensor, ...], tuple(next(model_input) for _ in range(3))
+            )
+        encoder_spec = cast(Any, self.sam2_encoder).get_input_spec()
+        point_coords, point_labels = pad_prompt_points(
+            point_coords, point_labels, encoder_spec["unnorm_coords"][0][1]
+        )
+        # Eval inputs are in the model input frame, so normalize by the encoder size.
+        norm_coords = map_chunks(point_coords, lambda c: c / ENCODER_IMG_SIZE)
+
+        # The encoder may be an on-device model taking per-job chunk tuples.
+        encoder_out = cast(Any, self.sam2_encoder)(image, norm_coords, point_labels)
+        embeddings_index = PIX_FEAT if self.use_pix_feat else IMAGE_EMBEDDINGS
+        decoder_inputs: tuple[Any, ...]
+        if isinstance(encoder_out, AsyncOnDeviceResult):
+            yield encoder_out
+            features = cast(tuple[torch.Tensor, ...], encoder_out.wait())
+            decoder_inputs = tuple(
+                features[i].split(1, dim=0)
+                for i in (embeddings_index, HIGH_RES_1, HIGH_RES_2, SPARSE_EMBEDDING)
+            )
+        else:
+            yield tuple(encoder_out)
+            decoder_inputs = tuple(
+                encoder_out[i]
+                for i in (embeddings_index, HIGH_RES_1, HIGH_RES_2, SPARSE_EMBEDDING)
+            )
+
+        output = self.sam2_decoder(*decoder_inputs)
+        result = output if isinstance(output, AsyncOnDeviceResult) else tuple(output)
+        yield result
+        return result
 
     @classmethod
     def get_calibration_data(

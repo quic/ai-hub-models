@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Sequence
 from pathlib import Path
 from typing import TypeVar
 
@@ -21,7 +22,10 @@ from qai_hub_models import (
     Precision,
     TargetRuntime,
 )
+from qai_hub_models.datasets.coco import CocoSamPointDataset
 from qai_hub_models.datasets.sav import SaVDataset
+from qai_hub_models.models.templates.sam.app import MASK_THRESHOLD
+from qai_hub_models.models.templates.sam.evaluator import SAMMaskIoUEvaluator
 from qai_hub_models.models.templates.sam.utils import copy_configs
 from qai_hub_models.models.templates.sam2.model import (
     SAM2Decoder as SAM2DecoderBase,
@@ -35,6 +39,7 @@ from qai_hub_models.models.templates.sam2.model import (
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 from qai_hub_models.utils.base_collection_model import WorkbenchModelCollection
 from qai_hub_models.utils.base_dataset import BaseDataset
+from qai_hub_models.utils.base_evaluator import BaseEvaluator
 from qai_hub_models.utils.export.result import ComponentGroup
 from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.path_helpers import QAIHM_MODELS_ROOT
@@ -151,8 +156,16 @@ class SAM2Loader(SAM2LoaderBase):
             f"{MODEL_REGISTERY[model_type]}",
         )
         asset.fetch()
+        # The pos-enc warmup caches tensors on CUDA when available, which then
+        # get baked into the exported graph as CUDA constants.
         return build_sam2(
-            CONFIG_REGISTERY[model_type], asset.local_cache_path, device="cpu"
+            CONFIG_REGISTERY[model_type],
+            asset.local_cache_path,
+            device="cpu",
+            hydra_overrides_extra=[
+                "++model.image_encoder.neck.position_encoding.warmup_cache=false",
+                "++model.memory_encoder.position_encoding.warmup_cache=false",
+            ],
         )
 
 
@@ -165,6 +178,13 @@ class SAM2(WorkbenchModelCollection):
 
     def get_calibration_dataset_cls(self) -> type[BaseDataset]:
         return SaVDataset
+
+    def get_evaluator(self) -> BaseEvaluator:
+        return SAMMaskIoUEvaluator(MASK_THRESHOLD)
+
+    @classmethod
+    def get_eval_dataset_classes(cls) -> Sequence[type[BaseDataset]]:
+        return [CocoSamPointDataset]
 
     def get_input_spec(
         self,

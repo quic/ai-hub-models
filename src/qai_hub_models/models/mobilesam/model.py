@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import functools
+from collections.abc import Sequence
 from typing import cast
 
 import torch
@@ -16,6 +17,9 @@ from mobile_sam.modeling.transformer import TwoWayAttentionBlock, TwoWayTransfor
 from mobile_sam.utils.onnx import SamOnnxModel
 from typing_extensions import Self
 
+from qai_hub_models import TargetRuntime
+from qai_hub_models.datasets.coco import CocoSamPointDataset
+from qai_hub_models.models.templates.sam.evaluator import SAMMaskIoUEvaluator
 from qai_hub_models.models.templates.sam.model_patches import (
     Conv2DInplaceLinearSAMMaskDecoderMLP,
     Conv2DInplaceLinearSAMTransformerMLPBlock,
@@ -24,6 +28,8 @@ from qai_hub_models.models.templates.sam.model_patches import (
 )
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 from qai_hub_models.utils.base_collection_model import WorkbenchModelCollection
+from qai_hub_models.utils.base_dataset import BaseDataset
+from qai_hub_models.utils.base_evaluator import BaseEvaluator
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.export.result import ComponentGroup
 from qai_hub_models.utils.input_spec import (
@@ -340,3 +346,23 @@ class MobileSAM(WorkbenchModelCollection):
         cls, model_type: str = DEFAULT_MODEL_TYPE, single_mask_mode: bool = True
     ) -> Self:
         return cls(*MobileSAMLoader.load(model_type, single_mask_mode))
+
+    def get_component_hub_link_options(
+        self,
+        component_name: str,
+        target_runtime: TargetRuntime,
+        other_link_options: str = "",
+    ) -> str:
+        # TODO: O=1 to work-around a tiling bug (AISW-206993)
+        return super().get_component_hub_link_options(
+            component_name,
+            target_runtime,
+            f"{other_link_options} --qnn_options default_graph_htp_optimizations=O=1",
+        )
+
+    def get_evaluator(self) -> BaseEvaluator:
+        return SAMMaskIoUEvaluator(self.sam.mask_threshold)
+
+    @classmethod
+    def get_eval_dataset_classes(cls) -> Sequence[type[BaseDataset]]:
+        return [CocoSamPointDataset]
