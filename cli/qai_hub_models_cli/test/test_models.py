@@ -99,7 +99,11 @@ def _fake_platform() -> PlatformInfo:
         ],
         runtimes=[
             RuntimeInfo(runtime=Runtime.RUNTIME_TFLITE, is_aot_compiled=True),
-            RuntimeInfo(runtime=Runtime.RUNTIME_ONNX, is_aot_compiled=False),
+            RuntimeInfo(
+                runtime=Runtime.RUNTIME_ONNX,
+                is_aot_compiled=False,
+                display_name="ONNX Runtime",
+            ),
         ],
     )
 
@@ -165,6 +169,8 @@ def test_models_domain_filter(
         # Repeated -r is ANDed and accumulates: mobilenet has onnx but not qnn_dlc.
         # (A single-flag overwrite bug would wrongly keep only the last -r and match.)
         (["-r", "qnn_dlc", "-r", "onnx"], []),
+        # The Runtimes column shows display names, so users filter on them too.
+        (["-r", "ONNX Runtime"], ["mobilenet_v2", "pi05", "whisper_small"]),
         (["-t", "foundation"], ["whisper_small"]),
         (["-t", "robotics"], ["pi05"]),
         (["-d", "Samsung Galaxy S24"], ["mobilenet_v2"]),  # device resolves to chipset

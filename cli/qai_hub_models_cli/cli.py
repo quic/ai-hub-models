@@ -974,7 +974,9 @@ def _run_list_models(args: argparse.Namespace) -> None:
         platform_runtimes = get_platform(args.qaihm_version).runtimes
         if runtimes := flatten_multi_arg(args.runtime):
             try:
-                runtime_vals = {runtime_str_to_proto(r) for r in runtimes}
+                runtime_vals = {
+                    runtime_str_to_proto(r, platform_runtimes) for r in runtimes
+                }
             except KeyError as e:
                 print(str(e))
                 return
