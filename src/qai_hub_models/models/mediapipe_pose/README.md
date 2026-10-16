@@ -22,7 +22,7 @@ qai-hub-models perf MediaPipe-Pose-Estimation
 qai-hub-models numerics MediaPipe-Pose-Estimation
 
 # Download a ready-to-deploy asset
-qai-hub-models fetch MediaPipe-Pose-Estimation --runtime qnn_context_binary --precision float
+qai-hub-models fetch MediaPipe-Pose-Estimation --runtime tflite --precision float
 ```
 See the [CLI README](../../../../cli/README.md)
 for the full list of commands and filters.

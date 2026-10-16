@@ -283,7 +283,6 @@ def test_val_accuracy(
         EVAL_DEVICE,
         ENABLED_PRECISION_RUNTIMES,
         PASSING_PRECISION_RUNTIMES,
-        requires_aot_prepare=True,
     ),
     ids=pytest_device_idfn,
 )
