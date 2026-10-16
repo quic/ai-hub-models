@@ -182,15 +182,15 @@ class OptimizedDurationPredictor(nn.Module):
         Tensor
             shape of (1, MAX_SEQ_LEN), the predicted duration
         """
-        x = x.detach()
+        x = torch.detach(x)
 
         if g is not None:
-            g = g.detach()
+            g = torch.detach(g)
             x = x + self.cond(g)
         # A Conv + Relu op fusion bug described in this JIRA
         # https://jira-dc.qualcomm.com/jira/browse/AISW-177186
         x = self.conv_1(x * x_mask)
-        # x = torch.relu(x)  # Inplace operation
+        # x = torch.relu(x)
         x = torch.maximum(x, torch.tensor(0))
         x = self.norm_1(x)
         x = self.drop(x)

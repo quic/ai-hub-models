@@ -23,7 +23,7 @@ def melotts_synthesize_and_verify(
     model = model_cls.from_pretrained()
     language = model.get_language()
     out_audio_path = MeloTTSApp(
-        model.encoder, model.flow, model.decoder, model.tts_object, language
+        model.encoder, model.sdp, model.flow, model.decoder, model.tts_object, language
     ).predict(DEFAULT_TEXTS[language])
 
     whisper_model = whisper_model_cls.from_pretrained()

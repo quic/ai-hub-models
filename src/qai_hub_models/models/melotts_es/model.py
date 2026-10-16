@@ -6,6 +6,7 @@ from typing_extensions import Self
 
 from qai_hub_models.datasets.common_voice import TTSLanguage
 from qai_hub_models.models.templates.melotts.model import (
+    SDP,
     Decoder,
     Encoder,
     Flow,
@@ -19,6 +20,12 @@ MODEL_ID = __name__.split(".")[-2]
 
 
 class Encoder_ES(Encoder):
+    @classmethod
+    def from_pretrained(cls) -> Self:
+        return cls(get_tts_object(TTSLanguage.SPANISH), speed_adjustment=0.85)
+
+
+class Sdp_ES(SDP):
     @classmethod
     def from_pretrained(cls) -> Self:
         return cls(get_tts_object(TTSLanguage.SPANISH), speed_adjustment=0.85)
@@ -45,8 +52,9 @@ class MeloTTS_ES(MeloTTS):
     def from_pretrained(cls) -> Self:
         return cls(
             Encoder_ES.from_pretrained(),
+            Sdp_ES.from_pretrained(),
             Flow_ES.from_pretrained(),
             Decoder_ES.from_pretrained(),
-            t5_encoder=T5Encoder.from_pretrained(),
-            t5_decoder=T5Decoder.from_pretrained(),
+            charsiu_encoder=T5Encoder.from_pretrained(),
+            charsiu_decoder=T5Decoder.from_pretrained(),
         )

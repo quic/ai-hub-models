@@ -1,6 +1,6 @@
 # [MeloTTS-ES: High-quality text-to-speech for Spanish](https://aihub.qualcomm.com/models/melotts_es)
 
-MeloTTS is a high-quality multi-lingual text-to-speech library for English, Chinese and Spanish language.
+MeloTTS is a high-quality multi-lingual text-to-speech library for English, Chinese, Korean, Japanese and Spanish language.
 
 This is based on the implementation of MeloTTS-ES found [here](https://github.com/myshell-ai/MeloTTS).
 This repository contains scripts for optimized on-device export suitable to run on Qualcomm® devices. More details on model performance across various devices, can be found [here](https://aihub.qualcomm.com/models/melotts_es).
@@ -22,7 +22,7 @@ qai-hub-models perf MeloTTS-ES
 qai-hub-models numerics MeloTTS-ES
 
 # Download a ready-to-deploy asset
-qai-hub-models fetch MeloTTS-ES --runtime voice_ai --precision mixed_with_float
+qai-hub-models fetch MeloTTS-ES --runtime voice_ai --precision w8a16
 ```
 See the [CLI README](../../../../cli/README.md)
 for the full list of commands and filters.

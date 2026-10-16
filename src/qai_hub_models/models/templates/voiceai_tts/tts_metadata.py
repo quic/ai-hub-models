@@ -11,6 +11,11 @@ from typing import Any
 
 from huggingface_hub import hf_hub_download
 from pydantic import SerializeAsAny
+from qai_hub_models_cli.common import LOCAL_STORE_DEFAULT_PATH
+from tokenizers import Tokenizer, decoders
+from tokenizers.models import WordPiece
+from tokenizers.processors import TemplateProcessing
+from transformers import AutoTokenizer
 from typing_extensions import Self
 
 from qai_hub_models import TargetRuntime
@@ -156,6 +161,26 @@ class TTSMetadata(BaseQAIHMConfig):
         )
 
 
+def build_ja_tokenizer(vocab_path: str) -> Tokenizer:
+    vocab = {}
+    with open(vocab_path, encoding="utf-8") as f:
+        for i, line in enumerate(f):
+            vocab[line.rstrip("\n")] = i
+    tokenizer = Tokenizer(
+        WordPiece(vocab, unk_token="[UNK]", max_input_chars_per_word=100)
+    )
+    tokenizer.decoder = decoders.WordPiece(prefix="##")
+    tokenizer.post_processor = TemplateProcessing(
+        single="[CLS] $A [SEP]",
+        pair="[CLS] $A [SEP] $B:1 [SEP]:1",
+        special_tokens=[
+            ("[CLS]", vocab["[CLS]"]),
+            ("[SEP]", vocab["[SEP]"]),
+        ],
+    )
+    return tokenizer
+
+
 def write_tts_supplementary_files(
     language: TTSLanguage,
     output_dir: str | os.PathLike,
@@ -179,10 +204,28 @@ def write_tts_supplementary_files(
 
     tokenizer_bin_name: str | None = None
     if skip_tokenizer_languages is None or language not in skip_tokenizer_languages:
+        if language == TTSLanguage.JAPANESE:
+            tok_json_dir = os.path.join(
+                LOCAL_STORE_DEFAULT_PATH, "bert-base-japanese-v3"
+            )
+            os.makedirs(tok_json_dir, exist_ok=True)
+            tok_json_file = os.path.join(tok_json_dir, "tokenizer.json")
+            tokenizer = build_ja_tokenizer(
+                hf_hub_download(BERT_MODEL_IDS[language], "vocab.txt")
+            )
+            tokenizer.save(tok_json_file)
+        elif language == TTSLanguage.KOREAN:
+            tok_json_dir = os.path.join(LOCAL_STORE_DEFAULT_PATH, "bert-kor-base")
+            os.makedirs(tok_json_dir, exist_ok=True)
+            AutoTokenizer.from_pretrained(
+                BERT_MODEL_IDS[language], use_fast=True
+            ).save_pretrained(tok_json_dir)
+            tok_json_file = os.path.join(tok_json_dir, "tokenizer.json")
+        else:
+            tok_json_file = hf_hub_download(BERT_MODEL_IDS[language], "tokenizer.json")
+
         tokenizer_bin_path = generate_bert_tokenizer_binary(
-            hf_hub_download(
-                repo_id=BERT_MODEL_IDS[language], filename="tokenizer.json"
-            ),
+            tok_json_file,
             output_dir / f"bert_{lang_code}_tokenizer.bin",
         )
         tokenizer_bin_name = tokenizer_bin_path.name

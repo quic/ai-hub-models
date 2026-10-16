@@ -7,6 +7,7 @@ from typing_extensions import Self
 
 from qai_hub_models.datasets.common_voice import TTSLanguage
 from qai_hub_models.models.templates.melotts.model import (
+    SDP,
     BertWrapper,
     Decoder,
     Encoder,
@@ -23,7 +24,13 @@ MODEL_ID = __name__.split(".")[-2]
 class Encoder_EN(Encoder):
     @classmethod
     def from_pretrained(cls) -> Self:
-        return cls(get_tts_object(TTSLanguage.ENGLISH), speed_adjustment=0.85)
+        return cls(get_tts_object(TTSLanguage.ENGLISH), speed_adjustment=1.1)
+
+
+class Sdp_EN(SDP):
+    @classmethod
+    def from_pretrained(cls) -> Self:
+        return cls(get_tts_object(TTSLanguage.ENGLISH), speed_adjustment=1.1)
 
 
 class Flow_EN(Flow):
@@ -52,9 +59,10 @@ class MeloTTS_EN(MeloTTS):
         nltk.download("averaged_perceptron_tagger_eng")
         return cls(
             Encoder_EN.from_pretrained(),
+            Sdp_EN.from_pretrained(),
             Flow_EN.from_pretrained(),
             Decoder_EN.from_pretrained(),
             bert_wrapper=BertWrapper_EN.from_pretrained(),
-            t5_encoder=T5Encoder.from_pretrained(),
-            t5_decoder=T5Decoder.from_pretrained(),
+            charsiu_encoder=T5Encoder.from_pretrained(),
+            charsiu_decoder=T5Decoder.from_pretrained(),
         )

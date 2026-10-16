@@ -6,6 +6,7 @@ from typing_extensions import Self
 
 from qai_hub_models.datasets.common_voice import TTSLanguage
 from qai_hub_models.models.templates.melotts.model import (
+    SDP,
     BertWrapper,
     Decoder,
     Encoder,
@@ -20,7 +21,13 @@ MODEL_ID = __name__.split(".")[-2]
 class Encoder_ZH(Encoder):
     @classmethod
     def from_pretrained(cls) -> Self:
-        return cls(get_tts_object(TTSLanguage.CHINESE), speed_adjustment=0.85)
+        return cls(get_tts_object(TTSLanguage.CHINESE), speed_adjustment=0.95)
+
+
+class Sdp_ZH(SDP):
+    @classmethod
+    def from_pretrained(cls) -> Self:
+        return cls(get_tts_object(TTSLanguage.CHINESE), speed_adjustment=0.95)
 
 
 class Flow_ZH(Flow):
@@ -48,6 +55,7 @@ class MeloTTS_ZH(MeloTTS):
     def from_pretrained(cls) -> Self:
         return cls(
             Encoder_ZH.from_pretrained(),
+            Sdp_ZH.from_pretrained(),
             Flow_ZH.from_pretrained(),
             Decoder_ZH.from_pretrained(),
             bert_wrapper=BertWrapper_ZH.from_pretrained(),

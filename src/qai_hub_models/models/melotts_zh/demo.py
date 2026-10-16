@@ -14,7 +14,12 @@ def main(is_test: bool = False) -> None:
     model = model_from_cli_args(MeloTTS_ZH, args)
 
     app = MeloTTSApp(
-        model.encoder, model.flow, model.decoder, model.tts_object, model.get_language()
+        model.encoder,
+        model.sdp,
+        model.flow,
+        model.decoder,
+        model.tts_object,
+        model.get_language(),
     )
     audio_path = app.predict(DEFAULT_TEXTS[model.get_language()])
     print(f"{model.get_language()} Audio generated and saved to {audio_path}")

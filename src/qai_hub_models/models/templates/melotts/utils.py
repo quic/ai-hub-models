@@ -24,7 +24,7 @@ from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 UNIDIC_CACHE_PATH = user_cache_path("unidic")
 UNICODE_DATA_ASSET = CachedWebModelAsset(
     url="https://www.unicode.org/Public/3.0-Update/UnicodeData-3.0.0.txt",
-    model_id="melotts_shared",
+    model_id="melottstemplates",
     model_asset_version=1,
     filename="UnicodeData-3.0.0.txt",
 )

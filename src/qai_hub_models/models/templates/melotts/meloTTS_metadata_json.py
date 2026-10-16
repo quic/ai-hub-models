@@ -25,6 +25,7 @@ class ModelAssets(BaseQAIHMConfig):
     bert_tokenizer: str | None = None
     bert_normalizer: str | None = None
     melo_encoder: str | None = None
+    melo_sdp: str | None = None
     melo_flow: str | None = None
     melo_decoder: str | None = None
     g2p_encoder: str | None = None
@@ -62,14 +63,16 @@ def create_tts_metadata(
     assets = ModelAssets()
     for file_name in metadata.model_files:
         lower = file_name.lower()
-        if "t5_encoder" in lower:
+        if "charsiu_encoder" in lower:
             assets.g2p_encoder = file_name
-        elif "t5_decoder" in lower:
+        elif "charsiu_decoder" in lower:
             assets.g2p_decoder = file_name
         elif "bert" in lower:
             assets.bert_model = file_name
         elif "encoder" in lower:
             assets.melo_encoder = file_name
+        elif "sdp" in lower:
+            assets.melo_sdp = file_name
         elif "decoder" in lower:
             assets.melo_decoder = file_name
         elif "flow" in lower:
@@ -85,4 +88,5 @@ def create_tts_metadata(
         tool_versions=metadata.tool_versions,
         assets=assets,
         sample_rate=sample_rate,
+        is_model_quantized=True,
     )
