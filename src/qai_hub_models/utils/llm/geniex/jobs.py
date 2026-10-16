@@ -37,6 +37,10 @@ from qai_hub_models.utils.devicefarm.devicefarm import (
 
 DEFAULT_LLM_SYSTEM_PROMPT = LLMBase.default_system_prompt
 
+PERF_PROMPTS_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "perf_prompts"
+)
+
 # QDC submission no longer waits for a free device slot (it queues jobs
 # server-side), so this status-poll budget now has to cover the queue wait as
 # well as the on-device run, rather than just the run.
@@ -165,6 +169,31 @@ class GenieXBenchArtifactHandler(ABC):
                 encoding="utf-8",
             ) as f:
                 f.write(prompt)
+
+    @staticmethod
+    def _stage_perf_prompts(
+        dest_dir: os.PathLike | str,
+        context_lengths: list[int],
+    ) -> None:
+        """Stage sample_prompt_<ctx>.txt into perf_prompts/ for qairt timing runs.
+
+        Each ctx uses the largest shipped prompt size <= ctx (smallest if below
+        all). Kept apart from prompts/, whose presence turns accuracy eval on.
+        """
+        src_dir = PERF_PROMPTS_DIR
+        sizes = sorted(
+            int(m.group(1))
+            for fn in os.listdir(src_dir)
+            if (m := re.fullmatch(r"sample_prompt_(\d+)\.txt", fn))
+        )
+        dest_prompts = os.path.join(dest_dir, "perf_prompts")
+        os.makedirs(dest_prompts, exist_ok=True)
+        for ctx in context_lengths:
+            size = max((s for s in sizes if s <= ctx), default=sizes[0])
+            shutil.copyfile(
+                os.path.join(src_dir, f"sample_prompt_{size}.txt"),
+                os.path.join(dest_prompts, f"sample_prompt_{ctx}.txt"),
+            )
 
     @staticmethod
     def _stage_system_prompt(dest_dir: os.PathLike | str, system_prompt: str) -> None:
@@ -326,6 +355,9 @@ class GenieXBenchAndroidArtifactHandler(GenieXBenchArtifactHandler):
             assert qairt_bundles is not None
             self._stage_qairt_bundles(dest_dir, qairt_bundles)
 
+        if plugin == "qairt" and run_perf:
+            self._stage_perf_prompts(dest_dir, context_lengths)
+
         if eval_prompts:
             self._stage_eval_prompts(dest_dir, eval_prompts)
             self._stage_system_prompt(dest_dir, DEFAULT_LLM_SYSTEM_PROMPT)
@@ -378,7 +410,11 @@ class GenieXBenchLinuxArtifactHandler(GenieXBenchArtifactHandler):
             .replace("{MODELS}", "\n".join(matrix_rows))
             .replace(
                 "{BENCH_SIZE_FLAGS}",
-                f'-c "$((ctx + {_N_GEN}))" -p "$((ctx - {_N_GEN}))" -n {_N_GEN}',
+                (
+                    f'--prompt-file "$TC/perf_prompts/sample_prompt_$ctx.txt" --chat-template -c "$((ctx + {_N_GEN}))" -n {_N_GEN}'
+                    if plugin == "qairt"
+                    else f'-c "$((ctx + {_N_GEN}))" -p "$((ctx - {_N_GEN}))" -n {_N_GEN}'
+                ),
             ),
             context_lengths,
             run_perf,
@@ -395,6 +431,9 @@ class GenieXBenchLinuxArtifactHandler(GenieXBenchArtifactHandler):
 
         if plugin == "qairt" and qairt_bundles:
             self._stage_qairt_bundles(dest_dir, qairt_bundles)
+
+        if plugin == "qairt" and run_perf:
+            self._stage_perf_prompts(dest_dir, context_lengths)
 
         if eval_prompts:
             self._stage_eval_prompts(dest_dir, eval_prompts)
@@ -450,7 +489,11 @@ class GenieXBenchWindowsArtifactHandler(GenieXBenchArtifactHandler):
             .replace("{MODELS}", "\n".join(matrix_rows))
             .replace(
                 "{BENCH_SIZE_FLAGS_ARGS}",
-                f'"-c", "$($ctx + {_N_GEN})", "-p", "$($ctx - {_N_GEN})", "-n", "{_N_GEN}",',
+                (
+                    f'"--prompt-file", "$TC\\perf_prompts\\sample_prompt_$ctx.txt", "--chat-template", "-c", "$($ctx + {_N_GEN})", "-n", "{_N_GEN}",'
+                    if plugin == "qairt"
+                    else f'"-c", "$($ctx + {_N_GEN})", "-p", "$($ctx - {_N_GEN})", "-n", "{_N_GEN}",'
+                ),
             ),
             context_lengths,
             run_perf,
@@ -469,6 +512,9 @@ class GenieXBenchWindowsArtifactHandler(GenieXBenchArtifactHandler):
 
         if plugin == "qairt" and qairt_bundles:
             self._stage_qairt_bundles(dest_dir, qairt_bundles)
+
+        if plugin == "qairt" and run_perf:
+            self._stage_perf_prompts(dest_dir, context_lengths)
 
         if eval_prompts:
             self._stage_eval_prompts(dest_dir, eval_prompts)

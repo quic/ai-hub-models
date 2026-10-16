@@ -29,6 +29,7 @@ HOST_QAIRT_BUNDLES = f"{HOST_ARTIFACT_ROOT}/qairt_bundles"
 HOST_ROWS = f"{HOST_ARTIFACT_ROOT}/matrix_rows.txt"
 HOST_CHIPSET = f"{HOST_ARTIFACT_ROOT}/chipset.txt"
 HOST_PROMPTS = f"{HOST_ARTIFACT_ROOT}/prompts"
+HOST_PERF_PROMPTS = f"{HOST_ARTIFACT_ROOT}/perf_prompts"
 HOST_STAGE = f"{HOST_ARTIFACT_ROOT}/_stage"
 HOST_BUNDLE = f"{HOST_STAGE}/bundle"
 
@@ -40,6 +41,7 @@ DEVICE_MM_CACHE = "/data/local/tmp/geniex-cache"
 DEVICE_LOGS = "/data/local/tmp/{DEVICE_LOGS_DIR}"
 DEVICE_RESULTS = f"{DEVICE_LOGS}/results"
 DEVICE_PROMPTS = "/data/local/tmp/eval_prompts"
+DEVICE_PERF_PROMPTS = "/data/local/tmp/perf_prompts"
 DEVICE_EVAL_OUT = f"{DEVICE_LOGS}/geniex_eval_outputs.txt"
 DEVICE_EVAL_ERR = f"{DEVICE_LOGS}/geniex_eval_stderr.txt"
 
@@ -263,7 +265,13 @@ def fetch_qairt_sdk() -> str:
 def _run_bench(
     ctx: int, env: str, tsv_path: str, chipset: str, qairt_lib_flag: str
 ) -> int:
-    size_flags = f"-c {ctx + N_GEN} -p {ctx - N_GEN} -n {N_GEN}"
+    if PLUGIN == "qairt":
+        size_flags = (
+            f"--prompt-file {DEVICE_PERF_PROMPTS}/sample_prompt_{ctx}.txt "
+            f"--chat-template -c {ctx + N_GEN} -n {N_GEN}"
+        )
+    else:
+        size_flags = f"-c {ctx + N_GEN} -p {ctx - N_GEN} -n {N_GEN}"
     cmd = (
         f"cd {DEVICE_BUNDLE} && {env} ./bin/geniex-bench "
         f"--matrix-file {tsv_path} --output-json-dir {DEVICE_RESULTS} -r 3 "
@@ -422,6 +430,14 @@ def test_scorecard() -> None:
             ]
             assert len(names) == 1, f"expected one qairt bundle, got {names}"
             bundle_name = names[0]
+
+        if PLUGIN == "qairt" and RUN_PERF:
+            adb(f"rm -rf {DEVICE_PERF_PROMPTS}", check=False)
+            adb(f"mkdir -p {DEVICE_PERF_PROMPTS}")
+            subprocess.run(
+                ["adb", "push", f"{HOST_PERF_PROMPTS}/.", DEVICE_PERF_PROMPTS],
+                check=True,
+            )
 
         tsv_by_ctx: dict[int, list[str]] = {ctx: [] for ctx in CTXS}
         for row in rows:
