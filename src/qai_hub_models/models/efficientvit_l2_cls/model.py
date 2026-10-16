@@ -10,7 +10,8 @@ import torchvision.transforms as T
 from typing_extensions import Self
 
 from qai_hub_models import Precision
-from qai_hub_models.datasets.imagenet import ImagenetDataset, ImagenetteDataset
+from qai_hub_models.datasets.imagenet import ImagenetDataset
+from qai_hub_models.datasets.open_images import OpenImagesV7Dataset
 from qai_hub_models.models.templates.efficientvit.external_repos.efficientvit.efficientvit.cls_model_zoo import (
     create_cls_model,
 )
@@ -53,13 +54,9 @@ class ImagenetEfficientViTL2Dataset(ImagenetDataset):
         return "imagenet_efficientvit_l2"
 
 
-class ImagenetteEfficientViTL2Dataset(ImagenetteDataset):
+class OpenImagesEfficientViTL2Dataset(OpenImagesV7Dataset):
     def __init__(self, split: DatasetSplit = DatasetSplit.TRAIN) -> None:
         super().__init__(split=split, transform=EFFICIENTVIT_L2_TRANSFORM)
-
-    @classmethod
-    def dataset_name(cls) -> str:
-        return "imagenette_efficientvit_l2"
 
 
 ATTENTION_EPS = 90
@@ -108,11 +105,11 @@ class EfficientViT(ImagenetClassifier):
         }
 
     def get_calibration_dataset_cls(self) -> type[BaseDataset]:
-        return ImagenetteEfficientViTL2Dataset
+        return OpenImagesEfficientViTL2Dataset
 
     @classmethod
     def get_eval_dataset_classes(cls) -> list[type[BaseDataset]]:
-        return [ImagenetEfficientViTL2Dataset, ImagenetteEfficientViTL2Dataset]
+        return [ImagenetEfficientViTL2Dataset]
 
     def get_hub_litemp_percentage(self, precision: Precision) -> float:
         """Returns the Lite-MP percentage value for the specified mixed precision quantization."""

@@ -14,8 +14,8 @@ from qai_hub_models import Precision
 from qai_hub_models.configs.model_metadata import ModelMetadata
 from qai_hub_models.datasets.imagenet import (
     ImagenetColorizationDataset,
-    ImagenetteColorizationDataset,
 )
+from qai_hub_models.datasets.open_images import OpenImagesColorizationDataset
 from qai_hub_models.models.ddcolor.evaluator import ColorizationEvaluator
 from qai_hub_models.models.ddcolor.external_repos.ddcolor.infer_hf import DDColorHF
 from qai_hub_models.utils.base_dataset import BaseDataset
@@ -95,10 +95,10 @@ class DDColor(BaseModel):
 
     @classmethod
     def get_eval_dataset_classes(cls) -> list[type[BaseDataset]]:
-        return [ImagenetColorizationDataset, ImagenetteColorizationDataset]
+        return [ImagenetColorizationDataset]
 
     def get_calibration_dataset_cls(self) -> type[BaseDataset]:
-        return ImagenetteColorizationDataset
+        return OpenImagesColorizationDataset
 
     def get_hub_litemp_percentage(self, _: Precision) -> float:
         """Returns the Lite-MP percentage value for mixed precision quantization."""

@@ -12,7 +12,8 @@ from timm.models.nasnet import CellStem1, FirstCell
 from typing_extensions import Self
 
 from qai_hub_models import Precision
-from qai_hub_models.datasets.imagenet import ImagenetDataset, ImagenetteDataset
+from qai_hub_models.datasets.imagenet import ImagenetDataset
+from qai_hub_models.datasets.open_images import OpenImagesV7Dataset
 from qai_hub_models.models.nasnet.model_patches import (
     CellStem1_forward,
     FirstCell_forward,
@@ -55,13 +56,9 @@ class ImagenetNASNetDataset(ImagenetDataset):
         return "imagenet_nasnet"
 
 
-class ImagenetteNASNetDataset(ImagenetteDataset):
+class OpenImagesNASNetDataset(OpenImagesV7Dataset):
     def __init__(self, split: DatasetSplit = DatasetSplit.TRAIN) -> None:
         super().__init__(split=split, transform=NASNET_TRANSFORM)
-
-    @classmethod
-    def dataset_name(cls) -> str:
-        return "imagenette_nasnet"
 
 
 class NASNet(ImagenetClassifier):
@@ -79,11 +76,11 @@ class NASNet(ImagenetClassifier):
         return 1
 
     def get_calibration_dataset_cls(self) -> type[BaseDataset]:
-        return ImagenetteNASNetDataset
+        return OpenImagesNASNetDataset
 
     @classmethod
     def get_eval_dataset_classes(cls) -> list[type[BaseDataset]]:
-        return [ImagenetNASNetDataset, ImagenetteDataset]
+        return [ImagenetNASNetDataset]
 
     def get_input_spec(self, batch_size: int = 1) -> InputSpec:
         return {

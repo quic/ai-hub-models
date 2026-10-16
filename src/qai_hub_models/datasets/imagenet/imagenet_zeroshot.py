@@ -32,6 +32,11 @@ from qai_hub_models.utils.labels import get_class_names
 PROMPT_TEMPLATE = "a photo of a {label}"
 
 
+def imagenet_prompts() -> list[str]:
+    """Zero-shot prompts for all ImageNet-1K classes."""
+    return [PROMPT_TEMPLATE.format(label=lbl) for lbl in get_class_names("imagenet")]
+
+
 def tokenize_prompts(
     prompts: list[str], tokenizer_id: str, text_seq_len: int
 ) -> torch.Tensor:
@@ -84,11 +89,9 @@ class ImagenetZeroshotDataset(ImagenetDataset):
         # Pre-tokenize all 1000 class prompts when a tokenizer is requested.
         self._class_input_ids: torch.Tensor | None = None
         if tokenizer_id is not None:
-            labels = get_class_names("imagenet")
-            prompts = [PROMPT_TEMPLATE.format(label=lbl) for lbl in labels]
             # Shape: [1000, text_seq_len], dtype int32
             self._class_input_ids = tokenize_prompts(
-                prompts, tokenizer_id, text_seq_len
+                imagenet_prompts(), tokenizer_id, text_seq_len
             )
 
     def __getitem__(  # type: ignore[override]

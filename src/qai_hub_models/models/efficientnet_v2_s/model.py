@@ -11,7 +11,8 @@ import torchvision.transforms as T
 from typing_extensions import Self
 
 from qai_hub_models import Precision
-from qai_hub_models.datasets.imagenet import ImagenetDataset, ImagenetteDataset
+from qai_hub_models.datasets.imagenet import ImagenetDataset
+from qai_hub_models.datasets.open_images import OpenImagesV7Dataset
 from qai_hub_models.models.templates.imagenet_classifier.model import (
     TEST_IMAGENET_IMAGE,
     ImagenetClassifier,
@@ -51,13 +52,9 @@ class ImagenetEfficientNetV2SDataset(ImagenetDataset):
         return "imagenet_efficientnet_v2_s"
 
 
-class ImagenetteEfficientNetV2SDataset(ImagenetteDataset):
+class OpenImagesEfficientNetV2SDataset(OpenImagesV7Dataset):
     def __init__(self, split: DatasetSplit = DatasetSplit.TRAIN) -> None:
         super().__init__(split=split, transform=EFFICIENTNET_V2_S_TRANSFORM)
-
-    @classmethod
-    def dataset_name(cls) -> str:
-        return "imagenette_efficientnet_v2_s"
 
 
 class EfficientNetV2s(ImagenetClassifier):
@@ -75,11 +72,11 @@ class EfficientNetV2s(ImagenetClassifier):
         return options + " --range_scheme min_max"
 
     def get_calibration_dataset_cls(self) -> type[BaseDataset]:
-        return ImagenetteEfficientNetV2SDataset
+        return OpenImagesEfficientNetV2SDataset
 
     @classmethod
     def get_eval_dataset_classes(cls) -> list[type[BaseDataset]]:
-        return [ImagenetEfficientNetV2SDataset, ImagenetteDataset]
+        return [ImagenetEfficientNetV2SDataset]
 
     def get_input_spec(self, batch_size: int = 1) -> InputSpec:
         return {

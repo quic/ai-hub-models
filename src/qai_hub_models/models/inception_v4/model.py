@@ -10,7 +10,8 @@ import timm
 import torchvision.transforms as T
 from typing_extensions import Self
 
-from qai_hub_models.datasets.imagenet import ImagenetDataset, ImagenetteDataset
+from qai_hub_models.datasets.imagenet import ImagenetDataset
+from qai_hub_models.datasets.open_images import OpenImagesV7Dataset
 from qai_hub_models.models.templates.imagenet_classifier.model import (
     TEST_IMAGENET_IMAGE,
     ImagenetClassifier,
@@ -49,13 +50,9 @@ class ImagenetInceptionV4Dataset(ImagenetDataset):
         return "imagenet_inception_v4"
 
 
-class ImagenetteInceptionV4Dataset(ImagenetteDataset):
+class OpenImagesInceptionV4Dataset(OpenImagesV7Dataset):
     def __init__(self, split: DatasetSplit = DatasetSplit.TRAIN) -> None:
         super().__init__(split=split, transform=INCEPTION_V4_TRANSFORM)
-
-    @classmethod
-    def dataset_name(cls) -> str:
-        return "imagenette_inception_v4"
 
 
 class InceptionNetV4(ImagenetClassifier):
@@ -65,11 +62,11 @@ class InceptionNetV4(ImagenetClassifier):
         return cls(net, transform_input=True)
 
     def get_calibration_dataset_cls(self) -> type[BaseDataset]:
-        return ImagenetteInceptionV4Dataset
+        return OpenImagesInceptionV4Dataset
 
     @classmethod
     def get_eval_dataset_classes(cls) -> list[type[BaseDataset]]:
-        return [ImagenetInceptionV4Dataset, ImagenetteDataset]
+        return [ImagenetInceptionV4Dataset]
 
     def get_input_spec(self, batch_size: int = 1) -> InputSpec:
         return {

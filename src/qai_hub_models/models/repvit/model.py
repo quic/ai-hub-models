@@ -10,7 +10,8 @@ import torch
 import torchvision.transforms as T
 from typing_extensions import Self
 
-from qai_hub_models.datasets.imagenet import ImagenetDataset, ImagenetteDataset
+from qai_hub_models.datasets.imagenet import ImagenetDataset
+from qai_hub_models.datasets.open_images import OpenImagesV7Dataset
 from qai_hub_models.models.repvit.external_repos.repvit.model.repvit import (
     repvit_m2_3,
 )
@@ -57,13 +58,9 @@ class ImagenetRepViTDataset(ImagenetDataset):
         return "imagenet_repvit"
 
 
-class ImagenetteRepViTDataset(ImagenetteDataset):
+class OpenImagesRepViTDataset(OpenImagesV7Dataset):
     def __init__(self, split: DatasetSplit = DatasetSplit.TRAIN) -> None:
         super().__init__(split=split, transform=REPVIT_TRANSFORM)
-
-    @classmethod
-    def dataset_name(cls) -> str:
-        return "imagenette_repvit"
 
 
 class RepViT(ImagenetClassifier):
@@ -88,11 +85,11 @@ class RepViT(ImagenetClassifier):
         return cls(net)
 
     def get_calibration_dataset_cls(self) -> type[BaseDataset]:
-        return ImagenetteRepViTDataset
+        return OpenImagesRepViTDataset
 
     @classmethod
     def get_eval_dataset_classes(cls) -> list[type[BaseDataset]]:
-        return [ImagenetRepViTDataset, ImagenetteRepViTDataset]
+        return [ImagenetRepViTDataset]
 
     def _sample_inputs_impl(
         self, input_spec: InputSpec | None = None

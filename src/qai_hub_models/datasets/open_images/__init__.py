@@ -3,5 +3,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 from qai_hub_models.datasets.open_images.open_images import OpenImagesV7Dataset
+from qai_hub_models.datasets.open_images.open_images_colorization import (
+    OpenImagesColorizationDataset,
+)
 
-__all__ = ["OpenImagesV7Dataset"]
+__all__ = [
+    "OpenImagesColorizationDataset",
+    "OpenImagesV7Dataset",
+]

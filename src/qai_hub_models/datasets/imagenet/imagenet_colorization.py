@@ -20,6 +20,17 @@ TRANSFORM = transforms.Compose(
 )
 
 
+def to_gray_rgb_and_l(image: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    """Convert a [3, H, W] image to its gray RGB version and its L channel."""
+    img = np.array(image.permute(1, 2, 0))
+    img_l = cv2.cvtColor(img, cv2.COLOR_BGR2Lab)[:, :, :1]
+    img_gray_lab = np.concatenate(
+        (img_l, np.zeros_like(img_l), np.zeros_like(img_l)), axis=-1
+    )
+    img_gray_rgb = cv2.cvtColor(img_gray_lab, cv2.COLOR_LAB2RGB)
+    return torch.from_numpy(img_gray_rgb).permute(2, 0, 1), torch.from_numpy(img_l)
+
+
 class ImagenetColorizationDataset(ImagenetDataset):
     def __init__(
         self,
@@ -33,16 +44,7 @@ class ImagenetColorizationDataset(ImagenetDataset):
 
     def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
         image, _ = super().__getitem__(index)
-        img = np.array(image.permute(1, 2, 0))
-
-        img_l = cv2.cvtColor(img, cv2.COLOR_BGR2Lab)[:, :, :1]
-        img_gray_lab = np.concatenate(
-            (img_l, np.zeros_like(img_l), np.zeros_like(img_l)), axis=-1
-        )
-        img_gray_rgb = cv2.cvtColor(img_gray_lab, cv2.COLOR_LAB2RGB)
-
-        tensor_gray_rgb = torch.from_numpy(img_gray_rgb).permute(2, 0, 1)
-        return tensor_gray_rgb, torch.from_numpy(img_l)
+        return to_gray_rgb_and_l(image)
 
     @staticmethod
     def default_samples_per_job() -> int:

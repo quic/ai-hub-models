@@ -13,7 +13,7 @@ import torch
 from typing_extensions import Self
 
 from qai_hub_models.configs.model_metadata import ModelMetadata
-from qai_hub_models.datasets.imagenet import ImagenetDataset, ImagenetteDataset
+from qai_hub_models.datasets.imagenet import ImagenetDataset
 from qai_hub_models.datasets.open_images import OpenImagesV7Dataset
 from qai_hub_models.models.templates.imagenet_classifier.classification_evaluator import (
     ClassificationEvaluator,
@@ -148,7 +148,7 @@ class ImagenetClassifier(BaseModel):
 
     @classmethod
     def get_eval_dataset_classes(cls) -> list[type[BaseDataset]]:
-        return [ImagenetDataset, ImagenetteDataset]
+        return [ImagenetDataset]
 
     def get_calibration_dataset_cls(self) -> type[BaseDataset]:
         return OpenImagesV7Dataset

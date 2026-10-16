@@ -8,13 +8,15 @@ from __future__ import annotations
 
 import numpy as np
 import torch
+from torchvision import transforms
 from transformers import MobileViTFeatureExtractor, MobileViTForImageClassification
 from typing_extensions import Self
 
-from qai_hub_models.datasets.imagenet import Imagenet_256Dataset, Imagenette_256Dataset
+from qai_hub_models.datasets.imagenet import ImagenetDataset
+from qai_hub_models.datasets.open_images import OpenImagesV7Dataset
 from qai_hub_models.models.templates.imagenet_classifier.model import ImagenetClassifier
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
-from qai_hub_models.utils.base_dataset import BaseDataset
+from qai_hub_models.utils.base_dataset import BaseDataset, DatasetSplit
 from qai_hub_models.utils.input_spec import (
     ColorFormat,
     ImageMetadata,
@@ -29,6 +31,36 @@ MODEL_ASSET_VERSION = 1
 TEST_IMAGE = CachedWebModelAsset.from_asset_store(
     MODEL_ID, MODEL_ASSET_VERSION, "dog.jpg"
 )
+
+
+MOBILEVIT_DIM = 256
+MOBILEVIT_TRANSFORM = transforms.Compose(
+    [
+        transforms.Resize(MOBILEVIT_DIM),
+        transforms.CenterCrop(MOBILEVIT_DIM),
+        transforms.ToTensor(),
+        transforms.Lambda(lambda x: x.flip(0)),
+    ]
+)
+
+
+class ImagenetMobileVITDataset(ImagenetDataset):
+    def __init__(self, split: DatasetSplit = DatasetSplit.VAL) -> None:
+        super().__init__(split=split, transform=MOBILEVIT_TRANSFORM)
+
+    @classmethod
+    def dataset_name(cls) -> str:
+        return "imagenet_256"
+
+    @staticmethod
+    def default_samples_per_job() -> int:
+        """The default value for how many samples to run in each inference job."""
+        return 1000
+
+
+class OpenImagesMobileVITDataset(OpenImagesV7Dataset):
+    def __init__(self, split: DatasetSplit = DatasetSplit.TRAIN) -> None:
+        super().__init__(split=split, transform=MOBILEVIT_TRANSFORM)
 
 
 class MobileVIT(ImagenetClassifier):
@@ -80,7 +112,7 @@ class MobileVIT(ImagenetClassifier):
 
     @classmethod
     def get_eval_dataset_classes(cls) -> list[type[BaseDataset]]:
-        return [Imagenet_256Dataset, Imagenette_256Dataset]
+        return [ImagenetMobileVITDataset]
 
     def get_calibration_dataset_cls(self) -> type[BaseDataset]:
-        return Imagenette_256Dataset
+        return OpenImagesMobileVITDataset

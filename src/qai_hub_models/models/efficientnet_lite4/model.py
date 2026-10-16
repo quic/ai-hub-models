@@ -11,7 +11,8 @@ import torchvision.transforms as T
 from typing_extensions import Self
 
 from qai_hub_models import Precision
-from qai_hub_models.datasets.imagenet import ImagenetDataset, ImagenetteDataset
+from qai_hub_models.datasets.imagenet import ImagenetDataset
+from qai_hub_models.datasets.open_images import OpenImagesV7Dataset
 from qai_hub_models.models.efficientnet_lite4.external_repos.efficientnet_lite4.efficientnet_lite import (
     build_efficientnet_lite,
 )
@@ -63,13 +64,9 @@ class ImagenetEfficientNetLite4Dataset(ImagenetDataset):
         return "imagenet_efficientnet_lite4"
 
 
-class ImagenetteEfficientNetLite4Dataset(ImagenetteDataset):
+class OpenImagesEfficientNetLite4Dataset(OpenImagesV7Dataset):
     def __init__(self, split: DatasetSplit = DatasetSplit.TRAIN) -> None:
         super().__init__(split=split, transform=EFFICIENTNET_LITE4_TRANSFORM)
-
-    @classmethod
-    def dataset_name(cls) -> str:
-        return "imagenette_efficientnet_lite4"
 
 
 class EfficientNetLite4(ImagenetClassifier):
@@ -119,7 +116,7 @@ class EfficientNetLite4(ImagenetClassifier):
         return options + " --range_scheme min_max"
 
     def get_calibration_dataset_cls(self) -> type[BaseDataset]:
-        return ImagenetteEfficientNetLite4Dataset
+        return OpenImagesEfficientNetLite4Dataset
 
     @classmethod
     def get_eval_dataset_classes(cls) -> list[type[BaseDataset]]:

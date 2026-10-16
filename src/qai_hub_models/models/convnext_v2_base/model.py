@@ -11,7 +11,8 @@ import torchvision.transforms as T
 from transformers import ConvNextV2ForImageClassification
 from typing_extensions import Self
 
-from qai_hub_models.datasets.imagenet import ImagenetDataset, ImagenetteDataset
+from qai_hub_models.datasets.imagenet import ImagenetDataset
+from qai_hub_models.datasets.open_images import OpenImagesV7Dataset
 from qai_hub_models.models.templates.imagenet_classifier.model import (
     TEST_IMAGENET_IMAGE,
     ImagenetClassifier,
@@ -47,13 +48,9 @@ class ImagenetConvNextV2BaseDataset(ImagenetDataset):
         return "imagenet_convnext_v2_base"
 
 
-class ImagenetteConvNextV2BaseDataset(ImagenetteDataset):
+class OpenImagesConvNextV2BaseDataset(OpenImagesV7Dataset):
     def __init__(self, split: DatasetSplit = DatasetSplit.TRAIN) -> None:
         super().__init__(split=split, transform=CONVNEXT_V2_BASE_TRANSFORM)
-
-    @classmethod
-    def dataset_name(cls) -> str:
-        return "imagenette_convnext_v2_base"
 
 
 class ConvNextV2Base(ImagenetClassifier):
@@ -68,11 +65,11 @@ class ConvNextV2Base(ImagenetClassifier):
         return self.net(image_tensor, return_dict=False)[0]
 
     def get_calibration_dataset_cls(self) -> type[BaseDataset]:
-        return ImagenetteConvNextV2BaseDataset
+        return OpenImagesConvNextV2BaseDataset
 
     @classmethod
     def get_eval_dataset_classes(cls) -> list[type[BaseDataset]]:
-        return [ImagenetConvNextV2BaseDataset, ImagenetteConvNextV2BaseDataset]
+        return [ImagenetConvNextV2BaseDataset]
 
     def _sample_inputs_impl(
         self, input_spec: InputSpec | None = None

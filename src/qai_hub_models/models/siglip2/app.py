@@ -22,11 +22,9 @@ from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
 
 from qai_hub_models.datasets.common import DatasetSplit
-from qai_hub_models.datasets.imagenet.imagenet_zeroshot import (
-    PROMPT_TEMPLATE,
-)
-from qai_hub_models.datasets.imagenet.imagenette_zeroshot import (
-    ImagenetteZeroshotDataset,
+from qai_hub_models.datasets.imagenet.imagenet_zeroshot import imagenet_prompts
+from qai_hub_models.datasets.open_images.open_images_zeroshot import (
+    OpenImagesV7ZeroshotDataset,
 )
 from qai_hub_models.models.protocols import ExecutableModelProtocol
 from qai_hub_models.models.siglip2.evaluator import SigLIP2Evaluator
@@ -47,7 +45,6 @@ from qai_hub_models.utils.inference import (
     dataset_entries_from_batch,
 )
 from qai_hub_models.utils.input_spec import InputSpec, get_batch_size
-from qai_hub_models.utils.labels import get_class_names
 from qai_hub_models.utils.qai_hub_helpers import make_hub_dataset_entries
 
 
@@ -208,11 +205,8 @@ class SigLIP2App(CollectionAppEvaluateProtocol, CollectionAppQuantizeProtocol):
         the harness calls this method.
         """
         if self._cached_text_embeds is None:
-            prompts = [
-                PROMPT_TEMPLATE.format(label=lbl) for lbl in get_class_names("imagenet")
-            ]
             token_out = self.tokenizer(
-                prompts,
+                imagenet_prompts(),
                 return_tensors="pt",
                 padding="max_length",
                 truncation=True,
@@ -275,14 +269,10 @@ class SigLIP2App(CollectionAppEvaluateProtocol, CollectionAppQuantizeProtocol):
         """
         Return calibration data for the requested component.
 
-        Image encoder: uses ``imagenette_zeroshot`` (TRAIN) in image-only mode —
-        the generic path handles this correctly.
-
-        Text encoder: uses ``imagenette_zeroshot`` (TRAIN) in joint mode
-        (``tokenizer_id`` set), which returns ``(image, input_ids, label)``.
-        The generic path would incorrectly feed both ``image`` and ``input_ids``
-        into the single-input text encoder, so we handle it explicitly here —
-        instantiating the dataset in joint mode and extracting only ``input_ids``.
+        Uses ``open_images_v7_zeroshot`` (TRAIN). The image encoder uses the
+        image-only mode (``(image, label)``); the text encoder uses joint mode
+        (``tokenizer_id`` set, ``(image, input_ids, label)``) and only
+        ``input_ids`` is fed to it.
         """
         component = collection_model.components[component_name]
         input_spec = (input_specs or {}).get(
@@ -291,7 +281,7 @@ class SigLIP2App(CollectionAppEvaluateProtocol, CollectionAppQuantizeProtocol):
         batch_size = get_batch_size(input_spec) or 1
 
         is_text = component_name == "text_encoder"
-        dataset = ImagenetteZeroshotDataset(
+        dataset = OpenImagesV7ZeroshotDataset(
             split=DatasetSplit.TRAIN,
             tokenizer_id=DEFAULT_WEIGHTS if is_text else None,
             text_seq_len=TEXT_SEQ_LEN,

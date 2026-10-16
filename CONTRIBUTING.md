@@ -297,7 +297,7 @@ Practically: never use a dataset with a restrictive or non-commercial license fo
 | `_validate_data(self)` | Validate downloaded data (default: check path exists) |
 | `collate_fn(batch)` | Custom collation for DataLoader |
 
-See [`imagenette.py`](qai_hub_models/datasets/imagenet/imagenette.py) for an example of a shared dataset, and [`foot_track_net/dataset.py`](qai_hub_models/models/foot_track_net/dataset.py) for a model-specific dataset that lives in the model's own folder.
+See [`open_images.py`](qai_hub_models/datasets/open_images/open_images.py) for an example of a shared dataset, and [`foot_track_net/dataset.py`](qai_hub_models/models/foot_track_net/dataset.py) for a model-specific dataset that lives in the model's own folder.
 
 ### 2. Add an Evaluator
 
