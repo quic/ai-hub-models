@@ -607,6 +607,7 @@ cs_8_gen_3 = ScorecardDevice.from_registered(
     registered_device.cs_8_gen_3,
     name="cs_8_gen_3",
     reference_device_name="Samsung Galaxy S24",
+    include_in_all=False,
 )
 
 cs_8_elite = ScorecardDevice.from_registered(
