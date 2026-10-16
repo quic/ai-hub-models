@@ -412,6 +412,20 @@ def get_device_and_chipset_name(device: hub.Device) -> tuple[str | None, str | N
 JobT = TypeVar("JobT", hub.CompileJob, hub.QuantizeJob, hub.LinkJob)
 
 
+def _assert_success_and_get_target_model(job: JobT, description: str) -> hub.Model:
+    """Wait for one job, assert it succeeded, and extract its target model.
+
+    ``get_target_model()`` returns a handle at submission time (qai_hub 0.56+),
+    not just on success, so checking ``is not None`` alone no longer detects a
+    failed job -- the wait and the explicit status check are load-bearing.
+    """
+    status = job.wait()
+    assert status.success, f"Job failed for {description}: {job.url}"
+    target_model = job.get_target_model()
+    assert target_model is not None, f"No target model for {description}: {job.url}"
+    return target_model
+
+
 @overload
 def assert_success_and_get_target_models(
     jobs: JobT,
@@ -448,7 +462,7 @@ def assert_success_and_get_target_models(  # type: ignore[misc]
     | MultiGraphComponentGroup[hub.Model]
 ):
     """
-    Assert all jobs succeeded and extract their target models.
+    Wait for all jobs, assert they succeeded, and extract their target models.
 
     Parameters
     ----------
@@ -464,35 +478,29 @@ def assert_success_and_get_target_models(  # type: ignore[misc]
     Raises
     ------
     AssertionError
-        If any job failed and no target model is available.
+        If any job did not succeed, or produced no target model.
     """
     if isinstance(jobs, MultiGraphComponentGroup):
         out_mgcg: MultiGraphComponentGroup[hub.Model] = MultiGraphComponentGroup()
         for (comp, gn), job in jobs.items():
-            target_model = job.get_target_model()
-            assert target_model is not None, f"Job failed for {comp}/{gn}: {job.url}"
-            out_mgcg[(comp, gn)] = target_model
+            out_mgcg[(comp, gn)] = _assert_success_and_get_target_model(
+                job, f"{comp}/{gn}"
+            )
         return out_mgcg
 
     if isinstance(jobs, ComponentGroup):
         out_comp: ComponentGroup[hub.Model] = ComponentGroup()
         for name, job in jobs.items():
-            target_model = job.get_target_model()
-            assert target_model is not None, f"Job failed for {name}: {job.url}"
-            out_comp[name] = target_model
+            out_comp[name] = _assert_success_and_get_target_model(job, name)
         return out_comp
 
     if isinstance(jobs, MultiGraphGroup):
         graph_models: MultiGraphGroup[hub.Model] = MultiGraphGroup()
         for name, job in jobs.items():
-            target_model = job.get_target_model()
-            assert target_model is not None, f"Job failed for {name}: {job.url}"
-            graph_models[name] = target_model
+            graph_models[name] = _assert_success_and_get_target_model(job, name)
         return graph_models
 
-    target_model = jobs.get_target_model()
-    assert target_model is not None, f"Job failed: {jobs.url}"
-    return target_model
+    return _assert_success_and_get_target_model(jobs, jobs.name)
 
 
 def build_quantize_options(

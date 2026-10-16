@@ -319,13 +319,14 @@ def profile_model(
         if job is None:
             job = cast(
                 ProfileJob,
-                hub.submit_profile_job(
+                hub.submit_inference_job(
                     compile_job.get_target_model(),
                     params.device.execution_device,
-                    job_name,
-                    params.path.get_inference_options(
+                    name=job_name,
+                    options=params.path.get_inference_options(
                         precision, params.device, include_default_qaihm_qnn_version=True
                     ),
+                    profile=True,
                 ),
             )
             _print_if_not_verbose(

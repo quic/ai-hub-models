@@ -13,6 +13,7 @@ Tried to Mock the followin Hub Obj (attributes and methods) accurately...
 """
 
 import sys
+from typing import Any
 from unittest.mock import patch
 
 from qai_hub.client import Client as HubClient
@@ -23,6 +24,7 @@ from qai_hub_models.scripts.retry_failed_profile_jobs import (
     get_job_failure_reason,
     is_flaky_failure,
     parse_args,
+    process_flaky_job,
 )
 
 
@@ -50,13 +52,15 @@ class MockProfileJob:
         status: MockJobStatus,
         model: str = "test_model",
         device: str = "test_device",
-        options: dict[str, str] | None = None,
+        options: str = "",
+        name: str | None = None,
     ) -> None:
         self.job_id = job_id
         self.status = status
         self.model = model
         self.device = device
-        self.options = options or {}
+        self.options = options
+        self.name = name or "test_job"
         self.job_type = "profile"
 
     def get_status(self) -> MockJobStatus:
@@ -73,11 +77,19 @@ class MockHubClient(HubClient):
     def get_job(self, job_id: str) -> MockProfileJob | None:  # type: ignore[override]
         return self.jobs.get(job_id)
 
-    def submit_profile_job(  # type: ignore[override]
-        self, model: str, device: str, options: dict[str, str]
+    def submit_inference_job(  # type: ignore[override]
+        self,
+        model: str,
+        device: str,
+        inputs: None = None,
+        name: str | None = None,
+        options: str = "",
+        **kwargs: Any,
     ) -> MockProfileJob:
         job_id = f"new_{len(self.jobs)}"
-        job = MockProfileJob(job_id, MockJobStatus(False, ""), model, device, options)
+        job = MockProfileJob(
+            job_id, MockJobStatus(False, ""), model, device, options, name
+        )
         self.jobs[job_id] = job
         return job
 
@@ -228,35 +240,38 @@ def test_check_job_for_flaky_failure_test_mode() -> None:
 
 
 def test_process_flaky_job_core_logic() -> None:
-    # Create a job to clone
+    """The retried job must carry over the original's model, device, and options."""
     job_status = MockJobStatus(True, "Job timed out after 8h")
     job_to_clone = MockProfileJob(
         "job_to_clone",
         job_status,
         model="test_model",
         device="test_device",
-        options={"option1": "value1"},
+        options="--my_option value1",
+        name="original_job",
     )
 
-    # Create a hub client with the job
     hub_client = MockHubClient({"job_to_clone": job_to_clone})
 
-    # Get the job (this is what process_flaky_job does first)
-    prev_job = hub_client.get_job("job_to_clone")
-    assert prev_job is not None
+    # The mock job is a stand-in, not a real hub.ProfileJob, so relax the
+    # isinstance guard the function uses to narrow the job type.
+    with patch(
+        "qai_hub_models.scripts.retry_failed_profile_jobs.hub.ProfileJob",
+        MockProfileJob,
+    ):
+        job_key, new_job_id, success = process_flaky_job(
+            hub_client, "key1", "job_to_clone"
+        )
 
-    # Submit a new profile job (simulate resubmitting flaky job and updating of yaml)
-    new_job = hub_client.submit_profile_job(
-        prev_job.model, prev_job.device, prev_job.options
-    )
-
-    # Verify a new job was created
+    assert (job_key, success) == ("key1", True)
     assert len(hub_client.jobs) == 2
 
-    # Verify the new job has the same properties as the original
+    new_job = hub_client.jobs[new_job_id]
     assert new_job.model == job_to_clone.model
     assert new_job.device == job_to_clone.device
+    # Options must land in `options`, not be swallowed by the `name` parameter.
     assert new_job.options == job_to_clone.options
+    assert new_job.name == job_to_clone.name
 
 
 def test_parse_args_test_mode() -> None:

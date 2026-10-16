@@ -214,8 +214,11 @@ def process_flaky_job(
     print(f"Cloning job {job_id}...")
     prev_job = hub_client.get_job(job_id)
     assert isinstance(prev_job, hub.ProfileJob)
-    new_job = hub_client.submit_profile_job(
-        prev_job.model, prev_job.device, prev_job.options
+    new_job = hub_client.submit_inference_job(
+        prev_job.model,
+        prev_job.device,
+        name=prev_job.name,
+        options=prev_job.options,
     )
     print(f"  Submitted new job: {new_job.job_id}")
 
