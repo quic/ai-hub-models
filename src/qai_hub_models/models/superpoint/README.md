@@ -25,7 +25,7 @@ qai-hub-models perf SuperPoint
 qai-hub-models numerics SuperPoint
 
 # Download a ready-to-deploy asset
-qai-hub-models fetch SuperPoint --runtime qnn_context_binary --precision float
+qai-hub-models fetch SuperPoint --runtime tflite --precision float
 ```
 See the [CLI README](../../../../cli/README.md)
 for the full list of commands and filters.

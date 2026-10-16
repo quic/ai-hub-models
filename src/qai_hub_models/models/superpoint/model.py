@@ -1,323 +1,183 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
+# Copyright (c) 2026 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from types import SimpleNamespace
+from typing import cast
 
+import numpy as np
 import torch
-from qai_hub.client import Device
-from torch import nn
+import torch.nn.functional as F
+from PIL import Image
 from typing_extensions import Self
 
-from qai_hub_models import Precision, TargetRuntime
-from qai_hub_models.models.superpoint.dataset import HPatchesDataset
-from qai_hub_models.models.superpoint.evaluator import SuperPointEvaluator
-from qai_hub_models.models.superpoint.external_repos.SuperPoint.superpoint_pytorch import (
-    VGGBlock,
+from qai_hub_models.models.superpoint.dataset import (
+    HPatchesDataset,
+    get_sample_image_pair_paths,
 )
-from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
+from qai_hub_models.models.superpoint.evaluator import HPatchesEvaluator
+from qai_hub_models.models.superpoint.external_repos.superpoint.superpoint_pytorch import (
+    SuperPoint as SourceSuperPoint,
+)
+from qai_hub_models.utils.asset_loaders import (
+    CachedWebModelAsset,
+    load_image,
+    load_torch,
+)
 from qai_hub_models.utils.base_dataset import BaseDataset
-from qai_hub_models.utils.base_evaluator import BaseEvaluator
 from qai_hub_models.utils.base_model import BaseModel
-from qai_hub_models.utils.input_spec import InputSpec, OutputSpec, TensorSpec
+from qai_hub_models.utils.image_processing import numpy_image_to_torch
+from qai_hub_models.utils.input_spec import (
+    ColorFormat,
+    ImageMetadata,
+    InputSpec,
+    IoType,
+    OutputSpec,
+    TensorSpec,
+)
 
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 3
+MODEL_ASSET_VERSION = 1
 
-# Maximum number of keypoints returned per image (pads with zeros if fewer detected).
-MAX_KEYPOINTS = 500
-
-DEFAULT_WEIGHTS = CachedWebModelAsset.from_asset_store(
-    MODEL_ID, MODEL_ASSET_VERSION, "superpoint_v6_from_tf.pth"
+# Pinned to rpautrat/SuperPoint@1411bbd68c50163555d39c1b26e9e046ebd48f27
+DEFAULT_WEIGHTS = CachedWebModelAsset(
+    "https://raw.githubusercontent.com/rpautrat/SuperPoint/"
+    "1411bbd68c50163555d39c1b26e9e046ebd48f27/weights/superpoint_v6_from_tf.pth",
+    MODEL_ID,
+    MODEL_ASSET_VERSION,
+    "superpoint_v6_from_tf.pth",
 )
-INPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
-    MODEL_ID, MODEL_ASSET_VERSION, "superpoint.jpg"
-)
 
-_DEFAULT_CONF = {
-    "nms_radius": 4,
-    "detection_threshold": 0.005,
-    "remove_borders": 4,
-    "descriptor_dim": 256,
-    "channels": [64, 64, 128, 128, 256],
-}
-
-
-def _sample_descriptors(
-    keypoints: torch.Tensor, descriptors: torch.Tensor, s: int = 8
-) -> torch.Tensor:
-    """Sample dense descriptors at keypoint locations via bilinear interpolation.
-
-    Normalises keypoint pixel coordinates into the [-1, 1] grid expected by
-    ``grid_sample``, samples ``descriptors`` (which live on a downsampled feature
-    map of stride ``s``), and L2-normalises the result along the channel axis.
-
-    Parameters
-    ----------
-    keypoints:
-        Pixel-space (x, y) coordinates, shape ``(B, N, 2)``.
-    descriptors:
-        Dense descriptor map from the descriptor head, shape ``(B, C, H, W)``.
-    s:
-        Backbone stride — the ratio between image pixels and descriptor cells.
-
-    Returns
-    -------
-    torch.Tensor
-        L2-normalised descriptors, shape ``(B, C, N)``.
-    """
-    b, c, h, w = descriptors.shape
-    kp = (keypoints + 0.5) / (keypoints.new_tensor([w, h]) * s)
-    kp = kp * 2 - 1
-    desc = torch.nn.functional.grid_sample(
-        descriptors, kp.view(b, 1, -1, 2), mode="bilinear", align_corners=False
-    )
-    return torch.nn.functional.normalize(desc.reshape(b, c, -1), p=2, dim=1)
-
-
-def _batched_nms(scores: torch.Tensor, nms_radius: int) -> torch.Tensor:
-    """Suppress non-maximum score values within a local neighbourhood.
-
-    Runs two rounds of iterative suppression: a score survives only if it equals
-    the max-pooled value in its ``nms_radius``-pixel window and has not already
-    been suppressed by a neighbouring peak.  Operates on the full batch at once.
-
-    Parameters
-    ----------
-    scores:
-        Detection score map, shape ``(B, H, W)``.
-    nms_radius:
-        Half-width (in pixels) of the suppression window.
-
-    Returns
-    -------
-    torch.Tensor
-        Suppressed score map of the same shape; suppressed positions are zero.
-    """
-
-    def max_pool(x: torch.Tensor) -> torch.Tensor:
-        return torch.nn.functional.max_pool2d(
-            x, kernel_size=nms_radius * 2 + 1, stride=1, padding=nms_radius
-        )
-
-    zeros = torch.zeros_like(scores)
-    max_mask = scores == max_pool(scores)
-    for _ in range(2):
-        supp_mask = max_pool(max_mask.float()) > 0
-        supp_scores = torch.where(supp_mask, zeros, scores)
-        new_max_mask = supp_scores == max_pool(supp_scores)
-        max_mask = max_mask | (new_max_mask & (~supp_mask))
-    return torch.where(max_mask, scores, zeros)
+# Matches the official HPatches benchmark config (configs/superpoint_hpatches.yaml).
+DEFAULT_HEIGHT = 480
+DEFAULT_WIDTH = 640
 
 
 class SuperPoint(BaseModel):
-    """SuperPoint keypoint detector and descriptor extractor.
-
-    Input:  Grayscale image, float32 [0, 1], shape (B, 1, H, W).
-    Output (fixed-size tensors, padded to MAX_KEYPOINTS=500):
-        keypoints     — (B, MAX_KEYPOINTS, 2)   x/y pixel coordinates
-        scores        — (B, MAX_KEYPOINTS)       detection confidence
-        descriptors   — (B, MAX_KEYPOINTS, 256)  L2-normalised feature vectors
-        num_keypoints — (B,)                     number of valid (unpadded) keypoints
     """
+    SuperPoint keypoint detector + descriptor, exportable for on-device inference.
 
-    def __init__(self, **conf: object) -> None:
-        super().__init__()
-        cfg = {**_DEFAULT_CONF, **conf}
-        self.conf = SimpleNamespace(**cfg)
-        self.stride = 2 ** (len(self.conf.channels) - 2)
-        channels = [1, *self.conf.channels[:-1]]
-
-        backbone = []
-        for i, c in enumerate(channels[1:], 1):
-            layers: list[nn.Module] = [
-                VGGBlock(channels[i - 1], c, 3),
-                VGGBlock(c, c, 3),
-            ]
-            if i < len(channels) - 1:
-                layers.append(nn.MaxPool2d(kernel_size=2, stride=2))
-            backbone.append(nn.Sequential(*layers))
-        self.backbone = nn.Sequential(*backbone)
-
-        c = self.conf.channels[-1]
-        self.detector = nn.Sequential(
-            VGGBlock(channels[-1], c, 3),
-            VGGBlock(c, self.stride**2 + 1, 1, relu=False),
-        )
-        self.descriptor = nn.Sequential(
-            VGGBlock(channels[-1], c, 3),
-            VGGBlock(c, self.conf.descriptor_dim, 1, relu=False),
-        )
+    forward() only computes the static-shape, per-pixel dense outputs (raw
+    per-pixel detection scores and dense descriptors) for each of the two
+    input images -- the same architecture as the upstream
+    ``superpoint_pytorch.SuperPoint`` module, minus NMS, border suppression,
+    and its final variable-length keypoint extraction step, none of which can
+    be part of a fixed-shape traced/compiled graph (and, for quantized
+    precisions, none of which should share a tensor with the raw scores --
+    NMS's zeroing and the border sentinel value both distort the quantizer's
+    calibrated range for what is otherwise a well-behaved softmax output).
+    All of that is done on the host in ``app.py`` / ``evaluator.py`` via
+    ``postprocess.py``.
+    """
 
     @classmethod
     def from_pretrained(
         cls,
         weights: str | CachedWebModelAsset = DEFAULT_WEIGHTS,
+        nms_radius: int = 4,
+        remove_borders: int = 4,
     ) -> Self:
-        """Load SuperPoint from a .pth checkpoint."""
-        if isinstance(weights, CachedWebModelAsset):
-            weights_path = str(weights.fetch())
-        else:
-            weights_path = weights
+        checkpoint = load_torch(weights)
+        net = SourceSuperPoint(nms_radius=nms_radius, remove_borders=remove_borders)
+        net.load_state_dict(checkpoint)
+        return cls(net)
 
-        model = cls()
-        state = torch.load(weights_path, map_location="cpu", weights_only=True)
-        if isinstance(state, dict) and "model_state_dict" in state:
-            state = state["model_state_dict"]
-        model.load_state_dict(state)
-        return model
+    def _dense_forward(self, image: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        net = cast(SourceSuperPoint, self.model)
+        if image.shape[1] == 3:
+            weights = image.new_tensor([0.299, 0.587, 0.114]).view(1, 3, 1, 1)
+            image = (image * weights).sum(1, keepdim=True)
+
+        features = net.backbone(image)
+        descriptors_dense = F.normalize(net.descriptor(features), p=2, dim=1)
+
+        scores = net.detector(features)
+        scores = F.softmax(scores, 1)[:, :-1]
+        b, _, h, w = scores.shape
+        scores = scores.permute(0, 2, 3, 1).reshape(b, h, w, net.stride, net.stride)
+        scores = scores.permute(0, 1, 3, 2, 4).reshape(
+            b, h * net.stride, w * net.stride
+        )
+
+        return scores, descriptors_dense
 
     def forward(
-        self, image: torch.Tensor
+        self, image_a: torch.Tensor, image_b: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Run SuperPoint on *image*.
-
+        """
         Parameters
         ----------
-        image
-            Pre-processed pixel values. Range float[0, 1], grayscale,
-            shape (B, 1, H, W).
+        image_a
+            RGB tensor, shape ``[B, 3, H, W]``, values in ``[0, 1]``.
+        image_b
+            RGB tensor, shape ``[B, 3, H, W]``, values in ``[0, 1]``.
 
         Returns
         -------
-        keypoints : torch.Tensor
-            Shape (B, MAX_KEYPOINTS, 2). Padded with zeros.
-        scores : torch.Tensor
-            Shape (B, MAX_KEYPOINTS). Padded with zeros.
-        descriptors : torch.Tensor
-            Shape (B, MAX_KEYPOINTS, 256). Padded with zeros.
-        num_keypoints : torch.Tensor
-            Shape (B,). Number of valid keypoints per image (before padding).
+        scores_a : torch.Tensor
+            Raw (pre-NMS, pre-border-suppression) detection score map for
+            ``image_a``, shape ``[B, H, W]``.
+        descriptors_a : torch.Tensor
+            Dense L2-normalized descriptor map for ``image_a``,
+            shape ``[B, 256, H / 8, W / 8]``.
+        scores_b : torch.Tensor
+            Same as ``scores_a``, for ``image_b``.
+        descriptors_b : torch.Tensor
+            Same as ``descriptors_a``, for ``image_b``.
         """
-        conf = self.conf
+        scores_a, descriptors_a = self._dense_forward(image_a)
+        scores_b, descriptors_b = self._dense_forward(image_b)
+        return scores_a, descriptors_a, scores_b, descriptors_b
 
-        features = self.backbone(image)
-        descriptors_dense = torch.nn.functional.normalize(
-            self.descriptor(features), p=2, dim=1
+    def get_input_spec(
+        self,
+        batch_size: int = 1,
+        height: int = DEFAULT_HEIGHT,
+        width: int = DEFAULT_WIDTH,
+    ) -> InputSpec:
+        shape = (batch_size, 3, height, width)
+        image_spec = TensorSpec(
+            shape=shape,
+            dtype="float32",
+            io_type=IoType.IMAGE,
+            value_range=(0.0, 1.0),
+            image_metadata=ImageMetadata(color_format=ColorFormat.RGB),
         )
+        return {"image_a": image_spec, "image_b": image_spec}
 
-        # Decode detector scores
-        scores = self.detector(features)
-        scores = torch.nn.functional.softmax(scores, 1)[:, :-1]
-        b, _, h, w = scores.shape
-        s = self.stride
-        scores = scores.permute(0, 2, 3, 1).reshape(b, h, w, s, s)
-        scores = scores.permute(0, 1, 3, 2, 4).reshape(b, h * s, w * s)
-        scores = _batched_nms(scores, conf.nms_radius)
+    def get_output_spec(self) -> OutputSpec:
+        return {
+            "scores_a": TensorSpec(io_type=IoType.TENSOR),
+            "descriptors_a": TensorSpec(io_type=IoType.TENSOR),
+            "scores_b": TensorSpec(io_type=IoType.TENSOR),
+            "descriptors_b": TensorSpec(io_type=IoType.TENSOR),
+        }
 
-        # Remove border keypoints
-        if conf.remove_borders:
-            pad = conf.remove_borders
-            scores[:, :pad] = -1
-            scores[:, :, :pad] = -1
-            scores[:, -pad:] = -1
-            scores[:, :, -pad:] = -1
-
-        # Extract keypoints: topk on flat score map — always static shape (k,).
-        # torch.where() produces variable-length dim that breaks torch.export.
-        W = scores.shape[2]
-        scores_flat = scores.reshape(b, -1)  # (B, H*W)
-        # Clamp so tiny images (H*W < MAX_KEYPOINTS) don't raise a topk range error.
-        k = min(MAX_KEYPOINTS, scores_flat.shape[1])
-
-        top_scores, top_flat_idx = torch.topk(
-            scores_flat, k, dim=1, sorted=True
-        )  # (B, k)
-
-        # Pad to MAX_KEYPOINTS so output shape is always static.
-        if k < MAX_KEYPOINTS:
-            pad_len = MAX_KEYPOINTS - k
-            top_scores = torch.cat(
-                [top_scores, top_scores.new_zeros(b, pad_len)], dim=1
-            )
-            top_flat_idx = torch.cat(
-                [top_flat_idx, top_flat_idx.new_zeros(b, pad_len)], dim=1
-            )
-
-        # Convert flat indices to (y, x) pixel coords, then flip to (x, y).
-        top_y = (top_flat_idx // W).float()
-        top_x = (top_flat_idx % W).float()
-        keypoints = torch.stack([top_x, top_y], dim=-1)  # (B, MAX_KEYPOINTS, 2)
-
-        # Count valid keypoints per image (score above threshold); no Python bool on sym dim.
-        valid_mask = top_scores > conf.detection_threshold  # (B, MAX_KEYPOINTS) bool
-        num_kp = valid_mask.sum(dim=1).to(torch.int32)  # (B,)
-
-        # Zero out sub-threshold entries so padded outputs are clean.
-        kp_scores = top_scores * valid_mask.float()
-        keypoints = keypoints * valid_mask.float().unsqueeze(-1)
-
-        # Sample descriptors at all MAX_KEYPOINTS locations (padded locs give ~zero desc).
-        descriptors = _sample_descriptors(
-            keypoints, descriptors_dense, self.stride
-        )  # (B, 256, MAX_KEYPOINTS)
-        descriptors = descriptors.permute(0, 2, 1)  # (B, MAX_KEYPOINTS, 256)
-        descriptors = descriptors * valid_mask.float().unsqueeze(-1)
-
-        return (
-            keypoints,
-            kp_scores,
-            descriptors,
-            num_kp,
+    def _sample_inputs_impl(
+        self, input_spec: InputSpec | None = None
+    ) -> dict[str, list[np.ndarray]]:
+        height, width = DEFAULT_HEIGHT, DEFAULT_WIDTH
+        if input_spec is not None:
+            _, _, height, width = input_spec["image_a"][0]
+        path_a, path_b = get_sample_image_pair_paths()
+        image_a = (
+            load_image(path_a).convert("RGB").resize((width, height), Image.BILINEAR)
         )
-
-    def get_evaluator(self) -> BaseEvaluator:
-        spec = self.get_input_spec()
-        h, w = spec["image"][0][2], spec["image"][0][3]
-        return SuperPointEvaluator(image_height=h, image_width=w)
+        image_b = (
+            load_image(path_b).convert("RGB").resize((width, height), Image.BILINEAR)
+        )
+        tensor_a = numpy_image_to_torch(np.array(image_a)).numpy()
+        tensor_b = numpy_image_to_torch(np.array(image_b)).numpy()
+        return dict(image_a=[tensor_a], image_b=[tensor_b])
 
     @classmethod
-    def get_eval_dataset_classes(cls) -> Sequence[type[BaseDataset]]:
+    def get_eval_dataset_classes(cls) -> list[type[BaseDataset]]:
         return [HPatchesDataset]
 
     def get_calibration_dataset_cls(self) -> type[BaseDataset]:
         return HPatchesDataset
 
-    def get_hub_compile_options(
-        self,
-        target_runtime: TargetRuntime,
-        precision: Precision,
-        other_compile_options: str = "",
-        device: Device | None = None,
-        context_graph_name: str | None = None,
-    ) -> str:
-        compile_options = super().get_hub_compile_options(
-            target_runtime, precision, other_compile_options, device, context_graph_name
-        )
-        if target_runtime != TargetRuntime.ONNX:
-            compile_options += " --truncate_64bit_io --truncate_64bit_tensors"
-
-        return compile_options
-
-    @staticmethod
-    def get_input_spec(
-        height: int = 480,
-        width: int = 640,
-    ) -> InputSpec:
-        if height * width < MAX_KEYPOINTS:
-            raise ValueError(
-                f"Image resolution {height}x{width} = {height * width} pixels is too small; "
-                f"must be at least {MAX_KEYPOINTS} pixels total (height * width >= {MAX_KEYPOINTS})."
-            )
-        # The backbone downsamples by stride=8; non-multiples produce a score map
-        # smaller than get_output_spec declares, causing a confusing shape mismatch.
-        stride = 8
-        if height % stride != 0 or width % stride != 0:
-            raise ValueError(
-                f"height and width must each be divisible by {stride} (backbone stride), "
-                f"got {height}x{width}."
-            )
-        return {"image": TensorSpec(shape=(1, 1, height, width), dtype="float32")}
-
-    def get_output_spec(self) -> OutputSpec:
-        k = MAX_KEYPOINTS
-        return {
-            "keypoints": TensorSpec(shape=(1, k, 2)),
-            "scores": TensorSpec(shape=(1, k)),
-            "descriptors": TensorSpec(shape=(1, k, 256)),
-            "num_keypoints": TensorSpec(shape=(1,)),
-        }
+    def get_evaluator(self) -> HPatchesEvaluator:
+        return HPatchesEvaluator()
