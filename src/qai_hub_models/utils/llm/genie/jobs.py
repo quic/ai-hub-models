@@ -75,7 +75,7 @@ GENIE_JOB_TIMEOUT = 43200  # 12 hours
 DEFAULT_LLM_SYSTEM_PROMPT = LLMBase.default_system_prompt
 
 # QAIRT SDK downloaded on-device when no version is requested.
-DEFAULT_GENIE_QAIRT_SDK_VERSION = "2.51.40.260930"
+DEFAULT_GENIE_QAIRT_SDK_VERSION = "2.50.0.260828"
 
 
 def _write_eval_prompts_to_dir(
@@ -474,7 +474,7 @@ def add_genie_bundle_entries(
         Path to the QAIRT SDK zip file. Required for auto devices.
     qairt_version
         Software Center QAIRT SDK version to download on-device (e.g.
-        ``"2.51.40.260930"``). None uses ``DEFAULT_GENIE_QAIRT_SDK_VERSION``.
+        ``"2.50.0.260828"``). None uses ``DEFAULT_GENIE_QAIRT_SDK_VERSION``.
     eval_prompts
         If provided, list of prompts to evaluate. Each prompt is formatted
         using the bundle's tokenizer and run sequentially on device.
