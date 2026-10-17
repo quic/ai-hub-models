@@ -64,7 +64,7 @@ if [ "$PLUGIN" = "qairt" ] && [ -n "$QAIRT_VERSION" ]; then
   # The SDK zip's top-level entry is qairt/<version>/; extract into its parent.
   QROOT="$TC/qairt"
   QURL="https://softwarecenter.qualcomm.com/api/download/software/sdks/Qualcomm_AI_Runtime_Community/All/$QAIRT_VERSION/v$QAIRT_VERSION.zip"
-  curl -fSL --retry 3 --retry-delay 5 -o "$QZIP" "$QURL" || { echo "FATAL: QAIRT SDK download failed: $QURL"; exit 1; }
+  curl -fSL --max-time 3600 --retry 3 --retry-delay 5 -o "$QZIP" "$QURL" || { echo "FATAL: QAIRT SDK download failed: $QURL"; exit 1; }
   rm -rf "$QROOT"
   # unzip can exit nonzero on a successful extract; verify the dir instead.
   unzip -q "$QZIP" -d "$TC" || true
@@ -72,6 +72,14 @@ if [ "$PLUGIN" = "qairt" ] && [ -n "$QAIRT_VERSION" ]; then
   SDK="$QROOT/$QAIRT_VERSION"
   [ -d "$SDK/lib" ] || { echo "FATAL: QAIRT SDK not extracted to $SDK"; exit 1; }
   QAIRT_LIB_ARGS=(--qairt-lib "$SDK")
+  # GenieX joins skel dirs with ':' but FastRPC splits on ';' (IQ9 crash); expose one dir.
+  ARCH=$(grep -rhom1 '"dsp_arch": *"v[0-9]*"' "$TC"/qairt_bundles 2>/dev/null | grep -o 'v[0-9]*' | head -n1)
+  if [ -d "$SDK/lib/hexagon-$ARCH" ]; then
+    SEL="$QROOT/sel"
+    mkdir -p "$SEL/lib"
+    ln -s "$SDK"/lib/aarch64-* "$SDK/lib/hexagon-$ARCH" "$SEL/lib/"
+    QAIRT_LIB_ARGS=(--qairt-lib "$SEL")
+  fi
 fi
 
 export LD_LIBRARY_PATH="$BUNDLE/lib:$BUNDLE/lib/llama_cpp:$BUNDLE/lib/qairt:$LD_LIBRARY_PATH"

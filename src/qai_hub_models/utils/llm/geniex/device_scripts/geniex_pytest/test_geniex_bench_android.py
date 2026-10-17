@@ -250,7 +250,7 @@ def fetch_qairt_sdk() -> str:
         f"Qualcomm_AI_Runtime_Community/All/{QAIRT_VERSION}/v{QAIRT_VERSION}.zip"
     )
     adb(
-        "curl -L -J --fail --max-time 300 --retry 3 --retry-delay 5 "
+        "curl -L -J --fail --max-time 3600 --retry 3 --retry-delay 5 "
         f"--output {DEVICE_QAIRT_ZIP} {url}"
     )
     adb(f"rm -rf {DEVICE_QAIRT_ROOT}")
