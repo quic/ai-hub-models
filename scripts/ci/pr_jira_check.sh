@@ -4,7 +4,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 # Main entrypoint for the PR JIRA title check CI job.
-# Orchestrates team membership check, JIRA fetch, validation, and labeling.
+# Orchestrates team membership check, JIRA fetch, validation, labeling, and
+# requesting the reviewers the labels call for (via pr_triage.py).
 #
 # Required env:
 #   JIRA_TOKEN      - Bearer token for JIRA API
@@ -88,4 +89,11 @@ fi
 if echo "$JIRA_LABELS" | grep -q "CE_BU_IOT"; then
   gh pr edit "$PR_NUMBER" --add-label "IoT" -R "$REPO"
   echo "Applied label: IoT"
+fi
+
+# 6. Request the reviewers the labels call for
+if [ "$SKIP" != "true" ] && [ -n "$PR_LABEL" ]; then
+  python3 "$SCRIPT_DIR/../../src/qai_hub_models/scripts/pr_triage.py" \
+    --repo "$REPO" --pr "$PR_NUMBER" --apply \
+    || echo "::warning::Requesting reviewers failed. The daily triage will retry."
 fi

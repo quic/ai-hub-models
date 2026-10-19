@@ -3,24 +3,37 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 """
-Daily digest of open PRs targeting `main`: what needs review, and what is stale.
+Daily triage of open PRs targeting `main`: requests reviewers, closes stale PRs,
+and reports what needs review.
+
+Changes to GitHub only happen with --apply; without it the script says what it would do.
 
 Outputs (all optional):
   --full-report-file     every tracked PR
   --summary-report-file  non-draft stale PRs + PRs with status "Needs Review"
   --slack-message-file   the summary as a Slack chat.postMessage body
 
+ACTIONS. Drafts and stale PRs get no review requests. A reviewer list is skipped
+if anyone on it has already reviewed or been asked.
+  GenAI label        request GENAI_REVIEWERS
+  Non-GenAI label    request NON_GENAI_INITIAL_REVIEWERS; once one approves,
+                     request NON_GENAI_FOLLOWUP_REVIEWERS instead
+  Robotics label     request ROBOTICS_REVIEWERS (whatever other labels the PR has)
+  Stale PR           close it with a message, unless the author is in
+                     FIRST_PARTY_DEVELOPER_TEAMS or is in BOT_AUTHORS.
+                     Closed PRs are left out of the reports.
+
 GROUP. A PR goes in the first group that fits:
   1. Stale                   no PR activity for 14+ days
   2. Onboarding - GenAI      has that label
   3. Onboarding - Non-GenAI  has that label
   4. Onboarding - Robotics   has that label
-  5. Other                   no onboarding label, author not in tetra-developers
-                             or tetra-nexa-developers-china
+  5. Other                   no onboarding label, author not in
+                             FIRST_PARTY_DEVELOPER_TEAMS
 
 STATUS. First match wins:
   1. Draft                      the PR is a draft
-  2. Approved                   ai-hub-models-reviewers approved the PR; there are no requested changes
+  2. Approved                   a reviewer in REVIEWERS_TEAM approved the PR; there are no requested changes
   3. WIP                        the Issues column has anything other than "CI running" or "changes requested", and
                                   the PR author has not re-requested a review from everyone
   4. Needs Review (India Team)  (Non-GenAI group only) no India reviewer has approved
@@ -34,8 +47,8 @@ ISSUES.
   CI running                 CI still running
   required checks not run    a CI check required to merge never ran
 
-REVIEWER(S). "AIHM reviewers" are the members of ai-hub-models-reviewers and
-ai-hub-models-non-genai-reviewers (India Reviewer Team); everyone else is ignored.
+REVIEWER(S). "AIHM reviewers" are the members of REVIEWERS_TEAM plus
+NON_GENAI_INITIAL_REVIEWERS (the India reviewers); everyone else is ignored.
   Approved PR      the AIHM reviewers who approved
   Any other PR     the AIHM reviewers who commented; if none have, the ones who
                    were asked to review or are assigned to the PR
@@ -71,12 +84,32 @@ from typing import Any
 # 1. RULES
 # =====================================================================
 
+# --- People -----------------------------------------------------------
+
+# Members of this team, plus NON_GENAI_INITIAL_REVIEWERS, are the AIHM reviewers.
 REVIEWERS_TEAM = "ai-hub-models-reviewers"
-NON_GENAI_REVIEWERS_TEAM = "ai-hub-models-non-genai-reviewers"
-DEVELOPER_TEAMS = ["tetra-developers", "tetra-nexa-developers-china"]
+# Reviewers for GenAI PRs.
+GENAI_REVIEWERS = ["gustlars_QCOM", "shreyajn_QCOM", "weidai_QCOM"]
+# Reviewers for robotics PRs.
+ROBOTICS_REVIEWERS = ["weidai_QCOM"]
+# Initial (first round) reviewers for non-GenAI model onboarding.
+NON_GENAI_INITIAL_REVIEWERS = ["krisrajk_QCOM", "souhghos_QCOM", "rchinnan_QCOM"]
+# Final approvers (second round review) for non-GenAI model onboarding.
+NON_GENAI_FOLLOWUP_REVIEWERS = ["kwatson_QCOM", "ashwmurt_QCOM", "khoin_QCOM"]
+# Authors in these teams are our own developers; their PRs aren't triaged as external.
+FIRST_PARTY_DEVELOPER_TEAMS = ["tetra-developers", "tetra-nexa-developers-china"]
 BOT_AUTHORS = {"qaihm-bot_QCOM"}
+
+# --- Repository -------------------------------------------------------
+
 BASE_BRANCH = "main"
 STALE_DAYS = 14
+STALE_CLOSE_MESSAGE = (
+    f"Closing this PR because it has had no activity for {STALE_DAYS}+ days. "
+    "Feel free to reopen it when you are ready to continue."
+)
+
+# --- Groups -----------------------------------------------------------
 
 # Stale is checked first (see pick_group) but listed last.
 STALE = "Stale"
@@ -86,6 +119,8 @@ ROBOTICS = "Onboarding - Robotics"
 OTHER = "Other"
 LABEL_GROUPS = [GENAI, NON_GENAI, ROBOTICS]
 GROUP_ORDER = [*LABEL_GROUPS, OTHER, STALE]
+
+# --- Statuses and issues ----------------------------------------------
 
 NEEDS_REVIEW = "Needs Review"
 NEEDS_REVIEW_INDIA = "Needs Review (India Team)"
@@ -102,6 +137,8 @@ ISSUE_CI_RUNNING = "CI running"
 ISSUE_CHECKS_MISSING = "required checks not run"
 # Shown in Issues, but alone they leave an unapproved PR at Needs Review.
 NOT_WIP_ISSUES = {ISSUE_CI_RUNNING, ISSUE_CHANGES_REQUESTED}
+
+# --- Fetching and retries ---------------------------------------------
 
 PR_PAGE_SIZE = 30
 
@@ -158,7 +195,9 @@ class Context:
     """What is shared by every PR in a run."""
 
     aihm_reviewers: set[str]  # both reviewer teams; nobody else counts
-    india_reviewers: set[str]  # non-GenAI team, minus anyone also in the main team
+    nongenai_initial_reviewers: set[
+        str
+    ]  # NON_GENAI_INITIAL_REVIEWERS, minus anyone also in the main team
     developers: set[str]
     required_checks: set[str]
     now: datetime
@@ -197,14 +236,9 @@ fragment ThreadFields on PullRequestReviewThread {
 }
 """
 
-PR_QUERY = (
-    """
-query($owner: String!, $repo: String!, $base: String!, $pageSize: Int!, $cursor: String) {
-  repository(owner: $owner, name: $repo) {
-    pullRequests(states: OPEN, baseRefName: $base, first: $pageSize, after: $cursor) {
-      pageInfo { hasNextPage endCursor }
-      nodes {
+PR_FIELDS = """
         number
+        state
         title
         url
         isDraft
@@ -258,8 +292,31 @@ query($owner: String!, $repo: String!, $base: String!, $pageSize: Int!, $cursor:
             ... on ReadyForReviewEvent { createdAt }
           }
         }
-      }
+"""
+
+PR_QUERY = (
+    """
+query($owner: String!, $repo: String!, $base: String!, $pageSize: Int!, $cursor: String) {
+  repository(owner: $owner, name: $repo) {
+    pullRequests(states: OPEN, baseRefName: $base, first: $pageSize, after: $cursor) {
+      pageInfo { hasNextPage endCursor }
+      nodes {"""
+    + PR_FIELDS
+    + """      }
     }
+  }
+}
+"""
+    + THREAD_FRAGMENT
+)
+
+PR_BY_NUMBER_QUERY = (
+    """
+query($owner: String!, $repo: String!, $number: Int!) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $number) {"""
+    + PR_FIELDS
+    + """    }
   }
 }
 """
@@ -332,6 +389,11 @@ def fetch_team_members(org: str, slug: str) -> set[str]:
     )
     members = set(out.split())
     log(f"  {len(members)} members")
+    if not members:
+        raise RuntimeError(
+            f"{org}/{slug} has no visible members; the team may have been renamed "
+            "or the token lacks read:org access"
+        )
     return members
 
 
@@ -367,6 +429,16 @@ def fetch_remaining_threads(owner: str, repo: str, gql_pr: dict[str, Any]) -> No
         )["pullRequest"]["reviewThreads"]
         threads["nodes"] += page["nodes"]
         threads["pageInfo"] = page["pageInfo"]
+
+
+def fetch_pr(owner: str, repo: str, number: int) -> dict[str, Any]:
+    """One PR, in the same shape `fetch_open_prs` returns."""
+    log(f"Fetching PR #{number}...")
+    gql_pr = graphql(PR_BY_NUMBER_QUERY, owner=owner, repo=repo, number=number)[
+        "pullRequest"
+    ]
+    fetch_remaining_threads(owner, repo, gql_pr)
+    return gql_pr
 
 
 def fetch_open_prs(owner: str, repo: str) -> list[dict[str, Any]]:
@@ -604,19 +676,19 @@ def pick_reviewers(
     requested: list[str],
     is_non_genai: bool,
     approvers: set[str],
-    india: set[str],
+    nongenai_initial: set[str],
 ) -> list[str]:
     listed = list(dict.fromkeys([*submitted, *requested]))
     if is_non_genai:
-        if approvers & india:
-            listed = [r for r in listed if r not in india]
-        elif india & set(requested):
-            listed = [r for r in listed if r in india]
+        if approvers & nongenai_initial:
+            listed = [r for r in listed if r not in nongenai_initial]
+        elif nongenai_initial & set(requested):
+            listed = [r for r in listed if r in nongenai_initial]
     return listed
 
 
 # =====================================================================
-# 8. ANALYZE
+# 8. ANALYZE AND ACT
 # =====================================================================
 
 
@@ -652,7 +724,7 @@ def analyze(gql_pr: dict[str, Any], ctx: Context) -> PR:
 
     is_non_genai = NON_GENAI in labels
     # On Non-GenAI an India approval only hands the PR on; it doesn't approve it.
-    counted = approvers - ctx.india_reviewers if is_non_genai else approvers
+    counted = approvers - ctx.nongenai_initial_reviewers if is_non_genai else approvers
     # Outstanding change requests cancel every approval, even if re-requested.
     final_approvers = set() if changes_requested else counted
     status = pick_status(
@@ -671,7 +743,7 @@ def analyze(gql_pr: dict[str, Any], ctx: Context) -> PR:
             requested,
             is_non_genai,
             approvers,
-            ctx.india_reviewers,
+            ctx.nongenai_initial_reviewers,
         )
 
     return PR(
@@ -692,24 +764,119 @@ def analyze(gql_pr: dict[str, Any], ctx: Context) -> PR:
     )
 
 
-def build_groups(owner: str, repo: str) -> dict[str, list[PR]]:
+def reviewers_to_request(gql_pr: dict[str, Any], ctx: Context) -> list[str]:
+    """Reviewers the labels call for, skipping any group someone has already joined."""
+    author = (gql_pr["author"] or {}).get("login", "ghost")
+    labels = {label["name"] for label in gql_pr["labels"]["nodes"]}
+    everyone = (
+        ctx.aihm_reviewers
+        | set(GENAI_REVIEWERS)
+        | set(ROBOTICS_REVIEWERS)
+        | set(NON_GENAI_FOLLOWUP_REVIEWERS)
+    )
+    states = latest_review_states(gql_pr, everyone)
+    pending = set(pending_requests(gql_pr, everyone))
+    approved = {who for who, s in states.items() if s == "APPROVED"} - pending
+
+    groups: list[list[str]] = []
+    if GENAI in labels:
+        groups.append(GENAI_REVIEWERS)
+    if NON_GENAI in labels:
+        if approved & ctx.nongenai_initial_reviewers:
+            groups.append(NON_GENAI_FOLLOWUP_REVIEWERS)
+        else:
+            groups.append(sorted(ctx.nongenai_initial_reviewers))
+    if ROBOTICS in labels:
+        groups.append(ROBOTICS_REVIEWERS)
+
+    present = pending | set(states)
+    wanted = [
+        who
+        for group in groups
+        if not present & set(group)  # someone from the group is already on the PR
+        for who in group
+    ]
+    return [who for who in dict.fromkeys(wanted) if who != author]
+
+
+def request_reviewers(
+    owner: str, repo: str, number: int, logins: list[str], apply: bool
+) -> None:
+    if not apply:
+        log(f"  #{number}: would request {', '.join(logins)}")
+        return
+    args = [
+        "api",
+        "-X",
+        "POST",
+        f"repos/{owner}/{repo}/pulls/{number}/requested_reviewers",
+    ]
+    for who in logins:
+        args += ["-f", f"reviewers[]={who}"]
+    try:
+        gh(args)
+    except RuntimeError as e:
+        log(f"  #{number}: could not request {', '.join(logins)}: {e}")
+        return
+    log(f"  #{number}: requested {', '.join(logins)}")
+
+
+def close_stale_pr(owner: str, repo: str, number: int, apply: bool) -> bool:
+    """Close a stale PR with a message. False if it stays open."""
+    if not apply:
+        log(f"  #{number}: would close as stale")
+        return False
+    try:
+        gh(
+            [
+                *["pr", "close", str(number), "--repo", f"{owner}/{repo}"],
+                *["--comment", STALE_CLOSE_MESSAGE],
+            ]
+        )
+    except RuntimeError as e:
+        log(f"  #{number}: could not close: {e}")
+        return False
+    log(f"  #{number}: closed as stale")
+    return True
+
+
+def build_context(owner: str, repo: str) -> Context:
     main_reviewers = fetch_team_members(owner, REVIEWERS_TEAM)
-    non_genai_reviewers = fetch_team_members(owner, NON_GENAI_REVIEWERS_TEAM)
-    ctx = Context(
-        aihm_reviewers=main_reviewers | non_genai_reviewers,
-        india_reviewers=non_genai_reviewers - main_reviewers,
+    return Context(
+        aihm_reviewers=main_reviewers | set(NON_GENAI_INITIAL_REVIEWERS),
+        nongenai_initial_reviewers=set(NON_GENAI_INITIAL_REVIEWERS) - main_reviewers,
         developers=set().union(
-            *(fetch_team_members(owner, team) for team in DEVELOPER_TEAMS)
+            *(fetch_team_members(owner, team) for team in FIRST_PARTY_DEVELOPER_TEAMS)
         ),
         required_checks=fetch_required_checks(owner, repo),
         now=datetime.now(timezone.utc),
     )
+
+
+def triage_pr(
+    owner: str, repo: str, gql_pr: dict[str, Any], ctx: Context, apply: bool
+) -> PR | None:
+    """Request reviewers for the PR, or close it if stale. None if it was closed."""
+    pr = analyze(gql_pr, ctx)
+    owned_by_tetra = pr.author in ctx.developers or pr.author in BOT_AUTHORS
+    if pr.group == STALE and not owned_by_tetra:
+        if close_stale_pr(owner, repo, pr.number, apply):
+            return None
+    elif pr.status != DRAFT and pr.group != STALE:
+        to_request = reviewers_to_request(gql_pr, ctx)
+        if to_request:
+            request_reviewers(owner, repo, pr.number, to_request, apply)
+    return pr
+
+
+def build_groups(owner: str, repo: str, apply: bool = False) -> dict[str, list[PR]]:
+    ctx = build_context(owner, repo)
     gql_prs = fetch_open_prs(owner, repo)
     groups: dict[str, list[PR]] = {name: [] for name in GROUP_ORDER}
     for i, gql_pr in enumerate(gql_prs, 1):
         log(f"Analyzing PR {i}/{len(gql_prs)} (#{gql_pr['number']})")
-        pr = analyze(gql_pr, ctx)
-        if pr.group:
+        pr = triage_pr(owner, repo, gql_pr, ctx, apply)
+        if pr and pr.group:
             groups[pr.group].append(pr)
     return groups
 
@@ -895,6 +1062,17 @@ def parse_args() -> argparse.Namespace:
         "repo `gh` resolves for the current directory)",
     )
     parser.add_argument(
+        "--pr",
+        type=int,
+        help="Triage only this PR number and skip the reports.",
+    )
+    parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="Request reviewers and close stale PRs on GitHub. Without this, only "
+        "log what would be done.",
+    )
+    parser.add_argument(
         "--full-report-file",
         help="Write the full markdown report (all PRs) to this file.",
     )
@@ -931,7 +1109,15 @@ def main() -> None:
     args = parse_args()
     owner, repo = resolve_repo(args.repo).split("/")
 
-    groups = build_groups(owner, repo)
+    if args.pr:
+        gql_pr = fetch_pr(owner, repo, args.pr)
+        if gql_pr["state"] != "OPEN":
+            log(f"PR #{args.pr} is {gql_pr['state'].lower()}, nothing to do.")
+            return
+        triage_pr(owner, repo, gql_pr, build_context(owner, repo), args.apply)
+        return
+
+    groups = build_groups(owner, repo, args.apply)
     summary_groups = summarize_groups(groups)
 
     full_report = render_markdown(groups, "Open PR Digest - Full")

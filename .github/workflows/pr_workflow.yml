@@ -38,7 +38,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          sparse-checkout: scripts
+          sparse-checkout: |
+            scripts
+            src/qai_hub_models/scripts/pr_triage.py
 
       - name: Check JIRA in PR Title
         env:
