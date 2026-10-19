@@ -551,8 +551,13 @@ class DeviceFarm(ABC):
             if job_log_files is None:
                 with contextlib.suppress(TimeoutError):
                     self.log_upload_status(job_id, timeout=FAILED_JOB_LOG_TIMEOUT)
-                job_log_files = self.get_job_log_files(job_id)
+                job_log_files = self.get_job_log_files(job_id, wait_for_logs=True)
             if not job_log_files:
+                print(
+                    f"[{type(self).__name__}] no log files listed for job {job_id} "
+                    f"after retries.",
+                    file=sys.stderr,
+                )
                 return 0
             with tempfile.TemporaryDirectory() as staged:
                 saved = self.download_job_logs(job_log_files, staged)

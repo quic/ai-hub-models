@@ -52,8 +52,10 @@ _RUNNING_STATES = {
 _TERMINAL_LOG_UPLOAD_STATES = {
     LogUploadStatus.COMPLETED,
     LogUploadStatus.FAILED,
-    LogUploadStatus.NOLOGS,
 }
+# NOLOGS is also what QDC reports right after a job completes, before the upload
+# starts, so it only counts as terminal once it has persisted this long (seconds).
+NOLOGS_GRACE_SECONDS = 180
 
 # Map from hub device names to QDC target device names
 HUB_DEVICE_TO_QDC_DEVICE_MAP = {
@@ -635,6 +637,9 @@ class QDCDeviceFarm(DeviceFarm):
                 lambda: qdc_api.get_job_log_upload_status(self.client, job_id),
                 f"get_job_log_upload_status({job_id})",
             )
+            if status == LogUploadStatus.NOLOGS and elapsed >= NOLOGS_GRACE_SECONDS:
+                print(f"Job {job_id} still reports no logs after {elapsed}s.")
+                return
             if status not in _TERMINAL_LOG_UPLOAD_STATES:
                 print(
                     f"Job is completed and the server is uploading logs, "

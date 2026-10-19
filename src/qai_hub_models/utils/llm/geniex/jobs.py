@@ -978,7 +978,7 @@ def collect_geniex_bench(
             metrics, eval_results = _fetch_and_parse_job_logs(
                 backend,
                 job_id,
-                backend.get_job_log_files(job_id),
+                backend.get_job_log_files(job_id, wait_for_logs=True),
                 save_logs_dir,
                 log_label,
                 save_results_dir,

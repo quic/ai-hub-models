@@ -269,7 +269,7 @@ jobs:
       with:
         name: "Genie Device Logs (${{ matrix.pool == 'dedicated' && 'Dedicated' || 'Shared' }} Pool)"
         path: ${{ github.workspace }}/**/device_logs/**/*.zip
-        if-no-files-found: ignore
+        if-no-files-found: warn
 
     - name: Upload perf.yaml updates
       id: upload-perf-updates

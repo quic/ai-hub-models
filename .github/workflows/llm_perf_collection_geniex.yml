@@ -288,7 +288,7 @@ jobs:
       with:
         name: "${{ env.PLUGIN_LABEL }} Device Logs (${{ matrix.pool == 'dedicated' && 'Dedicated' || 'Shared' }} Pool)"
         path: ${{ github.workspace }}/geniex_bench_results/device_logs/**/*.zip
-        if-no-files-found: ignore
+        if-no-files-found: warn
         # Raw device log zips can incidentally capture device identifiers /
         # paths; keep them short-lived rather than the org default (90 days).
         retention-days: 14
