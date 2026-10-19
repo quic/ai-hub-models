@@ -36,10 +36,15 @@ _SCRIPT = _CI_DIR / "parse_options.py"
         ),
         # An explicitly empty qairt_version falls back to the default sentinel.
         ("qairt_version=", {}),
+        ("genie_scope=perf", {"genie_scope": "perf"}),
     ],
 )
 def test_parse_ok(raw: str, want: dict[str, str]) -> None:
-    expected = {"qairt_version": "qaihm_default", "geniex_version": ""}
+    expected = {
+        "qairt_version": "qaihm_default",
+        "geniex_version": "",
+        "genie_scope": "",
+    }
     expected.update(want)
     assert parse(raw) == expected
 
@@ -56,6 +61,7 @@ def test_parse_ok(raw: str, want: dict[str, str]) -> None:
         ("geniex_version=0.3.7,geniex_version=0.3.8", "Duplicate option key"),
         # Bare SemVer required; leading v is rejected.
         ("geniex_version=v0.3.7", "must not start with 'v'"),
+        ("genie_scope=compile_only", "genie_scope must be one of"),
     ],
 )
 def test_parse_errors(raw: str, expected_msg: str) -> None:

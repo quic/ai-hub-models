@@ -37,10 +37,23 @@ def _geniex_version(key: str, val: str) -> str:
     return val
 
 
+_GENIE_SCOPES = ("perf", "accuracy", "perf_and_accuracy")
+
+
+def _genie_scope(key: str, val: str) -> str:
+    # Empty means Genie follows the scorecard's test_scope.
+    if val and val not in _GENIE_SCOPES:
+        raise ValueError(
+            f"{key} must be one of {', '.join(_GENIE_SCOPES)}; got {val!r}"
+        )
+    return val
+
+
 # option name -> (envvar emitted by --emit-env, value when the option is unset, normalizer)
 _OPTIONS: dict[str, tuple[str, str, Callable[[str, str], str]]] = {
     "qairt_version": ("QAIHM_TEST_QAIRT_VERSION", "qaihm_default", _qairt_version),
     "geniex_version": ("QAIHM_TEST_GENIEX_VERSION", "", _geniex_version),
+    "genie_scope": ("QAIHM_TEST_GENIE_SCOPE", "", _genie_scope),
 }
 
 

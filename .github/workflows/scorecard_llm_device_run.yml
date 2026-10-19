@@ -69,6 +69,7 @@ jobs:
       has_models: ${{ steps.find.outputs.has_models }}
       geniex_version: ${{ steps.parse_versions.outputs.geniex_version }}
       qairt_version: ${{ steps.parse_versions.outputs.qairt_version }}
+      genie_scope: ${{ steps.parse_versions.outputs.genie_scope }}
     steps:
       - uses: actions/checkout@v7
 
@@ -194,7 +195,8 @@ jobs:
       precision: ${{ contains(fromJSON('["default", "default_minus_float", "default_quantized", "bench"]'), inputs.test_precisions) && 'all' || inputs.test_precisions }}
       deployment: ${{ inputs.deployment }}
       qairt_version: ${{ needs.determine_llm_models.outputs.qairt_version }}
-      run_eval: ${{ inputs.test_scope != 'perf' }}
+      # options' genie_scope overrides test_scope for Genie only.
+      run_eval: ${{ (needs.determine_llm_models.outputs.genie_scope || inputs.test_scope) != 'perf' }}
       create_pr: false
       release_assets_action_id: ${{ inputs.action_id }}
 

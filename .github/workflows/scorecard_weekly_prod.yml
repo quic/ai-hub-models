@@ -57,7 +57,8 @@ jobs:
           # scorecard_llm_device_run.yml.
           test_runtimes: default,genie,qnn_dlc_via_qnn_ep
           test_precisions: default
-          options: ''
+          # Genie runs perf only; GenieX still collects accuracy.
+          options: 'genie_scope=perf'
           delay: scorecard_collection_32h_delay
           test_scope: perf_and_accuracy
           release_scope: upload_export_assets_and_create_pr
