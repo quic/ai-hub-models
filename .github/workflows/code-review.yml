@@ -27,3 +27,70 @@ jobs:
   review:
     uses: qcom-eng-Nimbus/custom-templates/.github/workflows/breeze-pr-review-agent.yaml@main
     secrets: inherit
+
+  review-guidelines:
+    name: Post review guidelines
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    env:
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+      ORG: ${{ github.repository_owner }}
+    steps:
+      - name: Check whether the author is on a tetra team
+        id: author
+        env:
+          # Needs org team read access, which github.token lacks.
+          GH_TOKEN: ${{ secrets.STAGING_GH_TOKEN }}
+        run: |
+          is_tetra=false
+          if [[ "$PR_AUTHOR" == "breeze-code-action-agent" ]]; then
+            is_tetra=true
+          fi
+          for team in tetra-developers tetra-nexa-developers-china ai-hub-models-friends ai-hub-models-non-genai-reviewers; do
+            if err=$(gh api "orgs/$ORG/teams/$team/memberships/$PR_AUTHOR" --silent 2>&1); then
+              is_tetra=true
+            elif [[ "$err" != *"HTTP 404"* ]]; then
+              echo "::error::Membership check for $team failed: $err"
+              exit 1
+            fi
+          done
+          echo "is_tetra=$is_tetra" >> "$GITHUB_OUTPUT"
+
+      - name: Post guidelines
+        if: steps.author.outputs.is_tetra != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          cat > "$RUNNER_TEMP/comment.md" <<'EOF'
+          Thanks for the PR! Once the reviewers approve and CI is green, the PR is ready to merge.
+
+          &nbsp;
+          **First review.** *<ins>Reviewers are notified of your PR once all of these hold</ins>*:
+          1. It is not a draft. If it is, click "Ready for review" when you are done.
+          2. It targets `main`.
+          3. It has no merge conflicts.
+          4. CI has passed (still-running CI is fine) and every required check has run.
+
+          &nbsp;
+          **Follow-up reviews.** *<ins>Reviewers are not notified when you push or reply.</ins>* They are notified again when:
+          1. The first review requirements above still apply.
+          2. Either (or both) of the following hold:
+             1. You re-requested review from **every reviewer who left feedback**.
+                - To re-request, click the circular arrows next to their name under **Reviewers** (top right sidebar).
+                - You don't need to re-request reviewers who approved.
+             2. **All review comment threads** have your reply as their last comment or are resolved.
+                - Replying without resolving the thread is fine if you have more questions or want to discuss. Your reply won't block another review.
+                - *<ins>To resolve a thread, click "Resolve conversation" at the bottom of it. Mentioning the fix in a comment or commit message does not resolve it.</ins>*
+
+          &nbsp;
+          **Stale PRs.**
+          A PR with no activity from you for 14 days is considered stale, whether or not it is a draft. We may close stale PRs.
+
+          &nbsp;
+          **Need help?**
+          You can reach out to the reviewers at any time over Teams if you need help.
+          EOF
+          gh pr comment "$PR_NUMBER" --body-file "$RUNNER_TEMP/comment.md"
