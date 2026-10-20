@@ -736,8 +736,8 @@ jobs:
           1. Write the full comment markdown to '/tmp/breeze_scorecard_comment.md'.
           2. Emit it via
              'python3 scripts/breeze_nightly/emit_comment_b64.py /tmp/breeze_scorecard_comment.md'
-        A downstream 'post_scorecard_breeze_comment' job recovers the file from
-        this job's log and posts it to ISSUE_URL.
+        A downstream 'post_scorecard_breeze_comment' job downloads the file as an
+        artifact (falling back to this job's log) and posts it to ISSUE_URL.
 
         Context variables for the skill:
         - ISSUE_URL: ${{ needs.aggregate_scorecard_results.outputs.regression_issue_url }}
@@ -777,6 +777,9 @@ jobs:
       show_full_output: true
       claude_output_mode: summary
       additional_permissions: "actions: read"
+      # The SDK caps logged tool stdout at ~30KB, which truncates large comments
+      # before the END marker; the artifact carries the file intact.
+      artifact_upload: /tmp/breeze_scorecard_comment.md
 
   post_scorecard_breeze_comment:
     name: Post Scorecard Breeze Comment to Tetracode
@@ -795,11 +798,24 @@ jobs:
         with:
           python-version: ${{ vars.CI_PYTHON_VERSION || '3.10' }}
 
-      - name: Recover Breeze comment from agent job log
+      - name: Download Breeze comment artifact
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: scorecard-analysis-artifact
+          path: /tmp/breeze/artifact
+
+      - name: Recover Breeze comment
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p /tmp/breeze
+          if [ -s /tmp/breeze/artifact/breeze_scorecard_comment.md ]; then
+            cp /tmp/breeze/artifact/breeze_scorecard_comment.md /tmp/breeze/comment.md
+            echo "Recovered comment from artifact ($(wc -c < /tmp/breeze/comment.md) bytes)"
+            exit 0
+          fi
+          echo "::warning::No comment artifact; falling back to agent job log"
           AGENT_JOB_ID=$(gh api --paginate \
             "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs" \
             --jq '.jobs[] | select(.name | contains("scorecard-analysis")) | .id' \
