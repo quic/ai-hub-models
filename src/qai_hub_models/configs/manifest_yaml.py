@@ -988,6 +988,16 @@ class QAIHMModelManifest(BaseQAIHMConfig):
         """Default runtime for export scripts and README sample commands."""
         passing_paths = self.get_supported_paths_for_testing(only_include_passing=True)
         if not passing_paths:
+            # qnn_context_binary is not a valid export path for orchestrator-only models.
+            if self.only_allow_orchestrator_runtimes and self.orchestrator_runtimes:
+                return next(
+                    (
+                        rt
+                        for rt in self.orchestrator_runtimes
+                        if rt is not TargetRuntime.GENIE
+                    ),
+                    self.orchestrator_runtimes[0],
+                )
             return TargetRuntime.QNN_CONTEXT_BINARY
 
         runtimes = next(iter(passing_paths.values()))

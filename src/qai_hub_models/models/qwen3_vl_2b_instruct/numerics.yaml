@@ -1,0 +1,20 @@
+metrics:
+- benchmark_value: 79.9
+  dataset_link: https://github.com/qualcomm/ai-hub-models/blob/main/tutorials/llm/grace.md
+  dataset_name: grace2
+  dataset_split_description: on-device prompt eval set
+  device_metric:
+    Snapdragon X Elite CRD:
+      q4_0:
+        geniex_llamacpp:
+          compute_unit: npu
+          partial_metric: 77.4
+  metric_description: 'Grading Response Accuracy Evaluation: percentage score from grading generated responses to the Grace2 prompt set with a grader LLM.'
+  metric_enablement_threshold: 10.0
+  metric_name: Grace2
+  metric_range:
+    max: 100.0
+    min: 0.0
+  metric_unit: '%'
+  num_partial_samples: 100
+  partial_torch_metric: 79.9

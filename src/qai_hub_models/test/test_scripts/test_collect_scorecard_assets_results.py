@@ -10,9 +10,11 @@ from unittest import mock
 
 import pytest
 
-from qai_hub_models import Precision
+from qai_hub_models import Precision, TargetRuntime
+from qai_hub_models.configs.manifest_yaml import QAIHMModelManifest
 from qai_hub_models.scorecard import ScorecardProfilePath
 from qai_hub_models.scorecard.release_assets_yaml import QAIHMModelReleaseAssets
+from qai_hub_models.scorecard.results.yaml import ScorecardAssetYaml
 from qai_hub_models.scripts import collect_scorecard_assets_results as mod
 
 
@@ -184,3 +186,67 @@ def test_empty_release_assets_yaml_updates_nothing(
 
     drop.assert_not_called()
     write.assert_not_called()
+
+
+def test_committed_genie_assets_stripped_when_geniex_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Genie is outside the default sweep, so committed Genie assets survive the
+    scoped drop; a geniex_qairt failure must still strip them (gemma_4_e4b_it).
+    """
+    committed = _make_assets(
+        {
+            Precision.q4_0: {
+                "universal": {
+                    ScorecardProfilePath.GENIEX_LLAMACPP: _asset(
+                        download_url="https://hf/model.gguf"
+                    ),
+                },
+            },
+            Precision.w4a16: {
+                "chipset": {
+                    "qualcomm-snapdragon-x-elite": {
+                        ScorecardProfilePath.GENIE: _asset(s3_key="s3/genie.zip"),
+                    }
+                }
+            },
+        }
+    )
+    manifest = QAIHMModelManifest.from_model("gemma_4_e4b_it")
+    manifest.disabled_paths.get_disable_reasons(
+        Precision.w4a16, TargetRuntime.GENIEX_QAIRT
+    ).scorecard_accuracy_failure = "too low"
+
+    assets_yaml = tmp_path / "release-assets.yaml"
+    ScorecardAssetYaml(models={"gemma_4_e4b_it": QAIHMModelReleaseAssets()}).to_yaml(
+        assets_yaml
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "collect_scorecard_assets_results",
+            "--models",
+            "gemma_4_e4b_it",
+            "--release-assets-yaml",
+            str(assets_yaml),
+        ],
+    )
+    written: list[QAIHMModelReleaseAssets] = []
+
+    def _capture(self: QAIHMModelReleaseAssets, _model_id: str) -> Path:
+        written.append(self)
+        return tmp_path / "out.yaml"
+
+    monkeypatch.setattr(QAIHMModelManifest, "from_model", lambda _id: manifest)
+    monkeypatch.setattr(
+        QAIHMModelReleaseAssets, "from_model", lambda *_a, **_k: committed
+    )
+    monkeypatch.setattr(QAIHMModelReleaseAssets, "to_model_yaml", _capture)
+    monkeypatch.setattr(mod, "_release_assets_scope", lambda *_a: set())
+    monkeypatch.setattr(mod, "update_model_publish_status", lambda _m: False)
+
+    mod.main()
+
+    assert len(written) == 1
+    assert set(written[0].precisions) == {Precision.q4_0}

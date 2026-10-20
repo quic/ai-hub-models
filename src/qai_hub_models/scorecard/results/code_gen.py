@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import copy
 
-from qai_hub_models import Precision
+from qai_hub_models import Precision, TargetRuntime
 from qai_hub_models.configs._info_yaml_enums import MODEL_STATUS
 from qai_hub_models.configs.manifest_yaml import QAIHMModelManifest
 from qai_hub_models.configs.model_disable_reasons import (
@@ -229,6 +229,56 @@ def update_model_publish_status(manifest: QAIHMModelManifest) -> bool:
     return False
 
 
+def _also_strip_genie_if_geniex_fails(
+    runtimes: list[TargetRuntime],
+) -> list[TargetRuntime]:
+    """Also strip Genie when GenieX (QAIRT) is stripped, matching QAIHMModelManifest.failure_reason."""
+    if TargetRuntime.GENIEX_QAIRT in runtimes and TargetRuntime.GENIE not in runtimes:
+        return [*runtimes, TargetRuntime.GENIE]
+    return runtimes
+
+
+def _runtimes_to_strip_for_device(
+    failure_reasons: ModelDisableReasonsMapping,
+    precision: Precision,
+    device_name: str | None,
+) -> list[TargetRuntime]:
+    """Runtimes whose entries to drop for this precision on the given Hub device (None = not device-specific)."""
+    return _also_strip_genie_if_geniex_fails(
+        [
+            runtime
+            for runtime, reasons in (failure_reasons.data.get(precision) or {}).items()
+            if reasons.failure_reason_for_device(device_name)
+        ]
+    )
+
+
+def _device_names_for_chipset(chipset: str) -> set[str]:
+    """Hub device names of scorecard devices on this chipset, resolved without querying Hub."""
+    yaml_devices = DevicesAndChipsetsYaml.load().devices
+    return {
+        device.device_name
+        for device in ScorecardDevice.all_devices(check_available_in_hub=False)
+        if (details := yaml_devices.get(device.reference_device_name))
+        and details.chipset == chipset
+    }
+
+
+def _runtimes_to_strip_for_chipset(
+    failure_reasons: ModelDisableReasonsMapping,
+    precision: Precision,
+    chipset: str | None,
+) -> list[TargetRuntime]:
+    """Runtimes whose assets to drop for this precision on the given chipset (None = universal asset)."""
+    chipset_devices = _device_names_for_chipset(chipset) if chipset else set()
+    out: list[TargetRuntime] = []
+    for runtime, reasons in (failure_reasons.data.get(precision) or {}).items():
+        scoped = [d for d in reasons.disable_devices if d in chipset_devices]
+        if reasons.failure_reason_for_device(scoped[0] if scoped else None):
+            out.append(runtime)
+    return _also_strip_genie_if_geniex_fails(out)
+
+
 def remove_numerics_failures(
     numerics: QAIHMModelNumerics, failure_reasons: ModelDisableReasonsMapping
 ) -> QAIHMModelNumerics:
@@ -263,15 +313,13 @@ def remove_numerics_failures(
             ] = {}
 
             for precision, metrics_by_path in metrics_by_precision.items():
-                runtimes_with_failures = [
-                    x
-                    for x, y in (failure_reasons.data.get(precision) or {}).items()
-                    if y.has_failure
-                ]
+                runtimes_to_strip = _runtimes_to_strip_for_device(
+                    failure_reasons, precision, device.device_name
+                )
                 new_metrics_by_path = {
                     path: copy.deepcopy(metrics_by_path[path])
                     for path in metrics_by_path
-                    if path.runtime not in runtimes_with_failures
+                    if path.runtime not in runtimes_to_strip
                 }
                 if new_metrics_by_path:
                     new_metrics_by_precision[precision] = new_metrics_by_path
@@ -323,11 +371,6 @@ def remove_perf_failures(
     precisions: dict[Precision, QAIHMModelPerf.PrecisionDetails] = {}
 
     for precision, perf_precision_components in perf.precisions.items():
-        runtimes_with_failures = [
-            x
-            for x, y in (failure_reason.data.get(precision) or {}).items()
-            if y.has_failure
-        ]
         components: dict[str, QAIHMModelPerf.ComponentDetails] = {}
         for (
             component,
@@ -338,10 +381,13 @@ def remove_perf_failures(
                 dict[ScorecardProfilePath, QAIHMModelPerf.PerformanceDetails],
             ] = {}
             for device, perf_by_path in component_details.performance_metrics.items():
+                runtimes_to_strip = _runtimes_to_strip_for_device(
+                    failure_reason, precision, device.device_name
+                )
                 path_perf = {
                     path: copy.deepcopy(perf_by_path[path])
                     for path in perf_by_path
-                    if path.runtime not in runtimes_with_failures
+                    if path.runtime not in runtimes_to_strip
                 }
                 if path_perf:
                     performance_metrics[device] = path_perf
@@ -393,29 +439,29 @@ def remove_asset_failures(
     precisions: dict[Precision, QAIHMModelReleaseAssets.PrecisionDetails] = {}
 
     for precision, precision_details in assets.precisions.items():
-        runtimes_with_failures = [
-            x
-            for x, y in (failure_reasons.data.get(precision) or {}).items()
-            if y.has_failure
-        ]
-
         chipset_assets: dict[
             str,
             dict[ScorecardProfilePath, QAIHMModelReleaseAssets.AssetDetails],
         ] = {}
         for chipset, asset_by_path in precision_details.chipset_assets.items():
+            runtimes_to_strip = _runtimes_to_strip_for_chipset(
+                failure_reasons, precision, chipset
+            )
             path_assets = {
                 path: copy.deepcopy(asset_by_path[path])
                 for path in asset_by_path
-                if path.runtime not in runtimes_with_failures
+                if path.runtime not in runtimes_to_strip
             }
             if path_assets:
                 chipset_assets[chipset] = path_assets
 
+        runtimes_to_strip = _runtimes_to_strip_for_chipset(
+            failure_reasons, precision, None
+        )
         universal_assets = {
             path: copy.deepcopy(precision_details.universal_assets[path])
             for path in precision_details.universal_assets
-            if path.runtime not in runtimes_with_failures
+            if path.runtime not in runtimes_to_strip
         }
         if chipset_assets or universal_assets:
             precisions[precision] = QAIHMModelReleaseAssets.PrecisionDetails(

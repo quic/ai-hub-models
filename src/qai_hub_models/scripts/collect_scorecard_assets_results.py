@@ -137,6 +137,9 @@ def main() -> None:
                     continue
                 merged.merge_from(scorecard_model_assets)
 
+            # Committed entries outside this run's scope (e.g. Genie, which the default
+            # sweep skips) can still be disabled, so strip failures from the merged result.
+            merged = remove_asset_failures(merged, manifest.disabled_paths)
             modified_files.append(str(merged.to_model_yaml(model_id)))
 
             # Update model status & reason, if applicable

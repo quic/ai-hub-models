@@ -3,53 +3,112 @@ precisions:
     components:
       SmolLM2-1.7B-Instruct:
         performance_metrics:
+          Arduino VENTUNO Q:
+            geniex_qairt:
+              llm_metrics:
+              - context_length: 4096
+                desired_compute_unit: npu
+                prefill_tokens_per_second: 1249.010833
+                time_to_first_token_range_milliseconds:
+                  max: 3279.3950967741935
+                  min: 102.48109677419355
+                tokens_per_second: 17.26779
+              tool_versions:
+                geniex: v0.9.1
+                qairt: '2.50'
+          Dragonwing IQ-X7181:
+            geniex_qairt:
+              llm_metrics:
+              - context_length: 4096
+                desired_compute_unit: npu
+                prefill_tokens_per_second: 1201.09394
+                time_to_first_token_range_milliseconds:
+                  max: 3410.2245161290325
+                  min: 106.56951612903227
+                tokens_per_second: 17.88621
+              tool_versions:
+                geniex: v0.9.1
+                qairt: '2.50'
           Dragonwing Q-8750:
             geniex_qairt:
               llm_metrics:
               - context_length: 4096
                 desired_compute_unit: npu
-                prefill_tokens_per_second: 1357.353844
+                prefill_tokens_per_second: 1548.550049
                 time_to_first_token_range_milliseconds:
-                  max: 3017.636129032258
-                  min: 94.30112903225806
-                tokens_per_second: 20.544417
+                  max: 2645.0549677419353
+                  min: 82.65796774193548
+                tokens_per_second: 26.170988
+              tool_versions:
+                geniex: v0.9.1
+                qairt: '2.50'
           Samsung Galaxy S25:
             geniex_qairt:
               llm_metrics:
               - context_length: 4096
                 desired_compute_unit: npu
-                prefill_tokens_per_second: 1357.353844
+                prefill_tokens_per_second: 1548.550049
                 time_to_first_token_range_milliseconds:
-                  max: 3017.636129032258
-                  min: 94.30112903225806
-                tokens_per_second: 20.544417
+                  max: 2645.0549677419353
+                  min: 82.65796774193548
+                tokens_per_second: 26.170988
+              tool_versions:
+                geniex: v0.9.1
+                qairt: '2.50'
           Samsung Galaxy S26:
             geniex_qairt:
               llm_metrics:
               - context_length: 4096
                 desired_compute_unit: npu
-                prefill_tokens_per_second: 1579.565643
+                prefill_tokens_per_second: 1860.028191
                 time_to_first_token_range_milliseconds:
-                  max: 2593.117935483871
-                  min: 81.03493548387097
-                tokens_per_second: 21.054242
+                  max: 2202.1171612903227
+                  min: 68.81616129032258
+                tokens_per_second: 28.528349
+              tool_versions:
+                geniex: v0.9.1
+                qairt: '2.50'
+          Snapdragon X Elite CRD:
+            geniex_qairt:
+              llm_metrics:
+              - context_length: 4096
+                desired_compute_unit: npu
+                prefill_tokens_per_second: 1201.09394
+                time_to_first_token_range_milliseconds:
+                  max: 3410.2245161290325
+                  min: 106.56951612903227
+                tokens_per_second: 17.88621
+              tool_versions:
+                geniex: v0.9.1
+                qairt: '2.50'
           Snapdragon X2 Elite CRD:
             geniex_qairt:
               llm_metrics:
               - context_length: 4096
                 desired_compute_unit: npu
-                prefill_tokens_per_second: 698.143287
+                prefill_tokens_per_second: 2293.849789
                 time_to_first_token_range_milliseconds:
-                  max: 5866.990451612903
-                  min: 183.3434516129032
-                tokens_per_second: 7.847375
+                  max: 1785.6443870967742
+                  min: 55.80138709677419
+                tokens_per_second: 36.544427
+              tool_versions:
+                geniex: v0.9.1
+                qairt: '2.50'
 supported_chipsets:
 - qualcomm-snapdragon-8-elite-gen5-for-galaxy
 - qualcomm-snapdragon-8-elite-for-galaxy
 - qualcomm-snapdragon-x2-elite
+- qualcomm-snapdragon-x-elite
+- qualcomm-snapdragon-x-plus-8-core
+- qualcomm-qcs8275
+- qualcomm-qcs7181
 - qualcomm-qcs8750
 supported_devices:
 - Samsung Galaxy S25
 - Dragonwing Q-8750
 - Samsung Galaxy S26
 - Snapdragon X2 Elite CRD
+- Arduino VENTUNO Q
+- Snapdragon X Elite CRD
+- Dragonwing IQ-X7181
+- Snapdragon X Plus 8-Core CRD

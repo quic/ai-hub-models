@@ -723,7 +723,14 @@ def process_e2e_recipe_model(
                 _scope_from_test_config(test_params), only_components=owned_components
             )
             for summary in summaries:
-                if summary.params.path.is_published:
+                params = summary.params
+                assert params.precision is not None and params.device is not None
+                # Jobs can pass on some devices for a path disabled by failures elsewhere.
+                if params.path.is_published and manifest.is_supported(
+                    params.precision,
+                    params.path.runtime,
+                    device=params.device.device_name,
+                ):
                     summary.add_to_perf(merged, include_failures=False)
             # The merge inherits supported_chipsets from the committed card and
             # only ever unions onto it, so a chipset the scorecard never ran is

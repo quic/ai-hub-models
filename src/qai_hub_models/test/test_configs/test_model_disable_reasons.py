@@ -8,6 +8,7 @@ from __future__ import annotations
 import pytest
 
 from qai_hub_models import Precision, TargetRuntime
+from qai_hub_models.configs.manifest_yaml import QAIHMModelManifest
 from qai_hub_models.configs.model_disable_reasons import (
     ModelDisableReasons,
     ModelDisableReasonsMapping,
@@ -83,3 +84,22 @@ def test_failure_reason_for_device_keeps_scorecard_failures_runtime_wide() -> No
     )
     assert reasons.failure_reason_for_device(S24) == "Failing jobs: abc"
     assert reasons.failure_reason_for_device(S25) == "Failing jobs: abc"
+
+
+def test_default_runtime_stays_orchestrator_when_all_paths_fail() -> None:
+    manifest = QAIHMModelManifest.from_model("smollm2_1_7b_it")
+    manifest.disabled_paths.get_disable_reasons(
+        Precision.w4a16, TargetRuntime.GENIEX_QAIRT
+    ).scorecard_accuracy_failure = "too low"
+    assert not manifest.get_supported_paths_for_testing(only_include_passing=True)
+    assert manifest.default_runtime == TargetRuntime.GENIEX_QAIRT
+
+
+def test_default_runtime_falls_back_to_context_binary_for_non_orchestrator() -> None:
+    manifest = QAIHMModelManifest.from_model("mobilenet_v2")
+    for precision in manifest.supported_precisions:
+        for runtime in TargetRuntime:
+            manifest.disabled_paths.get_disable_reasons(
+                precision, runtime
+            ).scorecard_failure = "failed"
+    assert manifest.default_runtime == TargetRuntime.QNN_CONTEXT_BINARY

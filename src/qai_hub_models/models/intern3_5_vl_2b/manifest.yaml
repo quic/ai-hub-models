@@ -22,11 +22,23 @@ llm_details:
 lm_quantization_details:
   w4a16:
     precision:
-      visual: {}
+      activations: int16
+      blocks:
+        granularity: PCQ
+        qtype: int4
+      embedding: int16
+      kv_cache: int8
+      lm_head:
+        granularity: PCQ
+        qtype: int8
+      visual:
+        activations: int16
+        weight:
+          granularity: PCQ
+          qtype: int8
     recipe:
       backbone:
       - enable_r1: true
-        enable_r2: false
         enable_r3: true
         name: SpinQuant
       - dataset:
@@ -46,7 +58,6 @@ lm_quantization_details:
         num_iterations: 20
       visual:
       - enable_r1: true
-        enable_r2: false
         enable_r3: true
         name: SpinQuant
       - dataset:
