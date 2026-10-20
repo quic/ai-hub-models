@@ -38,6 +38,7 @@ from qai_hub_models.cli.validate import (
     _check_multi_graph_sample_inputs,
     _check_name_style,
     _check_no_self_referential_imports,
+    _check_pip_commands,
     _check_related_not_self,
     _check_requirements_txt,
     _check_status_not_unset,
@@ -46,6 +47,7 @@ from qai_hub_models.cli.validate import (
     _check_website_fields_set,
     _collect_manifest_urls,
     _extract_pip_command_pkgs,
+    _extract_pip_command_reqs,
     _extract_shape,
     _iter_requirements,
     _render_json,
@@ -384,6 +386,65 @@ class TestRequirementsHelpers:
     def test_extract_pip_command_pkgs_skips_editable_and_vcs(self) -> None:
         assert _extract_pip_command_pkgs("pip install -e ./src") == []
         assert _extract_pip_command_pkgs("pip install git+https://x/y.git") == []
+
+    def test_extract_pip_command_reqs(self) -> None:
+        reqs = _extract_pip_command_reqs(
+            "pip install foo==1.0 bar>=2 -e ./src --extra-index-url https://pypi.org git+https://x/y.git"
+        )
+        assert [r.name for r in reqs] == ["foo", "bar"]
+        assert [str(r.specifier) for r in reqs] == ["==1.0", ">=2"]
+
+
+class TestCheckPipCommands:
+    PINS = {
+        "torch": SpecifierSet(">=2.4,<=2.11.0"),
+        "torchvision": SpecifierSet(">=0.19,<=0.26.0"),
+        "onnx": SpecifierSet("==1.18.0"),
+        "onnxruntime": SpecifierSet("==1.22.1"),
+    }
+
+    def _run(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *commands: str
+    ) -> Report:
+        monkeypatch.setattr(
+            validate_mod, "_load_requirement_pins", lambda path: self.PINS
+        )
+        manifest = _make_manifest(
+            pre_pip_install_commands=[SimpleNamespace(command=c) for c in commands],
+            post_pip_install_commands=[],
+        )
+        report = Report()
+        _check_pip_commands(tmp_path, manifest, report)
+        return report
+
+    def test_no_commands_is_noop(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        assert not self._run(tmp_path, monkeypatch).rows
+
+    @pytest.mark.parametrize(
+        "command",
+        [
+            "pip install torchvision==0.24.0 torch==2.9.0",
+            "pip install torch==2.9.0 torchvision==0.24.0",
+            "pip install onnxruntime==1.22.1 onnx==1.18.0",
+            "pip install onnx==1.18.0 onnxruntime==1.22.1",
+            "pip install other-package==1.0.0 torch",
+        ],
+    )
+    def test_compatible_commands_pass(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, command: str
+    ) -> None:
+        (row,) = self._run(tmp_path, monkeypatch, command).rows
+        assert row.status is Status.PASS
+
+    def test_detects_real_conflict(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        (row,) = self._run(tmp_path, monkeypatch, "pip install torch==1.12.0").rows
+        assert row.status is Status.FAIL
+        assert "torch" in row.detail
+        assert "1.12.0" in row.detail
 
 
 class TestExtractShape:
