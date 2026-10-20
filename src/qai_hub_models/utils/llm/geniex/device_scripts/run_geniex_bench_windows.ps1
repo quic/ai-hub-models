@@ -10,6 +10,7 @@ $ProgressPreference = "SilentlyContinue"
 $LOG = "C:\Temp\QDC_Logs"
 $OUT = "$LOG\results"
 $MM_CACHE = "C:\Temp\geniex-cache"
+$MATRIX_DIR = "C:\Temp\geniex-matrix"
 $TC = "C:\Temp\TestContent"
 
 # A job QDC killed mid-run skips the finally below and can leave geniex-bench
@@ -19,8 +20,8 @@ Start-Sleep -Seconds 2
 
 # QDC reuses device cells across jobs; wipe stale cell JSONs from a prior
 # run so compute_metrics doesn't ingest another model/plugin's results.
-Remove-Item -Recurse -Force $OUT -ErrorAction SilentlyContinue
-New-Item -ItemType Directory -Force -Path $LOG, $OUT, $MM_CACHE | Out-Null
+Remove-Item -Recurse -Force $OUT, $MM_CACHE, $MATRIX_DIR -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Force -Path $LOG, $OUT, $MM_CACHE, $MATRIX_DIR | Out-Null
 Start-Transcript -Path "$LOG\script.log" -Force | Out-Null
 
 try {
@@ -31,6 +32,8 @@ Get-ChildItem -Path $TC -Directory -Filter 'geniex-bench-windows-arm64-*' -Error
 if (Get-ChildItem -Path $TC -Directory -Filter 'geniex-bench-windows-arm64-*' -ErrorAction SilentlyContinue) {
     throw "Stale geniex-bench bundle under $TC could not be removed; device needs manual cleanup."
 }
+# Remove potentially stale files
+Remove-Item -Recurse -Force "$TC\geniex-bench.zip", "$TC\qairt", "$TC\qairt.zip" -ErrorAction SilentlyContinue
 
 # geniex-bench.exe writes informational lines to stderr even on success.
 # Called via the bare `&` operator, every such line becomes a NativeCommandError
@@ -119,8 +122,7 @@ $failed_ctxs = ""
 if ($RUN_PERF) {
     $tsvByCtx = @{}
     foreach ($ctx in $ctxList) {
-        $tsvByCtx[$ctx] = "C:\Temp\matrix-$ctx.tsv"
-        Remove-Item $tsvByCtx[$ctx] -ErrorAction SilentlyContinue
+        $tsvByCtx[$ctx] = "$MATRIX_DIR\matrix-$ctx.tsv"
     }
 
     foreach ($row in $rows) {
@@ -265,9 +267,9 @@ finally {
         Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item -Force "$TC\geniex-bench.zip" -ErrorAction SilentlyContinue
     Remove-Item -Recurse -Force "$TC\qairt", "$TC\qairt.zip" -ErrorAction SilentlyContinue
-    Remove-Item -Recurse -Force $MM_CACHE -ErrorAction SilentlyContinue
-    Get-ChildItem -Path "C:\Temp" -Filter 'matrix-*.tsv' -ErrorAction SilentlyContinue |
-        Remove-Item -Force -ErrorAction SilentlyContinue
+    Remove-Item -Recurse -Force "$TC\qairt_bundles", "$TC\prompts", "$TC\perf_prompts" -ErrorAction SilentlyContinue
+    Remove-Item -Force "$TC\test.png", $PSCommandPath -ErrorAction SilentlyContinue
+    Remove-Item -Recurse -Force $MM_CACHE, $MATRIX_DIR -ErrorAction SilentlyContinue
     Stop-Transcript | Out-Null
 }
 exit 0
