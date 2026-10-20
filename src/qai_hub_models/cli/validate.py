@@ -51,7 +51,11 @@ from qai_hub_models.utils.export.context import (
 )
 from qai_hub_models.utils.input_spec import InputSpec, make_torch_inputs
 from qai_hub_models.utils.metrics import VALID_METRIC_PAIRS
-from qai_hub_models.utils.path_helpers import QAIHM_MODELS_ROOT, QAIHM_PACKAGE_ROOT
+from qai_hub_models.utils.path_helpers import (
+    MODEL_IDS,
+    QAIHM_MODELS_ROOT,
+    QAIHM_PACKAGE_ROOT,
+)
 from qai_hub_models.utils.url_check import head_check_urls
 from qai_hub_models.utils.validation import perform_runtime_model_validation
 
@@ -494,13 +498,38 @@ def _iter_requirements(text: str) -> list[tuple[int, str]]:
     return out
 
 
-def _check_requirements_txt(source_dir: Path, report: Report) -> None:
+def _recipe_opts_out_of_global_requirements(
+    manifest: QAIHMModelManifest | None,
+) -> bool:
+    """Whether the recipe opts out of global_requirements.txt version pins.
+
+    Set via ``global_requirements_incompatible: true`` in the model's
+    ``scorecard-config.yaml``. Standalone recipes (no in-tree model folder)
+    cannot set it.
+    """
+    if manifest is None or manifest.id is None or manifest.id not in MODEL_IDS:
+        # External recipes do not need to match the global requirement list.
+        return True
+
+    from qai_hub_models.scorecard.scorecard_config_yaml import (
+        QAIHMModelScorecardConfig,
+    )
+
+    return QAIHMModelScorecardConfig.from_model(
+        manifest.id
+    ).global_requirements_incompatible
+
+
+def _check_requirements_txt(
+    source_dir: Path,
+    report: Report,
+    skip_global_conflicts: bool = False,
+) -> None:
     req_path = source_dir / "requirements.txt"
     if not req_path.exists():
         return
-    base, constraint_label = _constraint_pins(source_dir)
     unpinned: list[str] = []
-    conflicts: list[str] = []
+    pinned_reqs: list[Requirement] = []
     parse_errors: list[str] = []
     for lineno, spec in _iter_requirements(req_path.read_text()):
         try:
@@ -511,15 +540,7 @@ def _check_requirements_txt(source_dir: Path, report: Report) -> None:
         if not str(req.specifier):
             unpinned.append(f"line {lineno}: `{req.name}` has no version specifier")
             continue
-        base_spec = base.get(req.name.lower())
-        if base_spec is None:
-            continue
-        merged = SpecifierSet(f"{base_spec},{req.specifier}")
-        if not _specifier_is_satisfiable(merged):
-            conflicts.append(
-                f"{req.name}: recipe wants {req.specifier}, "
-                f"{constraint_label} wants {base_spec}"
-            )
+        pinned_reqs.append(req)
 
     if parse_errors:
         report.add(
@@ -547,19 +568,14 @@ def _check_requirements_txt(source_dir: Path, report: Report) -> None:
             Result("requirements.txt entries pinned", "Requirements", Status.PASS)
         )
 
-    if conflicts:
-        report.add(
-            Result(
-                "requirements.txt vs. base package",
-                "Requirements",
-                Status.FAIL,
-                "; ".join(conflicts),
-            )
-        )
-    else:
-        report.add(
-            Result("requirements.txt vs. base package", "Requirements", Status.PASS)
-        )
+    _report_pin_conflicts(
+        report,
+        source_dir,
+        "requirements.txt",
+        "recipe",
+        pinned_reqs,
+        skip_global_conflicts,
+    )
 
 
 def _specifier_is_satisfiable(spec: SpecifierSet) -> bool:
@@ -619,59 +635,80 @@ def _extract_pip_command_pkgs(cmd: str) -> list[str]:
     return [req.name for req in _extract_pip_command_reqs(cmd)]
 
 
-def _constraint_pins(source_dir: Path) -> tuple[dict[str, SpecifierSet], str]:
-    """Pins a recipe must not contradict, and the label naming where they came from.
+def _constraint_sources(
+    source_dir: Path,
+) -> list[tuple[str, dict[str, SpecifierSet], bool]]:
+    """Pin sets a recipe must not contradict, as ``(label, pins, opt_out_skippable)``.
 
-    In-tree recipes answer to global_requirements.txt, whose contract is that one
-    environment serves every model in the package. Standalone recipes ship their own
-    environment, so only the base package's install requirements bind them.
+    The base package's install requirements bind every recipe. In-tree recipes
+    additionally answer to global_requirements.txt, whose contract is that one
+    environment serves every model in the package; only that check can be skipped.
     """
+    sources = [("base package", _load_requirement_pins(_BASE_REQUIREMENTS_PATH), False)]
     if _is_in_tree(source_dir):
-        return (
-            _load_requirement_pins(_GLOBAL_REQUIREMENTS_PATH),
-            "global_requirements.txt",
+        sources.append(
+            (
+                "global_requirements.txt",
+                _load_requirement_pins(_GLOBAL_REQUIREMENTS_PATH),
+                True,
+            )
         )
-    return _load_requirement_pins(_BASE_REQUIREMENTS_PATH), "base package"
+    return sources
+
+
+def _report_pin_conflicts(
+    report: Report,
+    source_dir: Path,
+    subject: str,
+    wanter: str,
+    reqs: list[Requirement],
+    skip_global_conflicts: bool,
+) -> None:
+    """Add one ``<subject> vs. <label>`` row per constraint source."""
+    for label, pins, skippable in _constraint_sources(source_dir):
+        conflicts = [
+            f"{req.name}: {wanter} wants {req.specifier}, {label} wants {pins[key]}"
+            for req in reqs
+            if (key := req.name.lower()) in pins
+            and req.specifier
+            and not _specifier_is_satisfiable(pins[key] & req.specifier)
+        ]
+        name = f"{subject} vs. {label}"
+        if conflicts and skippable and skip_global_conflicts:
+            report.add(
+                Result(
+                    name,
+                    "Requirements",
+                    Status.SKIP,
+                    "recipe opts out via global_requirements_incompatible: true",
+                )
+            )
+        elif conflicts:
+            report.add(Result(name, "Requirements", Status.FAIL, "; ".join(conflicts)))
+        else:
+            report.add(Result(name, "Requirements", Status.PASS))
 
 
 def _check_pip_commands(
-    source_dir: Path, manifest: QAIHMModelManifest, report: Report
+    source_dir: Path,
+    manifest: QAIHMModelManifest,
+    report: Report,
+    skip_global_conflicts: bool = False,
 ) -> None:
     commands = list(manifest.pre_pip_install_commands) + list(
         manifest.post_pip_install_commands
     )
     if not commands:
         return
-    base, constraint_label = _constraint_pins(source_dir)
-    conflicts: list[str] = []
-    for cmd in commands:
-        for req in _extract_pip_command_reqs(cmd.command):
-            name = req.name
-            base_spec = base.get(name.lower())
-            if base_spec is None:
-                continue
-            if req.specifier and not _specifier_is_satisfiable(
-                base_spec & req.specifier
-            ):
-                conflicts.append(
-                    f"{name}: manifest command wants {req.specifier}, "
-                    f"{constraint_label} wants {base_spec}"
-                )
-    if conflicts:
-        report.add(
-            Result(
-                "manifest pip commands vs. base package",
-                "Requirements",
-                Status.FAIL,
-                "; ".join(conflicts),
-            )
-        )
-    else:
-        report.add(
-            Result(
-                "manifest pip commands vs. base package", "Requirements", Status.PASS
-            )
-        )
+    reqs = [r for cmd in commands for r in _extract_pip_command_reqs(cmd.command)]
+    _report_pin_conflicts(
+        report,
+        source_dir,
+        "manifest pip commands",
+        "manifest command",
+        reqs,
+        skip_global_conflicts,
+    )
 
 
 # =========================================================================
@@ -1652,9 +1689,10 @@ def _run_all_checks(
     _check_no_self_referential_imports(source_dir, report)
     manifest = _check_manifest(source_dir, report)
     if manifest is not None:
+        skip_global_conflicts = _recipe_opts_out_of_global_requirements(manifest)
         _check_external_repos_init(source_dir, manifest, report)
-        _check_requirements_txt(source_dir, report)
-        _check_pip_commands(source_dir, manifest, report)
+        _check_requirements_txt(source_dir, report, skip_global_conflicts)
+        _check_pip_commands(source_dir, manifest, report, skip_global_conflicts)
 
     if not install_ok:
         _skip_downstream_on_install_failure(report)
@@ -1721,7 +1759,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="qai-hub-models validate",
         description=(
             "Run the local recipe report card: folder shape, manifest, "
-            "requirements.txt vs. base package, model imports, torch forward "
+            "requirements.txt vs. base/global pins, model imports, torch forward "
             "pass, App instantiation, URL reachability. No workbench calls. "
             "Exit 0 iff every check passes (WARNs do not fail)."
         ),

@@ -50,6 +50,7 @@ from qai_hub_models.cli.validate import (
     _extract_pip_command_reqs,
     _extract_shape,
     _iter_requirements,
+    _recipe_opts_out_of_global_requirements,
     _render_json,
     _render_text,
     _run_all_checks,
@@ -346,11 +347,9 @@ class TestRequirementsTxt:
         validate_mod._load_requirement_pins.cache_clear()
         report = Report()
         _check_requirements_txt(tmp_path, report)
-        row = next(
-            r for r in report.rows if r.name == "requirements.txt vs. base package"
-        )
-        assert row.status is Status.FAIL
-        assert "global_requirements.txt" in row.detail
+        statuses = {r.name: r.status for r in report.rows}
+        assert statuses["requirements.txt vs. base package"] is Status.PASS
+        assert statuses["requirements.txt vs. global_requirements.txt"] is Status.FAIL
 
     def test_compatible_pin_passes(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -365,6 +364,66 @@ class TestRequirementsTxt:
         _check_requirements_txt(tmp_path, report)
         statuses = {r.name: r.status for r in report.rows}
         assert statuses["requirements.txt vs. base package"] is Status.PASS
+
+    def _in_tree_statuses(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        recipe_line: str,
+        base_line: str,
+        global_line: str,
+    ) -> dict[str, Status]:
+        (tmp_path / "requirements.txt").write_text(recipe_line)
+        base = tmp_path / "base.txt"
+        base.write_text(base_line)
+        globals_ = tmp_path / "global.txt"
+        globals_.write_text(global_line)
+        monkeypatch.setattr(validate_mod, "_BASE_REQUIREMENTS_PATH", base)
+        monkeypatch.setattr(validate_mod, "_GLOBAL_REQUIREMENTS_PATH", globals_)
+        monkeypatch.setattr(validate_mod, "_is_in_tree", lambda source_dir: True)
+        validate_mod._load_requirement_pins.cache_clear()
+        report = Report()
+        _check_requirements_txt(tmp_path, report, skip_global_conflicts=True)
+        return {r.name: r.status for r in report.rows}
+
+    def test_global_conflict_skipped_when_opted_out(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        statuses = self._in_tree_statuses(
+            tmp_path,
+            monkeypatch,
+            "transformers==5.7.0\n",
+            "torch>=2.4,<=2.11.0\n",
+            "transformers==4.56.2\n",
+        )
+        assert statuses["requirements.txt vs. base package"] is Status.PASS
+        assert statuses["requirements.txt vs. global_requirements.txt"] is Status.SKIP
+
+    def test_base_conflict_still_fails_when_opted_out(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        statuses = self._in_tree_statuses(
+            tmp_path,
+            monkeypatch,
+            "torch==2.99\n",
+            "torch>=2.4,<=2.11.0\n",
+            "torch>=2.4,<=2.11.0\n",
+        )
+        assert statuses["requirements.txt vs. base package"] is Status.FAIL
+        assert statuses["requirements.txt vs. global_requirements.txt"] is Status.SKIP
+
+
+class TestRecipeOptsOut:
+    def test_none_manifest_skips_global(self) -> None:
+        assert _recipe_opts_out_of_global_requirements(None) is True
+
+    def test_external_model_skips_global(self) -> None:
+        manifest = _make_manifest(id="__model_that_does_not_exist__")
+        assert _recipe_opts_out_of_global_requirements(manifest) is True
+
+    def test_in_tree_opt_out_is_detected(self) -> None:
+        manifest = _make_manifest(id="gemma_4_e4b_it")
+        assert _recipe_opts_out_of_global_requirements(manifest) is True
 
 
 class TestRequirementsHelpers:
