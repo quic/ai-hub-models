@@ -326,7 +326,7 @@ def _print_job_banner(
     print(f"Ctx:     {context_lengths}")
     print(f"GenieX:  {geniex_version or 'latest stable mirror'}")
     if plugin == "qairt":
-        print(f"QAIRT:   {qairt_version or 'bundled with geniex-bench'}")
+        print(f"QAIRT:   {qairt_version}")
     print(f"Perf:    {'on' if run_perf else 'off'}")
     print(f"Eval:    {'on' if eval_prompts else 'off'}")
     print(f"{'=' * 60}")
@@ -840,10 +840,12 @@ def _add_output_args(parser: argparse.ArgumentParser) -> None:
 
 
 def _resolve_qairt_version(args: argparse.Namespace) -> str | None:
-    """Software Center SDK version to swap in on-device, or None to keep the bundled QAIRT."""
+    """Software Center SDK version to swap in on-device, or None for llama_cpp."""
     if args.plugin == "llama_cpp":
         return None
-    return QAIRTVersionEnvvar.get_on_device_sdk_version(args.qairt_version)
+    return QAIRTVersionEnvvar.get_on_device_sdk_version(
+        TargetRuntime.GENIEX_QAIRT, args.qairt_version
+    )
 
 
 def _cmd_submit(args: argparse.Namespace) -> int:

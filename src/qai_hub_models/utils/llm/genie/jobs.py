@@ -1086,7 +1086,9 @@ def submit_llm_perf_job(
             str(genie_bundle_path),
             job_name=job_name,
             qairt_sdk_path=qairt_sdk_path,
-            qairt_version=QAIRTVersionEnvvar.get_on_device_sdk_version(),
+            qairt_version=QAIRTVersionEnvvar.get_on_device_sdk_version(
+                TargetRuntime.GENIE
+            ),
             eval_prompts=eval_prompts,
             model_id=model_id,
             genie_bundle_url=genie_bundle_url,

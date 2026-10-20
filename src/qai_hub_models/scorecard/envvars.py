@@ -338,20 +338,24 @@ class QAIRTVersionEnvvar(QAIHMStringEnvvar):
         return QAIRTVersion(value)
 
     @classmethod
-    def get_on_device_sdk_version(cls, value: str | None = None) -> str | None:
+    def get_on_device_sdk_version(
+        cls, runtime: TargetRuntime, value: str | None = None
+    ) -> str:
         """
         Software Center SDK version (e.g. 2.50.0.260812) to download on-device.
 
-        Returns None when the envvar is the default, so on-device runs keep
-        their bundled / pinned QAIRT unless a version was explicitly requested.
+        The default envvar value resolves to the runtime's AI Hub Models default,
+        so on-device runs never fall back to the QAIRT bundled with the runtime.
         """
         value = value or cls.get()
         if cls.is_default(value):
-            return None
-        framework = QAIRTVersion.ParsedFramework.parse_opt(value)
-        # Software Center builds need not be on AI Hub, so a full version skips the lookup.
-        if framework is None or framework.patch is None or framework.ident is None:
-            framework = QAIRTVersion(value).framework
+            framework = runtime.default_qairt_version.framework
+        else:
+            parsed = QAIRTVersion.ParsedFramework.parse_opt(value)
+            # Software Center builds need not be on AI Hub, so a full version skips the lookup.
+            if parsed is None or parsed.patch is None or parsed.ident is None:
+                parsed = QAIRTVersion(value).framework
+            framework = parsed
         if framework.patch is None or framework.ident is None:
             raise ValueError(
                 f"Cannot resolve QAIRT {value!r} to a full SDK version (need AI Hub "
