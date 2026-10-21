@@ -334,6 +334,5 @@ class TestReleaseAssetsFieldCoverage:
         _check_coverage(
             QAIHMModelReleaseAssets.AssetDetails,
             release_assets_pb2.ModelReleaseAssets.AssetDetails.DESCRIPTOR,
-            pydantic_only={"s3_key"},
             proto_only={"precision", "runtime", "chipset"},
         )
