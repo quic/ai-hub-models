@@ -18,6 +18,7 @@ from ruamel.yaml import YAML
 from tflite import Model as TFModel
 
 from qai_hub_models.configs.manifest_yaml import QAIHMModelManifest
+from qai_hub_models.scorecard.perf_yaml import QAIHMModelPerf
 from qai_hub_models.utils.asset_loaders import qaihm_temp_dir
 from qai_hub_models.utils.export.context import resolve_recipe_dir
 from qai_hub_models.utils.export.dispatch import select_pipeline
@@ -168,10 +169,7 @@ def main() -> None:
         model_dir = QAIHM_MODELS_ROOT / model_name
         yaml = YAML()
         yaml.width = sys.maxsize
-        perf: dict[str, Any] = {}
-        if (model_dir / "perf.yaml").exists():
-            with open(model_dir / "perf.yaml") as f:
-                perf = yaml.load(f)
+        perf = QAIHMModelPerf.from_model(model_name, not_exists_ok=True)
 
         manifest = QAIHMModelManifest.from_model(model_name)
         precisions = manifest.supported_precisions
@@ -252,25 +250,25 @@ def main() -> None:
                             f"Unknown export script result type: {type(results)}"
                         )
             else:
-                if not perf:
+                if perf.empty:
                     print(f"No perf data for model {model_name}. Skipping.")
                     continue
-                for precision_str, precision_data in perf["precisions"].items():
-                    for submodel_name, submodel_data in precision_data[
-                        "components"
-                    ].items():
+                for precision, precision_data in perf.precisions.items():
+                    precision_str = str(precision)
+                    for (
+                        submodel_name,
+                        submodel_data,
+                    ) in precision_data.components.items():
                         details_key = (
                             submodel_name
-                            if len(precision_data["components"]) > 1
+                            if len(precision_data.components) > 1
                             else "model"
                         )
                         # Get model from first available profile job
                         found = False
-                        for device_data in submodel_data.get(
-                            "performance_metrics", {}
-                        ).values():
+                        for device_data in submodel_data.performance_metrics.values():
                             for runtime_data in device_data.values():
-                                if job_id := runtime_data.get("job_id"):
+                                if job_id := runtime_data.job_id:
                                     try:
                                         job = hub.get_job(job_id)
                                         details[precision_str][details_key] = (

@@ -43,6 +43,10 @@ message ModelPerf {
 
     // Only used for LLMs.
     repeated LLMPerfMetrics llm_metrics = 8;
+
+    // Precision of this component, when it differs from the model's precision
+    // (e.g. a mixed-precision component of a collection model).
+    optional Precision component_precision = 9;
   }
 
   message ProfileJob {

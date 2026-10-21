@@ -63,6 +63,22 @@ def runtime_to_proto(runtime: TargetRuntime) -> int:
     return _RUNTIME_TO_PROTO[runtime.value]
 
 
+_PROTO_TO_PRECISION: dict[int, str] = {v: k for k, v in _PRECISION_TO_PROTO.items()}
+_PROTO_TO_RUNTIME: dict[int, str] = {v: k for k, v in _RUNTIME_TO_PROTO.items()}
+
+
+def precision_from_proto(value: int) -> Precision:
+    if value not in _PROTO_TO_PRECISION:
+        raise ValueError(f"Unknown precision proto value: {value}")
+    return Precision.parse(_PROTO_TO_PRECISION[value])
+
+
+def runtime_from_proto(value: int) -> TargetRuntime:
+    if value not in _PROTO_TO_RUNTIME:
+        raise ValueError(f"Unknown runtime proto value: {value}")
+    return TargetRuntime(_PROTO_TO_RUNTIME[value])
+
+
 _FORM_FACTOR_TO_PROTO: dict[str, int] = {
     "Phone": platform_pb2.FORM_FACTOR_PHONE,
     "Tablet": platform_pb2.FORM_FACTOR_TABLET,

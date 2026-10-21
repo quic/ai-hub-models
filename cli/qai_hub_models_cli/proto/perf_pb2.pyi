@@ -42,10 +42,15 @@ class ModelPerf(google.protobuf.message.Message):
         PROFILE_JOB_FIELD_NUMBER: builtins.int
         METRICS_FIELD_NUMBER: builtins.int
         LLM_METRICS_FIELD_NUMBER: builtins.int
+        COMPONENT_PRECISION_FIELD_NUMBER: builtins.int
         precision: shared.precision_pb2.Precision.ValueType
         component: builtins.str
         device: builtins.str
         runtime: shared.runtime_pb2.Runtime.ValueType
+        component_precision: shared.precision_pb2.Precision.ValueType
+        """Precision of this component, when it differs from the model's precision
+        (e.g. a mixed-precision component of a collection model).
+        """
         @property
         def tool_versions(self) -> shared.tool_versions_pb2.ToolVersions:
             """The tool versions used to generate these results."""
@@ -73,11 +78,14 @@ class ModelPerf(google.protobuf.message.Message):
             profile_job: global___ModelPerf.ProfileJob | None = ...,
             metrics: global___ModelPerf.PerfMetrics | None = ...,
             llm_metrics: collections.abc.Iterable[global___ModelPerf.LLMPerfMetrics] | None = ...,
+            component_precision: shared.precision_pb2.Precision.ValueType | None = ...,
         ) -> None: ...
-        def HasField(self, field_name: typing.Literal["_component", b"_component", "_metrics", b"_metrics", "_profile_job", b"_profile_job", "component", b"component", "metrics", b"metrics", "profile_job", b"profile_job", "tool_versions", b"tool_versions"]) -> builtins.bool: ...
-        def ClearField(self, field_name: typing.Literal["_component", b"_component", "_metrics", b"_metrics", "_profile_job", b"_profile_job", "component", b"component", "device", b"device", "llm_metrics", b"llm_metrics", "metrics", b"metrics", "precision", b"precision", "profile_job", b"profile_job", "runtime", b"runtime", "tool_versions", b"tool_versions"]) -> None: ...
+        def HasField(self, field_name: typing.Literal["_component", b"_component", "_component_precision", b"_component_precision", "_metrics", b"_metrics", "_profile_job", b"_profile_job", "component", b"component", "component_precision", b"component_precision", "metrics", b"metrics", "profile_job", b"profile_job", "tool_versions", b"tool_versions"]) -> builtins.bool: ...
+        def ClearField(self, field_name: typing.Literal["_component", b"_component", "_component_precision", b"_component_precision", "_metrics", b"_metrics", "_profile_job", b"_profile_job", "component", b"component", "component_precision", b"component_precision", "device", b"device", "llm_metrics", b"llm_metrics", "metrics", b"metrics", "precision", b"precision", "profile_job", b"profile_job", "runtime", b"runtime", "tool_versions", b"tool_versions"]) -> None: ...
         @typing.overload
         def WhichOneof(self, oneof_group: typing.Literal["_component", b"_component"]) -> typing.Literal["component"] | None: ...
+        @typing.overload
+        def WhichOneof(self, oneof_group: typing.Literal["_component_precision", b"_component_precision"]) -> typing.Literal["component_precision"] | None: ...
         @typing.overload
         def WhichOneof(self, oneof_group: typing.Literal["_metrics", b"_metrics"]) -> typing.Literal["metrics"] | None: ...
         @typing.overload
