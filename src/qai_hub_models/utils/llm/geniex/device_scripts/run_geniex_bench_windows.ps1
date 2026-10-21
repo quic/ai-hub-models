@@ -203,6 +203,10 @@ if ($RUN_EVAL) {
                     "--accuracy", "--prompt-file", $pf.FullName,
                     "--system-prompt", $SYSTEM_PROMPT_ARG, "--no-think",
                     "-c", "{EVAL_CTX}", "-n", "{EVAL_N_GEN}", "--seed", "{EVAL_SEED}",
+                    "--max-gen-time-s", "{EVAL_MAX_GEN_TIME_S}",
+                    "--no-progress-timeout-s", "{EVAL_NO_PROGRESS_TIMEOUT_S}",
+                    "--repetition-max-repeats", "{EVAL_REPETITION_MAX_REPEATS}",
+                    "--ngram-max-repeats", "{EVAL_NGRAM_MAX_REPEATS}",
                     "--mm-data-dir", $MM_CACHE, "--chipset", "{CHIPSET}"
                 ) + $QAIRT_LIB_ARGS) -NoNewWindow -PassThru -RedirectStandardOutput $tmpOut `
                     -RedirectStandardError $tmpErr
@@ -217,12 +221,12 @@ if ($RUN_EVAL) {
                     $proc.WaitForExit()
                 }
                 $exitCode = $proc.ExitCode
-                $stderrText = Get-Content $tmpErr -Raw -Encoding UTF8
+                $stderrText = (Get-Content $tmpErr -Raw -Encoding UTF8) + (Get-Content $tmpOut -Raw -Encoding UTF8)
             } catch {
                 Remove-Item $tmpOut, $tmpErr -ErrorAction SilentlyContinue
                 throw
             }
-            if ($exitCode -eq 0 -or ($stderrText -match 'Context length exceeded')) { break }
+            if ($exitCode -eq 0 -or ($stderrText -match 'Context length exceeded|self-abort: reason=')) { break }
             if ($attempt -lt 2) {
                 Write-Host "eval idx $idx failed (exit $exitCode); retrying once"
             }
@@ -239,7 +243,7 @@ if ($RUN_EVAL) {
             Remove-Item $tmpOut, $tmpErr -ErrorAction SilentlyContinue
         }
         # A context-length overflow counts as run (keeps its partial output).
-        if ($exitCode -eq 0 -or ($stderrText -match 'Context length exceeded')) {
+        if ($exitCode -eq 0 -or ($stderrText -match 'Context length exceeded|self-abort: reason=')) {
             $eval_ran++
         } else {
             Write-Host "eval idx $idx failed (exit $exitCode)"

@@ -70,6 +70,12 @@ _N_GEN = 128
 _EVAL_N_GEN = 2048
 _EVAL_TIMEOUT_S = 600
 _EVAL_SLEEP_S = 10
+_SELF_ABORT_RE = re.compile(r"\[warn\]\s*self-abort: reason=([\w-]+)")
+_STOP_REASON_RE = re.compile(r"\[info\]\s*stop_reason=([\w-]+)")
+_EVAL_MAX_GEN_TIME_S = 420
+_EVAL_NO_PROGRESS_TIMEOUT_S = 120
+_EVAL_REPETITION_MAX_REPEATS = 40
+_EVAL_NGRAM_MAX_REPEATS = 4
 
 # Matches Genie's on-device eval seed (genie_config.json's sampler default,
 # see llm_helpers.create_genie_config) -- pinned explicitly rather than
@@ -229,6 +235,10 @@ class GenieXBenchArtifactHandler(ABC):
             .replace("{EVAL_SEED}", str(eval_seed))
             .replace("{EVAL_TIMEOUT_S}", str(_EVAL_TIMEOUT_S))
             .replace("{EVAL_SLEEP_S}", str(_EVAL_SLEEP_S))
+            .replace("{EVAL_MAX_GEN_TIME_S}", str(_EVAL_MAX_GEN_TIME_S))
+            .replace("{EVAL_NO_PROGRESS_TIMEOUT_S}", str(_EVAL_NO_PROGRESS_TIMEOUT_S))
+            .replace("{EVAL_REPETITION_MAX_REPEATS}", str(_EVAL_REPETITION_MAX_REPEATS))
+            .replace("{EVAL_NGRAM_MAX_REPEATS}", str(_EVAL_NGRAM_MAX_REPEATS))
             .replace("{CTX_LIST}", ",".join(str(c) for c in context_lengths))
             .replace("{RUN_PERF}", "1" if run_perf else "0")
             .replace("{RUN_EVAL}", "1" if eval_prompts else "0")
@@ -713,7 +723,7 @@ def compute_geniex_metrics(
 
 
 def compute_geniex_eval_results(logs_dir: str, prompts: list[str]) -> list[dict]:
-    """Parse ``geniex_eval_outputs.txt`` into [{idx, prompt, output}].
+    """Parse ``geniex_eval_outputs.txt`` into [{idx, prompt, output, cause}].
 
     ``logs_dir`` holds job logs fetched by ``DeviceFarm.download_job_logs``.
     The device scripts run ``geniex-bench --accuracy`` once per prompt and
@@ -733,6 +743,7 @@ def compute_geniex_eval_results(logs_dir: str, prompts: list[str]) -> list[dict]
             "idx": idx,
             "prompt": prompts[idx] if idx < len(prompts) else "",
             "output": _extract_model_output(outputs.get(idx, "")),
+            "cause": _extract_eval_cause(outputs.get(idx, "")),
         }
         for idx in sorted(outputs.keys())
     ]
@@ -780,6 +791,22 @@ def _extract_model_output(raw_output: str) -> str:
         if line.startswith(gen_prefix)
     ]
     return "\n".join(lines).strip()
+
+
+def _extract_eval_cause(raw_output: str) -> str:
+    """Classify why one ``geniex-bench --accuracy`` run ended.
+
+    Returns ``divergence:<reason>`` when geniex-bench self-aborted, else the
+    reported ``stop_reason`` (e.g. ``length``, ``stop``), else ``freeze`` for
+    a run that produced neither marker (killed externally or hung).
+    """
+    abort = _SELF_ABORT_RE.search(raw_output)
+    if abort:
+        return f"divergence:{abort.group(1)}"
+    stop = _STOP_REASON_RE.search(raw_output)
+    if stop:
+        return stop.group(1)
+    return "freeze"
 
 
 def _hf_repo(model_url: str) -> str:

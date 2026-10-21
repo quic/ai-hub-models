@@ -58,6 +58,10 @@ EVAL_CTX = int("{EVAL_CTX}")
 EVAL_N_GEN = int("{EVAL_N_GEN}")
 EVAL_TIMEOUT_S = int("{EVAL_TIMEOUT_S}")
 EVAL_SLEEP_S = int("{EVAL_SLEEP_S}")
+EVAL_MAX_GEN_TIME_S = int("{EVAL_MAX_GEN_TIME_S}")
+EVAL_NO_PROGRESS_TIMEOUT_S = int("{EVAL_NO_PROGRESS_TIMEOUT_S}")
+EVAL_REPETITION_MAX_REPEATS = int("{EVAL_REPETITION_MAX_REPEATS}")
+EVAL_NGRAM_MAX_REPEATS = int("{EVAL_NGRAM_MAX_REPEATS}")
 # Placeholder substituted with the literal "1"/"0" host-side; the string
 # comparison keeps the template statically typed (a bare `= {RUN_PERF}` reads as
 # a self-referential set literal to mypy).
@@ -360,19 +364,25 @@ def _run_eval(
         # Each attempt writes to fresh per-prompt temp files on device; the
         # accepted attempt's stdout is concatenated under the ===EVAL_IDX===
         # marker exactly once so retries do not concatenate two generations at
-        # the grader. timeout kills a crashed/hung DSP run so the loop advances;
-        # a context-length overflow is a legit long generation (partial output
-        # kept), so force rc=0 and skip retry.
+        # the grader. timeout kills a crashed/hung DSP run so the loop advances
+        # (SIGTERM first so geniex-bench can self-abort cleanly, SIGKILL after 5s).
+        # A context-length overflow or a geniex-bench self-abort is a legit
+        # (diverging) generation with partial output kept: force rc=0, skip retry.
         cmd = (
             f"cd {DEVICE_BUNDLE} && "
             f"rm -f {pout} {perr} && "
-            f"{env} timeout {EVAL_TIMEOUT_S} ./bin/geniex-bench --plugin {PLUGIN} "
+            f"{env} timeout -s TERM -k 5 {EVAL_TIMEOUT_S} ./bin/geniex-bench --plugin {PLUGIN} "
             f"--device {device_alias} -m {model_ref} {qairt_lib_flag} "
             f"--accuracy --prompt-file {pf} "
             f'--system-prompt "$(cat {DEVICE_PROMPTS}/system_prompt.txt)" --no-think '
             f"-c {EVAL_CTX} -n {EVAL_N_GEN} --mm-data-dir {DEVICE_MM_CACHE} "
+            f"--max-gen-time-s {EVAL_MAX_GEN_TIME_S} "
+            f"--no-progress-timeout-s {EVAL_NO_PROGRESS_TIMEOUT_S} "
+            f"--repetition-max-repeats {EVAL_REPETITION_MAX_REPEATS} "
+            f"--ngram-max-repeats {EVAL_NGRAM_MAX_REPEATS} "
             f"--chipset '{chipset}' >{pout} 2>{perr}; "
-            f"rc=$?; grep -q 'Context length exceeded' {perr} && rc=0; exit $rc"
+            f"rc=$?; grep -qE 'Context length exceeded|self-abort: reason=' {pout} {perr} "
+            f"&& rc=0; exit $rc"
         )
         # Retry a random device flake once; the second run's fresh pout/perr
         # overwrite the first attempt's output.
