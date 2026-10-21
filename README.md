@@ -499,6 +499,8 @@ Want to onboard your own model? Follow the instructions in [EXTERNAL_ONBOARDING.
 | **Audio Generation**
 | [MeloTTS-EN](https://aihub.qualcomm.com/models/melotts_en) | [qai_hub_models.models.melotts_en](src/qai_hub_models/models/melotts_en/README.md) |
 | [MeloTTS-ES](https://aihub.qualcomm.com/models/melotts_es) | [qai_hub_models.models.melotts_es](src/qai_hub_models/models/melotts_es/README.md) |
+| [MeloTTS-JA](https://aihub.qualcomm.com/models/melotts_ja) | [qai_hub_models.models.melotts_ja](src/qai_hub_models/models/melotts_ja/README.md) |
+| [MeloTTS-KO](https://aihub.qualcomm.com/models/melotts_ko) | [qai_hub_models.models.melotts_ko](src/qai_hub_models/models/melotts_ko/README.md) |
 | [MeloTTS-ZH](https://aihub.qualcomm.com/models/melotts_zh) | [qai_hub_models.models.melotts_zh](src/qai_hub_models/models/melotts_zh/README.md) |
 | [PiperTTS-DE](https://aihub.qualcomm.com/models/pipertts_de) | [qai_hub_models.models.pipertts_de](src/qai_hub_models/models/pipertts_de/README.md) |
 | [PiperTTS-EN](https://aihub.qualcomm.com/models/pipertts_en) | [qai_hub_models.models.pipertts_en](src/qai_hub_models/models/pipertts_en/README.md) |
