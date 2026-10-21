@@ -2,20 +2,28 @@ metrics:
 - dataset_link: https://huggingface.co/datasets/mteb/amazon_counterfactual
   dataset_name: mini_lm_amazon_counterfactual
   dataset_split_description: English test split
-  device_metric:
-    Samsung Galaxy S25:
-      float:
-        onnx:
-          partial_metric: 80.0
-        qnn_dlc:
-          partial_metric: 80.0
-        tflite:
-          partial_metric: 80.0
-      w8a8:
-        onnx:
-          partial_metric: 80.0
-        qnn_dlc:
-          partial_metric: 80.0
+  device_metrics:
+  - device: Samsung Galaxy S25
+    partial_metric: 80.0
+    precision: PRECISION_FLOAT
+    runtime: RUNTIME_TFLITE
+  - device: Samsung Galaxy S25
+    partial_metric: 80.0
+    precision: PRECISION_FLOAT
+    runtime: RUNTIME_QNN_DLC
+  - device: Samsung Galaxy S25
+    partial_metric: 80.0
+    precision: PRECISION_FLOAT
+    runtime: RUNTIME_ONNX
+  - device: Samsung Galaxy S25
+    partial_metric: 80.0
+    precision: PRECISION_W8A8
+    runtime: RUNTIME_QNN_DLC
+  - device: Samsung Galaxy S25
+    partial_metric: 80.0
+    precision: PRECISION_W8A8
+    runtime: RUNTIME_ONNX
+  higher_is_better: true
   metric_description: Percentage of top 1 model predictions that are correct.
   metric_enablement_threshold: 10.0
   metric_name: Top-1 Accuracy

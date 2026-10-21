@@ -3,22 +3,31 @@ metrics:
   dataset_link: http://saliencydetection.net/duts/
   dataset_name: duts
   dataset_split_description: DUTS-TE test split (5019 images) / DUTS-TR train split (10553 images)
-  device_metric:
-    Samsung Galaxy S25:
-      float:
-        onnx:
-          partial_metric: 0.0447
-        qnn_dlc:
-          partial_metric: 0.0447
-        tflite:
-          partial_metric: 0.0447
-      w8a8:
-        onnx:
-          partial_metric: 0.0453
-        qnn_dlc:
-          partial_metric: 0.0452
-        tflite:
-          partial_metric: 0.0454
+  device_metrics:
+  - device: Samsung Galaxy S25
+    partial_metric: 0.0447
+    precision: PRECISION_FLOAT
+    runtime: RUNTIME_TFLITE
+  - device: Samsung Galaxy S25
+    partial_metric: 0.0447
+    precision: PRECISION_FLOAT
+    runtime: RUNTIME_QNN_DLC
+  - device: Samsung Galaxy S25
+    partial_metric: 0.0447
+    precision: PRECISION_FLOAT
+    runtime: RUNTIME_ONNX
+  - device: Samsung Galaxy S25
+    partial_metric: 0.0454
+    precision: PRECISION_W8A8
+    runtime: RUNTIME_TFLITE
+  - device: Samsung Galaxy S25
+    partial_metric: 0.0452
+    precision: PRECISION_W8A8
+    runtime: RUNTIME_QNN_DLC
+  - device: Samsung Galaxy S25
+    partial_metric: 0.0453
+    precision: PRECISION_W8A8
+    runtime: RUNTIME_ONNX
   higher_is_better: false
   metric_description: Per-pixel mean absolute error between predicted saliency map and binary ground truth mask.
   metric_enablement_threshold: 0.01
