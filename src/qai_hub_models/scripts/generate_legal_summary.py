@@ -26,7 +26,7 @@ def main() -> None:
         nargs="+",
         type=str,
         default=None,
-        help="Models for which to generate export.py.",
+        help="Models for which to generate the legal summary.",
     )
     parser.add_argument(
         "--include-unpublished-models",

@@ -37,60 +37,13 @@ def _is_auto_generated(path: Path) -> bool:
     return HEADER in head
 
 
-def _get_steps(manifest: QAIHMModelManifest) -> dict[str, str]:
-    steps = {}
-    # step_number needs to be an object (not a primitive) for its state
-    # to persist across function calls
-    step_number = 1
-
-    def add_step(name: str, step: str) -> None:
-        nonlocal step_number
-        steps[name] = str(step_number) + ". " + step
-        step_number += 1
-
-    if manifest.is_precompiled:
-        add_step("init", "Initialize model")
-        add_step("upload", "Upload model assets to hub")
-    else:
-        add_step(
-            "init",
-            "Instantiates a PyTorch model and exports it to a serialized format",
-        )
-        if manifest.can_use_quantize_job:
-            add_step(
-                "quantize",
-                "Converts the PyTorch model to ONNX and quantizes the ONNX model.",
-            )
-        add_step("compile", "Compiles the model to an asset that can be run on device")
-    add_step("profile", "Profiles the model performance on a real device")
-
-    if not manifest.is_precompiled:
-        add_step("inference", "Inferences the model on sample inputs")
-
-    add_step(
-        "tool_versions",
-        "Extracts relevant tool (eg. SDK) versions used to compile and profile this model",
-    )
-
-    if not manifest.is_precompiled:
-        add_step("download", "Downloads the model asset to the local directory")
-    else:
-        add_step("download", "Saves the model asset to the local directory")
-
-    summary_step = "Summarizes the results from profiling"
-    if not manifest.is_precompiled:
-        summary_step += " and inference"
-    add_step("summary", summary_step)
-    return steps
-
-
 def _extract_runtime_and_precision_options(
     manifest: QAIHMModelManifest,
     manifest_dict: dict | None = None,
 ) -> dict[str, Any]:
     manifest_dict = manifest_dict or {}
 
-    # All runtime + precision pairs that are supported for this model, for use in the export script.
+    # All runtime + precision pairs that are supported for this model.
     def _supported_runtimes(precision: Precision) -> list[str]:
         rts = [r for r in TargetRuntime if manifest.is_supported(precision, r)]
         # Demote legacy GENIE so GENIEX_QAIRT wins the CLI default; remove when GENIE is gone (tetracode#20247).
@@ -112,33 +65,6 @@ def _extract_runtime_and_precision_options(
     manifest_dict["supports_quantization"] = manifest.supports_quantization
 
     return manifest_dict
-
-
-def _generate_export(
-    environment: Environment,
-    model_name: str,
-    model_display_name: str,
-    model_status: str,
-    manifest: QAIHMModelManifest,
-    model_dir: Path,
-) -> str:
-    template = environment.get_template("export_template.j2")
-
-    manifest_dict = manifest.model_dump()
-    _extract_runtime_and_precision_options(manifest, manifest_dict)
-
-    file_contents = template.render(
-        manifest_dict,
-        model_name=model_name,
-        model_display_name=model_display_name,
-        model_status=model_status,
-        header=HEADER,
-        steps=_get_steps(manifest),
-    )
-    export_file_path = os.path.join(model_dir, "export.py")
-    with open(export_file_path, "w") as f:
-        f.write(file_contents)
-    return export_file_path
 
 
 def _generate_unit_tests(
@@ -248,26 +174,15 @@ def generate_code_for_model(model_name: str) -> list[str]:
     manifest = scorecard_config.manifest
 
     if scorecard_config.skip_export:
-        print(f"Skipping export.py generation for {model_name}.")
+        print(f"Skipping code generation for {model_name}.")
         return []
-
-    model_display_name = manifest.name or model_name
-    model_status = manifest.status.value
 
     environment = Environment(
         loader=FileSystemLoader(Path(__file__).parent / "templates/"),
         keep_trailing_newline=True,
     )
-    generated_files = [
-        _generate_export(
-            environment,
-            model_name,
-            model_display_name,
-            model_status,
-            manifest,
-            model_dir,
-        )
-    ]
+    model_status = manifest.status.value
+    generated_files: list[str] = []
     # Generate or clean up external repo files
     external_repos_dir = model_dir / "external_repos"
     if manifest.external_repos:
@@ -353,7 +268,7 @@ def main() -> None:
         "-m",
         nargs="+",
         type=str,
-        help="Models for which to generate export.py.",
+        help="Models for which to generate files.",
     )
     group.add_argument(
         "--all",

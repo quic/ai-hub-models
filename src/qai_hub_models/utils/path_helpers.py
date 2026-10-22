@@ -40,7 +40,6 @@ def _get_all_models(
     for subdir in models_root.iterdir():
         if not subdir.is_dir():
             continue
-        # Heuristic to see if this is a model we should generate export.py for.
         if (subdir / "manifest.yaml").exists():
             if (
                 public_only

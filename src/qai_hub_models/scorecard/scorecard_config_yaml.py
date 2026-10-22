@@ -89,10 +89,10 @@ class QAIHMModelScorecardConfig(BaseQAIHMConfig):
     # Places this model into a named CI test split.
     test_split: TestRunnerSplit = TestRunnerSplit.DEFAULT
 
-    # If set, disables generating `export.py`.
+    # If set, skips all code generation for this model.
     skip_export: bool = False
 
-    # If set, disables generating `evaluate.py` (export.py and tests are still generated).
+    # If set, disables generating `evaluate.py` (tests are still generated).
     skip_evaluate: bool = False
 
     # Overrides the scorecard acceptance threshold. E.g., set this to 15 to

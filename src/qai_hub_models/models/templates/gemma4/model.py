@@ -2436,7 +2436,7 @@ class Gemma4PreSplitCollectionBase(DynamicSplitCollectionBase):
 
     Concrete subclasses set ``vision_encoder_cls`` to their
     ``Gemma4_E*B_VisionEncoder``, which makes the VEG a component of the
-    Collection so it is built, compiled and profiled by ``export.py`` and the
+    Collection so it is built, compiled and profiled by the export pipeline and the
     scorecard alongside the text Parts (mirroring ``Qwen3VLCollectionBase``).
 
     The VEG is appended *after* the Parts rather than prepended. Everything in

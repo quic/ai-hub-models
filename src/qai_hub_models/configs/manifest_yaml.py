@@ -454,13 +454,13 @@ class QAIHMModelManifest(BaseQAIHMConfig):
         default_factory=lambda: ModelDisableReasonsMapping()
     )
 
-    # If set, changes the default device when running export.py for the model.
+    # If set, changes the default device when running `qai-hub-models export` for the model.
     default_device: str = DEFAULT_EXPORT_DEVICE
 
     # Some model outputs have low PSNR when in practice the numerical accuracy is fine.
     # This can happen when the model outputs many low confidence values that get
     # filtered out in post-processing.
-    # Omit printing PSNR in `export.py` for these to avoid confusion.
+    # Omit printing PSNR in `qai-hub-models export` for these to avoid confusion.
     # dict<output_idx, reason_for_skip>
     outputs_to_skip_validation: dict[int, str] | None = None
 
@@ -508,7 +508,7 @@ class QAIHMModelManifest(BaseQAIHMConfig):
     #     (e.g. ``onnxruntime-gpu`` and an AIMET wheel on GPU hosts).
     post_pip_install_commands: list[PipCommand] = Field(default_factory=list)
 
-    # A comma separated list of metrics to print in the inference summary of `export.py`.
+    # A comma separated list of metrics to print in the inference summary of `qai-hub-models export`.
     inference_metrics: str = "psnr"
 
     # Additional details that can be set on the model's readme.
@@ -534,13 +534,13 @@ class QAIHMModelManifest(BaseQAIHMConfig):
     python_version_less_than_reason: str | None = None
 
     # If set, the model returns multiple (input_spec, graph_name) pairs.
-    # The generated export.py will loop over compile specs, submit multiple
+    # `qai-hub-models export` will loop over compile specs, submit multiple
     # compile jobs, and link them into a single context binary.  Models
     # that do NOT set this flag get the simple single-compile-job path.
     has_multi_graph: bool = False
 
     # If set, the model has a separate quantize.py script. The --precision
-    # option is omitted from export.py and precision is determined from
+    # option is omitted from the export CLI and precision is determined from
     # the checkpoint (via args.json or DEFAULT_* sentinel).
     separate_quantize_script: bool = False
 

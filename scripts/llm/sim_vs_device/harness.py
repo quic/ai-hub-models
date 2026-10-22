@@ -65,7 +65,7 @@ def build_split_model(
 
     The wrapper owns the Part instances (all sharing one presplit, so the ONNX
     is exported/split once). Sequence/context lengths are dynamic-path
-    attributes set after construction, as export.py does.
+    attributes set after construction, as the export pipeline does.
     """
     wrapper_cls = getattr(model_module, "QuantizedSplitModelWrapper", None)
     if wrapper_cls is None:
