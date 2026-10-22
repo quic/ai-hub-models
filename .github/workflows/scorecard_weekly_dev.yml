@@ -12,8 +12,8 @@ jobs:
         uses: ./.github/workflows/scorecard.yml
         with:
           deployment: dev
-          models: bench
-          test_devices: default
+          models: pytorch_no_llm
+          test_devices: cs_8_elite
           test_runtimes: default, qnn_dlc_via_qnn_ep, tfl_converter
           test_precisions: default
           options: qairt_version=latest
