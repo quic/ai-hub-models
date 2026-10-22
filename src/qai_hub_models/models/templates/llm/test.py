@@ -47,6 +47,7 @@ from qai_hub_models.models.templates.lm_schema import (
     SeqMSESpec,
     WikitextSpec,
 )
+from qai_hub_models.utils.envvars import CheckpointEnvvar
 from qai_hub_models.utils.llm.genie.jobs import (
     GENIE_BUNDLES_ROOT,
     collect_llm_perf_job,
@@ -106,15 +107,17 @@ def stub_llm_checkpoint_resolution(model_cls: type) -> Iterator[pytest.MonkeyPat
     ) -> tuple[str, None]:
         # Llama fetches encodings only and re-exports ONNX from the FP torch
         # model, so its asset store publishes a bare model.encodings.
-        precision_checkpoint = cls.default_checkpoint[precision]
-        encodings_path = Path(
-            CachedWebModelAsset.from_asset_store(
-                cls.model_id,
-                cls.model_asset_version,
-                f"{precision_checkpoint}/model.encodings",
-            ).fetch()
-        )
-        ckpt = encodings_path.parent
+        if CheckpointEnvvar.get():
+            ckpt = Path(cls.fetch_default_checkpoint(precision))
+        else:
+            precision_checkpoint = cls.default_checkpoint[precision]
+            ckpt = Path(
+                CachedWebModelAsset.from_asset_store(
+                    cls.model_id,
+                    cls.model_asset_version,
+                    f"{precision_checkpoint}/model.encodings",
+                ).fetch()
+            ).parent
         _ensure_tokenizer_and_config(cls, ckpt)
         return str(ckpt), None
 

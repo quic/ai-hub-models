@@ -20,7 +20,7 @@ on:
         type: string
 
       options:
-        description: 'Comma-separated scorecard options (e.g. "qairt_version=2.45,geniex_version=0.3.7"). geniex_version is unused here; see scripts/ci/parse_options.py.'
+        description: 'Comma-separated scorecard options (e.g. "qairt_version=2.45,geniex_version=0.3.7,checkpoint=<private-bucket key>"; checkpoint needs models to name one model). geniex_version is unused here; see scripts/ci/parse_options.py.'
         type: string
         default: ''
 
@@ -180,6 +180,8 @@ jobs:
       - name: Parse options
         env:
           RAW: ${{ inputs.options }}
+          # Lets the checkpoint option reject a run covering more than one model.
+          MODELS: ${{ inputs.models }}
         run: python3 scripts/ci/parse_options.py --emit-env
 
       - name: CI Setup
@@ -212,6 +214,7 @@ jobs:
           echo "QAIHM_TEST_PATHS=${{ env.QAIHM_TEST_PATHS }}" >> $ENVIRONMENT_FILE
           echo "QAIHM_TEST_PRECISIONS=${{ env.QAIHM_TEST_PRECISIONS }}" >> $ENVIRONMENT_FILE
           echo "QAIHM_TEST_QAIRT_VERSION=${{ env.QAIHM_TEST_QAIRT_VERSION }}" >> $ENVIRONMENT_FILE
+          echo "QAIHM_TEST_CHECKPOINT=${{ env.QAIHM_TEST_CHECKPOINT }}" >> $ENVIRONMENT_FILE
           echo "QAIHM_TEST_IGNORE_KNOWN_FAILURES=${{ env.QAIHM_TEST_IGNORE_KNOWN_FAILURES }}" >> $ENVIRONMENT_FILE
           echo "QAIHM_TEST_IGNORE_DEVICE_JOB_CACHE=${{ inputs.ignore_job_cache }}" >> $ENVIRONMENT_FILE
           echo "QAIHM_TEST_SCOPE=${{ inputs.test_scope }}" >> $ENVIRONMENT_FILE

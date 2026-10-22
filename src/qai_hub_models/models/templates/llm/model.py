@@ -107,7 +107,7 @@ from qai_hub_models.models.templates.llm.sha_dynamic_kvcache import (
     SHADynamicCacheNewValueOnly,
 )
 from qai_hub_models.models.templates.llm.split_onnx_utils.utils import split_onnx
-from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
+from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, CachedWebModelAsset
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.base_multi_graph_collection_model import (
     MultiGraphWorkbenchModelCollection,
@@ -116,6 +116,7 @@ from qai_hub_models.utils.base_multi_graph_model import (
     MultiGraphWorkbenchModel,
 )
 from qai_hub_models.utils.checkpoint import CheckpointType
+from qai_hub_models.utils.envvars import CheckpointEnvvar
 from qai_hub_models.utils.input_spec import InputSpec, OutputSpec
 from qai_hub_models.utils.onnx.helpers import (
     ONNXBundle,
@@ -123,6 +124,7 @@ from qai_hub_models.utils.onnx.helpers import (
     mock_torch_onnx_inference,
     safe_torch_onnx_export,
 )
+from qai_hub_models.utils.private_asset_loaders import CachedPrivateAsset
 from qai_hub_models.utils.qai_hub_helpers import make_hub_dataset_entries
 from qai_hub_models.utils.system_info import has_recommended_memory
 
@@ -893,8 +895,26 @@ class DynamicQuantizablePreSplitMixin(
     def fetch_default_checkpoint(cls, precision: Precision) -> str:
         """Download and extract the DEFAULT asset zip for *precision*.
 
+        QAIHM_TEST_CHECKPOINT redirects this to a zip in the private bucket, so a
+        quantization can be evaluated before it is published.
+
         Returns the local path to the extracted checkpoint directory.
         """
+        private_key = CheckpointEnvvar.get()
+        if private_key:
+            return str(
+                CachedPrivateAsset(
+                    private_key,
+                    # Distinct version segment: fetch() short-circuits on an
+                    # extracted dir, so sharing one would serve public weights.
+                    ASSET_CONFIG.get_local_store_model_path(
+                        cls.model_id,
+                        f"{cls.model_asset_version}-private",
+                        Path(private_key).name,
+                    ),
+                ).fetch(extract=True)
+            )
+
         precision_checkpoint = cls.default_checkpoint[precision]
         return str(
             CachedWebModelAsset.from_asset_store(

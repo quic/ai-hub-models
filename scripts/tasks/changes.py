@@ -3,8 +3,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
+import difflib
 import functools
 import os
+import re
 from collections.abc import Iterable
 from pathlib import Path
 
@@ -20,7 +22,7 @@ from .constants import (
 )
 from .github import on_github
 from .plan import Task
-from .util import new_cd, run, run_and_get_output
+from .util import check_manifest_field, new_cd, run, run_and_get_output
 
 SINET_MODEL = "sinet"
 WHISPER_TINY_MODEL = "whisper_tiny"
@@ -490,6 +492,69 @@ def get_all_models() -> list[str]:
         ]  # preserve order specified by user
 
     return list(model_names)
+
+
+class ValidateQuantizeInputsTask(Task):
+    """
+    Check the quantize_and_upload inputs (the QAIHM_QUANTIZE_MODEL_ID and
+    QAIHM_QUANTIZE_PRECISION env vars).
+
+    Runs before a GPU pod is claimed. Both manifest fields are flat top-level
+    keys, so they are matched as text and no venv is needed.
+    """
+
+    def __init__(self) -> None:
+        super().__init__("Validate quantize inputs")
+
+    def does_work(self) -> bool:
+        return True
+
+    def run_task(self) -> bool:
+        model_id = os.environ.get("QAIHM_QUANTIZE_MODEL_ID", "").strip()
+        precision = os.environ.get("QAIHM_QUANTIZE_PRECISION", "").strip()
+
+        known = get_all_models()
+        if model_id not in known:
+            hint = difflib.get_close_matches(model_id, known, n=3, cutoff=0.4)
+            print(
+                f"::error::model_id {model_id!r} is not a model with a manifest.yaml."
+                + (
+                    f" Did you mean {' or '.join(repr(h) for h in hint)}?"
+                    if hint
+                    else ""
+                )
+            )
+            return False
+
+        model_dir = Path(PY_PACKAGE_MODELS_ROOT, model_id)
+        manifest = (model_dir / "manifest.yaml").read_text(encoding="utf-8")
+        ok = True
+
+        if not check_manifest_field(model_id, "separate_quantize_script"):
+            print(
+                f"::error::{model_id} does not set 'separate_quantize_script: true' "
+                "in its manifest.yaml, so it has no quantize.py to run."
+            )
+            ok = False
+
+        # quantize only runs a precision that has a recipe, which also implies it is
+        # in supported_precisions; failing here saves claiming a GPU pod.
+        if (
+            not re.search(rf"^  {re.escape(precision)}:\s*$", manifest, re.MULTILINE)
+            or "lm_quantization_details:" not in manifest
+        ):
+            print(
+                f"::error::{model_id} has no lm_quantization_details recipe for "
+                f"precision {precision!r}, so quantize has nothing to run."
+            )
+            ok = False
+
+        if not (model_dir / "evaluate.py").is_file():
+            print(
+                f"::warning::{model_id} has no evaluate.py, so the checkpoint will "
+                "carry no accuracy numbers."
+            )
+        return ok
 
 
 class PrintCITestModelsTask(Task):
