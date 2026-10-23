@@ -741,7 +741,7 @@ class AGPoseEvaluator(BaseEvaluator):
                 3,
             )
 
-            pred_scale = np.linalg.norm(pred_s_np, keepdims=True)
+            pred_scale = np.linalg.norm(pred_s_np)
             pred_size = pred_s_np / (pred_scale + 1e-8)
 
             pred_RT = np.eye(4, dtype=np.float32)
