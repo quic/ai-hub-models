@@ -22,7 +22,7 @@ qai-hub-models perf MeloTTS-KO
 qai-hub-models numerics MeloTTS-KO
 
 # Download a ready-to-deploy asset
-qai-hub-models fetch MeloTTS-KO --runtime voice_ai --precision mixed_with_float
+qai-hub-models fetch MeloTTS-KO --runtime voice_ai --precision w8a16
 ```
 See the [CLI README](../../../../cli/README.md)
 for the full list of commands and filters.
